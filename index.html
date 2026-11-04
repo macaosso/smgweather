@@ -1331,20 +1331,21 @@
       
       if (config.id === 'temp_diff_24h') {
         colorBar.innerHTML = `
-          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></span><span>升溫 (+) 紅色</span></span>
-          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></span><span>降溫 (-) 藍色</span></span>
-          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#64748B]"></span><span>持平 (0) 灰色</span></span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></span><span>升溫</span></span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></span><span>降溫</span></span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#64748B]"></span><span>持平</span></span>
         `;
       } else if (['temp_now', 'apparent', 'temp_max', 'temp_min'].includes(config.id)) {
         colorBar.innerHTML = `
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-rose']}"></span>≥37.5°</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-red']}"></span>≥35.5°</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-orange']}"></span>≥32.5°</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-amber']}"></span>≥27.5°</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-green']}"></span>≥17.5°</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-sky']}"></span>≥12.5°</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-blue']}"></span>≥7.5°</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-purple']}"><4.5°</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-rose']}"></span>極為酷熱</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-red']}"></span>非常酷熱</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-orange']}"></span>酷熱</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-amber']}"></span>炎熱</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-yellow']}"></span>溫暖</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-green']}"></span>和暖</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-sky']}"></span>清涼</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-blue']}"></span>寒冷</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-purple']}">非常寒冷</span>
         `;
       } else if (config.id === 'wbgt') {
         colorBar.innerHTML = `
@@ -1356,19 +1357,20 @@
         `;
       } else if (config.id === 'humidity') {
         colorBar.innerHTML = `
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-blue']}"></span>≥95%</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-sky']}"></span>88-94%</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-green']}"></span>50-87%</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-amber']}"></span>30-49%</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-orange']}"><30%</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-blue']}"></span>非常潮濕</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-sky']}"></span>潮濕</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-green']}"></span>正常</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-amber']}"></span>乾燥</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:${PALETTE['b-orange']}">非常乾燥</span>
         `;
       } else if (['wind_speed', 'gust_speed', 'wind_dir'].includes(config.id)) {
         colorBar.innerHTML = `
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#6a0606"></span>≥117.5 颶風</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#b1510d"></span>≥87.5 烈風</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#7f710b"></span>≥62.5 強風</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#154c83"></span>≥40.5 清勁</span>
-          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#11750a"></span><40.5 和緩</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#6a0606"></span>颶風</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#b1510d"></span>暴風</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#7f710b"></span>烈風</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#154c83"></span>強風</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#11750a"></span>清勁</span>
+          <span class="inline-flex items-center gap-0.5"><span class="w-2 h-2 rounded-full" style="background:#5d5e5d"></span>清勁以下</span>
         `;
       } else if (config.id === 'pressure') {
         colorBar.innerHTML = `
