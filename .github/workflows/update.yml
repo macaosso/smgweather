@@ -2,14 +2,12 @@ name: Macau Weather Auto Sync & Render
 
 on:
   schedule:
-    # 每天定時觸發守護流程（每 5 小時觸發一次輪轉）
     - cron: '0 */5 * * *'
-  workflow_dispatch: # 支援在 GitHub 介面手動立即觸發
+  workflow_dispatch:
 
 env:
   TZ: Asia/Macau
 
-# 避免多個工作流同時推送產生衝突
 concurrency:
   group: weather-render-sync
   cancel-in-progress: true
@@ -22,7 +20,7 @@ jobs:
       actions: write
 
     steps:
-      - name: 檢出主分支代碼 (僅最新版本)
+      - name: 檢出主分支代碼
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
@@ -32,10 +30,11 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 安裝中文字體與字型系統依賴
+      - name: 安裝系統地理庫與中文字體依賴
         run: |
           sudo apt-get update
-          sudo apt-get install -y fonts-noto-cjk fonts-wqy-zenhei fonts-wqy-microhei fontconfig
+          sudo apt-get install -y fonts-noto-cjk fonts-wqy-zenhei fonts-wqy-microhei fontconfig \
+                                  libgdal-dev libgeos-dev libspatialindex-dev
           fc-cache -fv
           rm -rf ~/.cache/matplotlib
 
@@ -44,14 +43,14 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: 極速安裝 Python 核心庫
+      - name: 安裝 Python 核心庫
         run: |
           uv pip install --system requests pandas numpy matplotlib geopandas osmnx
 
       - name: 執行 4.5 小時常駐循環 (每 5 分鐘抓取更新一次)
         run: |
           END_TIME=$(($(date +%s) + 16200))
-          INTERVAL=300 # 每 300 秒 (5 分鐘) 執行一次
+          INTERVAL=300
 
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -61,7 +60,7 @@ jobs:
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] 開始執行澳門氣象同步輪詢..."
             echo "=========================================================="
 
-            # 淺層拉取遠端 gh-pages 分支的最新歷史數據庫，維持時序連續性
+            # 拉取 gh-pages 分支歷史資料庫，維持時序連續性
             rm -rf /tmp/gh-pages-fetch
             if git clone --depth 1 --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/gh-pages-fetch 2>/dev/null; then
               cp -f /tmp/gh-pages-fetch/history.db ./history.db 2>/dev/null || true
@@ -69,24 +68,32 @@ jobs:
               rm -rf /tmp/gh-pages-fetch
             fi
 
-            # 執行 Python 核心腳本生成圖檔與數據
-            python app.py || echo "本輪抓取或渲染發生異常，跳過等待下輪..."
+            # 確保 static 與 images 目錄存在
+            mkdir -p static/images
+            mkdir -p cache
 
-            # 準備發布到 gh-pages (獨立乾淨目錄，不累積深層歷史)
+            # 執行核心 Python 腳本（不隱藏錯誤，直接輸出日誌以便排查）
+            python app.py
+
+            # 準備發布到 gh-pages 目錄
             echo "準備同步發布至 gh-pages..."
             rm -rf /tmp/gh-pages-deploy
-            mkdir -p /tmp/gh-pages-deploy
-
-            # 複製最新生成產物
             mkdir -p /tmp/gh-pages-deploy/static/images
             mkdir -p /tmp/gh-pages-deploy/cache
 
+            # 正確複製所有生成檔案與目錄（同時兼容根目錄與 static/images/ 內的 JSON）
             cp -f index.html /tmp/gh-pages-deploy/ 2>/dev/null || true
-            cp -rf static/images/* /tmp/gh-pages-deploy/static/images/ 2>/dev/null || true
+            cp -rf static /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f weather_data.json /tmp/gh-pages-deploy/ 2>/dev/null || true
-            cp -f rainfall_24h_summary.json /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f history.db /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -rf cache/* /tmp/gh-pages-deploy/cache/ 2>/dev/null || true
+
+            # 額外防禦：若 JSON 在 static/images，拷貝一份到根目錄；反之亦然
+            if [ -f static/images/rainfall_24h_summary.json ]; then
+              cp -f static/images/rainfall_24h_summary.json /tmp/gh-pages-deploy/rainfall_24h_summary.json 2>/dev/null || true
+            elif [ -f rainfall_24h_summary.json ]; then
+              cp -f rainfall_24h_summary.json /tmp/gh-pages-deploy/static/images/rainfall_24h_summary.json 2>/dev/null || true
+            fi
 
             cd /tmp/gh-pages-deploy
             git init
@@ -94,9 +101,14 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b gh-pages
             git add -A
+            
+            # 列出本次 commit 包含的文件清單，方便在 Action 日誌中確認
+            echo "--- gh-pages 發布檔案列表 ---"
+            git status --short
+            echo "----------------------------"
+
             git commit -m "Auto Update: $(date '+%Y-%m-%d %H:%M:%S') [Macau SMG Sync]"
             
-            # 強制覆蓋推送單一最新 commit 到 gh-pages，確保 gh-pages 永遠只有 1 次提交的體積，徹底解決體積膨脹
             git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages || echo "推送失敗，等待下輪重試..."
 
             cd "$GITHUB_WORKSPACE"
@@ -106,12 +118,9 @@ jobs:
             sleep $INTERVAL
           done
 
-          echo "本次 4.5 小時守護任務即將結束，觸發下一個任務交接..."
-
       - name: 自動重啟下一次工作流 (Self-Renewal Handoff)
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "觸發後續週期工作流..."
           gh workflow run update.yml --ref main || echo "自動觸發結束。"
