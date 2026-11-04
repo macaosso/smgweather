@@ -17,8 +17,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.patches import Polygon, FancyBboxPatch, PathPatch
-from matplotlib.path import Path
+from matplotlib.patches import Polygon, FancyBboxPatch, FancyArrowPatch
 from matplotlib import transforms
 import matplotlib.dates as mdates
 import geopandas as gpd
@@ -79,7 +78,7 @@ BRIDGE_STATIONS = [
 PRESSURE_STATIONS = ["外港碼頭", "媽閣", "大潭山", "澳門大學", "九澳", "東亞運大馬路"]
 
 # ==========================================
-# 氣象指數數學公式
+# 氣象指數數學公式 (WBGT & 體感溫度)
 # ==========================================
 def estimate_wbgt_kmh(ta, rh, w, uvi=0.0):
     if any(v is None or np.isnan(v) for v in [ta, rh, w]):
@@ -110,7 +109,7 @@ def calculate_apparent_temperature(ta, rh, w):
         return None
 
 # ==========================================
-# 底圖資料下載與繪製（優化質感）
+# 底圖資料下載與繪製
 # ==========================================
 print("正在初始化下載地圖底圖與 OSM 大橋...")
 bbox = (113.50, 22.05, 113.65, 22.25)
@@ -136,31 +135,30 @@ except Exception as e:
 if bridges is None:
     bridges = gpd.GeoDataFrame()
 
-def draw_base_map(ax, bg_color='#EAF2F8'):
-    """重塑底圖色調：柔和水體藍、自然質感大地色"""
+def draw_base_map(ax, bg_color='#C4E1F5'):
     fig = ax.figure
-    fig.patch.set_facecolor('#F8FAFC')
+    fig.patch.set_facecolor('white')
     ax.set_facecolor(bg_color)
     if zhuhai is not None:
-        zhuhai.plot(ax=ax, color='#F3EFE6', edgecolor='#D8D1C5', linewidth=0.8, zorder=1)
+        zhuhai.plot(ax=ax, color='#F5ECD7', edgecolor='none', zorder=1)
     if macau is not None:
-        macau.plot(ax=ax, color='#DCE5DF', edgecolor='#FFFFFF', linewidth=1.5, zorder=2)
+        macau.plot(ax=ax, color='#B0B0B0', edgecolor='white', linewidth=1.2, zorder=2)
     if water is not None and not water.empty:
         water.plot(ax=ax, color=bg_color, edgecolor='none', zorder=3)
     if bridges is not None and not bridges.empty:
-        bridges.plot(ax=ax, color='#B0BEC5', edgecolor='white', linewidth=1.6, zorder=3.5)
+        bridges.plot(ax=ax, color='#B0B0B0', edgecolor='white', linewidth=1.2, zorder=3.5)
     ax.set_xlim(113.51, 113.62)
     ax.set_ylim(22.08, 22.242)
     ax.set_axis_off()
 
 # ==========================================
-# 顏色配置與自定義風速標準
+# 顏色與指標等級標準映射配置
 # ==========================================
 PALETTE = {
-    'b-rose': '#E11D48', 'b-red': '#DC2626', 'b-orange': '#EA580C',
-    'b-amber': '#D97706', 'b-yellow': '#CA8A04', 'b-green': '#059669',
-    'b-sky': '#0284C7', 'b-blue': '#2563EB', 'b-indigo': '#4F46E5',
-    'b-purple': '#7C3AED', 'gray': '#64748B'
+    'b-rose': '#F43F5E', 'b-red': '#EF4444', 'b-orange': '#F97316',
+    'b-amber': '#F59E0B', 'b-yellow': '#EAB308', 'b-green': '#10B981',
+    'b-sky': '#0EA5E9', 'b-blue': '#3B82F6', 'b-indigo': '#6366F1',
+    'b-purple': '#8B5CF6', 'gray': '#78797A'
 }
 
 def get_contrast_text_color(hex_color):
@@ -168,7 +166,7 @@ def get_contrast_text_color(hex_color):
     if len(hex_color) != 6: return '#FFFFFF'
     r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-    return '#0F172A' if luminance > 0.65 else '#FFFFFF'
+    return '#1E293B' if luminance > 0.65 else '#FFFFFF'
 
 def get_temp_style(temp):
     if temp is None or np.isnan(temp): return PALETTE['gray'], '#FFFFFF'
@@ -185,14 +183,14 @@ def get_temp_style(temp):
     return c, get_contrast_text_color(c)
 
 def get_wbgt_style(wbgt):
-    if wbgt is None or np.isnan(wbgt): return "#64748B", "#FFFFFF"
+    if wbgt is None or np.isnan(wbgt): return "#555555", "#FFFFFF"
     w = float(wbgt)
     if w >= 32: c = '#991B1B'
     elif w >= 31: c = '#DC2626'
     elif w >= 30: c = '#EA580C'
-    elif w >= 28: c = '#D97706'
-    elif w >= 25: c = '#CA8A04'
-    else: c = '#059669'
+    elif w >= 28: c = '#F59E0B'
+    elif w >= 25: c = '#EAB308'
+    else: c = '#10B981'
     return c, get_contrast_text_color(c)
 
 def get_humidity_style(h):
@@ -205,45 +203,43 @@ def get_humidity_style(h):
     return c, get_contrast_text_color(c)
 
 def get_rain1h_style(val):
-    if val is None or np.isnan(val): return "#64748B", "#FFFFFF"
+    if val is None or np.isnan(val): return "#78797a", "#FFFFFF"
     v = float(val)
-    if v >= 100.0: return "#581C87", "#FFFFFF"
-    if v >= 80.0:  return "#09090B", "#FFFFFF"
-    if v >= 50.0:  return "#991B1B", "#FFFFFF"
-    if v >= 20.0:  return "#CA8A04", "#FFFFFF"
-    if v >= 10.0:  return "#15803D", "#FFFFFF"
-    if v >= 0.1:   return "#0369A1", "#FFFFFF"
-    return "#64748B", "#FFFFFF"
+    if v >= 100.0: return "#6a0c7a", "#FFFFFF"
+    if v >= 80.0:  return "#020000", "#FFFFFF"
+    if v >= 50.0:  return "#921818", "#FFFFFF"
+    if v >= 20.0:  return "#878e14", "#FFFFFF"
+    if v >= 10.0:  return "#149f37", "#FFFFFF"
+    if v >= 0.1:   return "#227192", "#FFFFFF"
+    return "#636363", "#FFFFFF"
 
 def get_raintotal_style(val):
-    if val is None or np.isnan(val): return "#64748B", "#FFFFFF"
+    if val is None or np.isnan(val): return "#78797a", "#FFFFFF"
     v = float(val)
-    if v >= 350.0: return "#09090B", "#FFFFFF"
-    if v >= 200.0: return "#991B1B", "#FFFFFF"
-    if v >= 100.0: return "#EA580C", "#FFFFFF"
-    if v >= 50.0:  return "#CA8A04", "#FFFFFF"
-    if v >= 0.1:   return "#0369A1", "#FFFFFF"
-    return "#64748B", "#FFFFFF"
+    if v >= 350.0: return "#000000", "#FFFFFF"
+    if v >= 200.0: return "#921818", "#FFFFFF"
+    if v >= 100.0: return "#e86119", "#FFFFFF"
+    if v >= 50.0:  return "#878e14", "#FFFFFF"
+    if v >= 0.1:   return "#227192", "#FFFFFF"
+    return "#636363", "#FFFFFF"
 
-# 4. 指定風速色調映射
 def get_wind_style(wind):
-    if wind is None or np.isnan(wind): return "#64748B", "#FFFFFF"
+    if wind is None or np.isnan(wind): return "#78797a", "#FFFFFF"
     w = float(wind)
-    if w >= 118.0: return "#DC2626", "#FFFFFF" # 颶風 red
-    if w >= 88.0:  return "#F97316", "#FFFFFF" # 暴風 orange
-    if w >= 63.0:  return "#F59E0B", "#FFFFFF" # 烈風 amber
-    if w >= 41.0:  return "#0284C7", "#FFFFFF" # 強風 blue
-    if w >= 31.0:  return "#10B981", "#FFFFFF" # 清勁 green
-    return "#64748B", "#FFFFFF"                # 清勁以下 gray
+    if w >= 117.5: return "#6a0606", "#FFFFFF"
+    if w >= 87.5:  return "#b1510d", "#FFFFFF"
+    if w >= 62.5:  return "#7f710b", "#FFFFFF"
+    if w >= 40.5:  return "#154c83", "#FFFFFF"
+    return "#11750a", "#FFFFFF"
 
 def get_pressure_style(p):
-    if p is None or np.isnan(p): return "#64748B", "#FFFFFF"
+    if p is None or np.isnan(p): return "#78797a", "#FFFFFF"
     p = float(p)
     if p >= 1025.0: c = '#1E3A8A'
     elif p >= 1020.0: c = '#2563EB'
-    elif p >= 1015.0: c = '#0284C7'
-    elif p >= 1010.0: c = '#059669'
-    elif p >= 1005.0: c = '#D97706'
+    elif p >= 1015.0: c = '#3B82F6'
+    elif p >= 1010.0: c = '#10B981'
+    elif p >= 1005.0: c = '#F59E0B'
     elif p >= 1000.0: c = '#EA580C'
     else: c = '#DC2626'
     return c, get_contrast_text_color(c)
@@ -260,6 +256,16 @@ def init_db():
                   wind_dir TEXT, rain REAL, pressure REAL)''')
     c.execute('''CREATE TABLE IF NOT EXISTS uv_history
                  (time_str TEXT, timestamp REAL, station TEXT, uvi REAL)''')
+    
+    c.execute("PRAGMA table_info(weather_history)")
+    cols = [r[1] for r in c.fetchall()]
+    if 'gust_speed' not in cols:
+        c.execute("ALTER TABLE weather_history ADD COLUMN gust_speed REAL")
+    if 'wind_dir' not in cols:
+        c.execute("ALTER TABLE weather_history ADD COLUMN wind_dir TEXT")
+    if 'pressure' not in cols:
+        c.execute("ALTER TABLE weather_history ADD COLUMN pressure REAL")
+
     conn.commit()
     conn.close()
 
@@ -269,16 +275,20 @@ def save_to_db(stations, pub_time_str, pub_timestamp):
     cutoff_ts = pub_timestamp - 93600
     c.execute("DELETE FROM weather_history WHERE timestamp < ?", (cutoff_ts,))
     
+    rows_to_save = []
     for name, data in stations.items():
         row = (pub_time_str, pub_timestamp, name, 
                data.get('temp_now'), data.get('humidity'), 
                data.get('wind_speed'), data.get('gust_speed'),
                data.get('wind_dir'), data.get('rain_h'), data.get('pressure'))
+        rows_to_save.append(row)
         c.execute('''INSERT INTO weather_history 
                      (time_str, timestamp, station, temp, humidity, wind_speed, gust_speed, wind_dir, rain, pressure) 
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', row)
     conn.commit()
     conn.close()
+
+    # 1. 儲存時將 SysPubdate 寫入 CSV
     export_csv(pub_time_str, stations)
 
 def export_csv(pub_time_str, stations):
@@ -319,7 +329,9 @@ def save_uv_to_db(uv_data, pub_time_str, pub_timestamp):
 # 數據獲取與解析 (XML)
 # ==========================================
 def parse_xml_timestamp(root):
-    pub_node = root.find('.//SysPubdate') or root.find('.//SysPubDate')
+    pub_node = root.find('.//SysPubdate')
+    if pub_node is None:
+        pub_node = root.find('.//SysPubDate')
     if pub_node is not None and pub_node.text:
         raw_time = pub_node.text.strip()
         try:
@@ -381,6 +393,7 @@ def fetch_smg_weather():
         item['temp_min'] = parse_float(st.find('Temperature_daily_min'))
         item['humidity'] = parse_float(st.find('Humidity'))
 
+        # 海平面氣壓
         press_node = None
         for tag_cand in ['MeanSeaLevelPressure', 'meansealevelpressure', 'Pressure', 'SeaLevelPressure', 'AirPressure']:
             press_node = st.find(tag_cand)
@@ -388,6 +401,7 @@ def fetch_smg_weather():
                 break
         item['pressure'] = parse_float(press_node)
 
+        # 雨量
         h_rain, d_rain = 0.0, 0.0
         for rf in st.findall('Rainfall'):
             type_node = rf.find('Type')
@@ -400,6 +414,7 @@ def fetch_smg_weather():
         item['rain_h'] = h_rain
         item['rain_d'] = d_rain
 
+        # 風速、陣風與風向
         for el in st.iter():
             tag = el.tag.split('}')[-1].lower()
             if tag in ['windspeed', 'wind']:
@@ -448,7 +463,7 @@ def fetch_smg_uvi():
     return uv_data
 
 # ==========================================
-# 繪製各項分佈底圖（全新現代設計）
+# 繪製各項分佈底圖
 # ==========================================
 def render_distribution_maps(stations, current_uvi=0.0):
     for st_name, d in stations.items():
@@ -468,18 +483,9 @@ def render_distribution_maps(stations, current_uvi=0.0):
 
     pressure_legend = [
         ("≥1025 hPa", '#1E3A8A'), ("1020-1024 hPa", '#2563EB'),
-        ("1015-1019 hPa", '#0284C7'), ("1010-1014 hPa", '#059669'),
-        ("1005-1009 hPa", '#D97706'), ("1000-1004 hPa", '#EA580C'),
+        ("1015-1019 hPa", '#3B82F6'), ("1010-1014 hPa", '#10B981'),
+        ("1005-1009 hPa", '#F59E0B'), ("1000-1004 hPa", '#EA580C'),
         ("<1000 hPa", '#DC2626')
-    ]
-
-    wind_legend = [
-        ("≥118 颶風", "#DC2626"),
-        ("88-117 暴風", "#F97316"),
-        ("63-87 烈風", "#F59E0B"),
-        ("41-62 強風", "#0284C7"),
-        ("31-40 清勁", "#10B981"),
-        ("0-30 清勁以下", "#64748B")
     ]
 
     tasks = [
@@ -487,9 +493,10 @@ def render_distribution_maps(stations, current_uvi=0.0):
         ('apparent', '實時體感溫度分佈', '°C', lambda v: get_temp_style(v), temp_legend),
         ('wbgt', '實時暑熱指數 WBGT', '°C', lambda v: get_wbgt_style(v), [
             ("≥32° 極度危險", '#991B1B'), ("≥31° 非常危險", '#DC2626'),
-            ("≥30° 危險", '#EA580C'), ("≥28° 警戒", '#D97706'),
-            ("≥25° 注意", '#CA8A04'), ("<25° 正常", '#059669')
+            ("≥30° 危險", '#EA580C'), ("≥28° 警戒", '#F59E0B'),
+            ("≥25° 注意", '#EAB308'), ("<25° 正常", '#10B981')
         ]),
+        # 2. 最高溫與最低溫圖增加分級標準
         ('temp_max', '今日最高氣溫', '°C', lambda v: get_temp_style(v), temp_legend),
         ('temp_min', '今日最低氣溫', '°C', lambda v: get_temp_style(v), temp_legend),
         ('humidity', '實時相對濕度', '%', lambda v: get_humidity_style(v), [
@@ -498,37 +505,40 @@ def render_distribution_maps(stations, current_uvi=0.0):
             ("<30% 非常乾燥", PALETTE['b-orange'])
         ]),
         ('rain_h', '過去一小時降水量', 'mm', get_rain1h_style, [
-            ("≥100 mm", "#581C87"), ("80-99.9 mm", "#09090B"), ("50-79.9 mm", "#991B1B"),
-            ("20-49.9 mm", "#CA8A04"), ("10-19.9 mm", "#15803D"), ("0.1-9.9 mm", "#0369A1"), ("0 mm", "#64748B")
+            ("≥100 mm", "#6a0c7a"), ("80-99.9 mm", "#020000"), ("50-79.9 mm", "#921818"),
+            ("20-49.9 mm", "#878e14"), ("10-19.9 mm", "#149f37"), ("0.1-9.9 mm", "#227192"), ("0 mm", "#636363")
         ]),
         ('rain_d', '今日累積降水量', 'mm', get_raintotal_style, [
-            ("≥350 mm", "#09090B"), ("200-349.9 mm", "#991B1B"), ("100-199.9 mm", "#EA580C"),
-            ("50-99.9 mm", "#CA8A04"), ("0.1-49.9 mm", "#0369A1"), ("0 mm", "#64748B")
+            ("≥350 mm", "#000000"), ("200-349.9 mm", "#921818"), ("100-199.9 mm", "#e86119"),
+            ("50-99.9 mm", "#878e14"), ("0.1-49.9 mm", "#227192"), ("0 mm", "#636363")
         ]),
-        ('wind_speed', '平均風速分佈', 'km/h', get_wind_style, wind_legend),
-        ('gust_speed', '最高陣風分佈', 'km/h', get_wind_style, wind_legend),
+        ('wind_speed', '平均風速分佈', 'km/h', get_wind_style, [
+            ("≥117.5 颶風", "#6a0606"), ("≥87.5 暴風/烈風", "#b1510d"),
+            ("≥62.5 強風", "#7f710b"), ("≥40.5 清勁", "#154c83"), ("<40.5 微風/和緩", "#11750a")
+        ]),
+        ('gust_speed', '最高陣風分佈', 'km/h', get_wind_style, None),
+        # 3. 新增 static/images/pressure.png
         ('pressure', '海平面氣壓分佈', 'hPa', get_pressure_style, pressure_legend),
         ('wind_dir', '實時風向與風速分佈', '', None, None)
     ]
 
     for key, title, unit, style_fn, legend_items in tasks:
         fig, ax = plt.subplots(figsize=(11, 14), dpi=140)
-        draw_base_map(ax, bg_color='#EAF2F8')
+        draw_base_map(ax, bg_color='#C4E1F5')
 
-        # 頂部浮動標題欄 (現代質感設計)
         title_box = FancyBboxPatch(
             (0.03, 0.925), 0.58, 0.062,
             transform=ax.transAxes,
             boxstyle="round,pad=0.008,rounding_size=0.015",
-            facecolor='#FFFFFF', edgecolor='#CBD5E1',
-            linewidth=1.2, alpha=0.98, zorder=12
+            facecolor='#FFFFFF', edgecolor='#94A3B8',
+            linewidth=1.2, alpha=0.96, zorder=12
         )
         ax.add_patch(title_box)
 
         ax.text(0.045, 0.962, f"澳門氣象分佈  •  {title}", transform=ax.transAxes,
-                fontsize=17.5, fontweight='bold', color='#0F172A', va='center', zorder=13)
-        ax.text(0.045, 0.938, f"資料來源：SMG XML  |  數據發布：{update_time_str}", transform=ax.transAxes,
-                fontsize=11.5, color='#64748B', va='center', zorder=13)
+                fontsize=18, fontweight='bold', color='#0F172A', va='center', zorder=13)
+        ax.text(0.045, 0.938, f"資料來源：SMG XML  |  數據發布時間：{update_time_str}", transform=ax.transAxes,
+                fontsize=11.5, color='#475569', va='center', zorder=13)
 
         for name, data in stations.items():
             val = data.get(key)
@@ -559,24 +569,23 @@ def render_distribution_maps(stations, current_uvi=0.0):
                 short_name = name.replace("大橋", "").replace("友誼", "友誼橋").replace("澳門", "澳門橋")
                 ax.text(lon, lat - 0.0048, short_name, fontsize=10, ha='center', va='top', 
                         color='#0F172A', fontweight='bold',
-                        bbox=dict(boxstyle="round,pad=0.25", facecolor='white', edgecolor='#CBD5E1', alpha=0.9), zorder=6)
+                        bbox=dict(boxstyle="round,pad=0.25", facecolor='white', edgecolor='none', alpha=0.88), zorder=6)
             else:
                 bg_color, font_color = style_fn(val)
                 val_text = f"{val:g}"
 
-                # 數據浮動藥丸卡片
                 ax.annotate(
                     f"{val_text}{unit}",
                     xy=(lon, lat),
                     ha='center', va='center',
-                    fontsize=12.5,
+                    fontsize=13,
                     fontweight='bold',
                     color=font_color,
                     bbox=dict(
-                        boxstyle="round,pad=0.42,rounding_size=0.4",
+                        boxstyle="round,pad=0.45,rounding_size=0.4",
                         facecolor=bg_color,
                         edgecolor="#FFFFFF",
-                        linewidth=1.8,
+                        linewidth=2.0,
                         alpha=0.98
                     ),
                     zorder=8
@@ -589,42 +598,42 @@ def render_distribution_maps(stations, current_uvi=0.0):
                     xytext=(0, 18),
                     textcoords="offset points",
                     ha='center', va='bottom',
-                    fontsize=10.5,
+                    fontsize=11,
                     fontweight='bold',
-                    color='#334155',
+                    color='#0F172A',
                     bbox=dict(
                         boxstyle="round,pad=0.25,rounding_size=0.2",
                         facecolor='#FFFFFF',
                         edgecolor='#CBD5E1',
-                        linewidth=0.8,
+                        linewidth=1.0,
                         alpha=0.95
                     ),
                     zorder=7
                 )
 
         if legend_items:
-            patches = [mpatches.Patch(facecolor=c, label=lbl, edgecolor='#CBD5E1', linewidth=0.8) for lbl, c in legend_items]
+            patches = [mpatches.Patch(facecolor=c, label=lbl, edgecolor='#94A3B8', linewidth=0.8) for lbl, c in legend_items]
             leg = ax.legend(
                 handles=patches, title="分級標準", loc='upper right',
                 bbox_to_anchor=(0.97, 0.99),
-                title_fontsize=11.5, fontsize=10,
-                frameon=True, facecolor='white', edgecolor='#CBD5E1', framealpha=0.98
+                title_fontsize=12, fontsize=10.5,
+                frameon=True, facecolor='white', edgecolor='#CBD5E1', framealpha=0.96
             )
             leg.set_zorder(12)
             leg.get_title().set_fontweight('bold')
 
-        footer_info = f"澳門氣象局 (SMG) 實時數據網絡  |  渲染時間: {datetime.now(MACAU_TZ).strftime('%Y-%m-%d %H:%M')}"
-        ax.text(0.035, 0.02, footer_info, transform=ax.transAxes, fontsize=10.5, color='#64748B',
-                bbox=dict(boxstyle="round,pad=0.38", facecolor='white', edgecolor='#CBD5E1', linewidth=0.8, alpha=0.96), zorder=12)
+        footer_info = f"澳門地球物理氣象局 (SMG) 實時觀測網絡  |  產圖時間: {datetime.now(MACAU_TZ).strftime('%Y-%m-%d %H:%M')}"
+        ax.text(0.035, 0.02, footer_info, transform=ax.transAxes, fontsize=10.5, color='#475569',
+                bbox=dict(boxstyle="round,pad=0.4", facecolor='white', edgecolor='#CBD5E1', linewidth=1.0, alpha=0.95), zorder=12)
 
         plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
         plt.savefig(f"static/images/{key}.png", dpi=140, bbox_inches='tight')
         plt.close(fig)
 
-    print("✅ 全要素現代風地圖分佈圖渲染完成！")
+    print("✅ 全要素地圖分佈圖 (包含 pressure.png, apparent.png, wbgt.png) 渲染完成！")
 
 # ==========================================
-# 輔助：智慧斷線與氣象風羽標繪製
+# 輔助函數：智能插入 NaN 實現中斷斷線
 # ==========================================
 def insert_nans_on_gap(df, col, max_gap_minutes=25):
     valid_df = df.dropna(subset=[col]).sort_values('datetime').reset_index(drop=True)
@@ -648,69 +657,6 @@ def insert_nans_on_gap(df, col, max_gap_minutes=25):
     new_rows.append(valid_df.iloc[-1])
     return pd.DataFrame(new_rows).reset_index(drop=True)
 
-def draw_meteorological_wind_barb(ax, x_num, y_pos, deg, speed_kmh, scale_hours=0.45, scale_y=1.0):
-    """
-    3. 繪製標準氣象風標 (Wind Barb)
-    風速單位：km/h。
-    1 三角旗 = 50 km/h，1 長羽 = 20 km/h，1 短羽 = 10 km/h。
-    """
-    if deg is None or np.isnan(deg):
-        return
-
-    # 氣象風向為來源方向，羽毛在來向尾端
-    rad = np.radians(deg)
-    cos_d, sin_d = np.cos(rad), np.sin(rad)
-    
-    # 旋轉輔助
-    def rotate_point(px, py):
-        # 預設向上為北
-        rx = px * cos_d + py * sin_d
-        ry = -px * sin_d + py * cos_d
-        return (rx * scale_hours / 24.0, ry * scale_y)
-
-    # 繪製主桿 (長度為 1 單位)
-    p0 = rotate_point(0, -0.2) # 箭尾
-    p1 = rotate_point(0, 0.8)  # 箭頭點
-    ax.plot([x_num + p0[0], x_num + p1[0]], [y_pos + p0[1], y_pos + p1[1]], color='#1E293B', lw=1.4, zorder=6)
-
-    # 依照風速添加羽標（從尾端向桿身排列）
-    remain = speed_kmh
-    flags = int(remain // 50)
-    remain %= 50
-    long_bars = int(remain // 20)
-    remain %= 20
-    short_bars = int(remain // 10)
-
-    cur_pos = 0.8
-    barb_length = 0.35
-
-    # 繪製三角旗
-    for _ in range(flags):
-        b1 = rotate_point(0, cur_pos)
-        b2 = rotate_point(barb_length, cur_pos - 0.08)
-        b3 = rotate_point(0, cur_pos - 0.16)
-        poly = Polygon([
-            [x_num + b1[0], y_pos + b1[1]],
-            [x_num + b2[0], y_pos + b2[1]],
-            [x_num + b3[0], y_pos + b3[1]]
-        ], closed=True, facecolor='#1E293B', edgecolor='#1E293B', zorder=6)
-        ax.add_patch(poly)
-        cur_pos -= 0.18
-
-    # 繪製長羽
-    for _ in range(long_bars):
-        b1 = rotate_point(0, cur_pos)
-        b2 = rotate_point(barb_length, cur_pos + 0.05)
-        ax.plot([x_num + b1[0], x_num + b2[0]], [y_pos + b1[1], y_pos + b2[1]], color='#1E293B', lw=1.3, zorder=6)
-        cur_pos -= 0.14
-
-    # 繪製短羽
-    for _ in range(short_bars):
-        b1 = rotate_point(0, cur_pos)
-        b2 = rotate_point(barb_length * 0.5, cur_pos + 0.03)
-        ax.plot([x_num + b1[0], x_num + b2[0]], [y_pos + b1[1], y_pos + b2[1]], color='#1E293B', lw=1.3, zorder=6)
-        cur_pos -= 0.12
-
 # ==========================================
 # 繪製各測站歷史時序折線圖
 # ==========================================
@@ -733,7 +679,7 @@ def render_trend_charts():
     df['wbgt'] = [estimate_wbgt_kmh(t, h, w, uv_latest) for t, h, w in zip(df['temp'], df['humidity'], df['wind_speed'])]
     df['apparent'] = [calculate_apparent_temperature(t, h, w) for t, h, w in zip(df['temp'], df['humidity'], df['wind_speed'])]
 
-    GRID_BORDER_COLOR = '#CBD5E1'
+    GRID_BORDER_COLOR = '#8DA59A'
     TEXT_COLOR = '#334155'
     header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
 
@@ -744,41 +690,41 @@ def render_trend_charts():
 
     METRIC_DEFS = {
         'temp': {
-            'label': '溫度 Temperature(℃)', 'color': '#A23B5A', 'default_step': 1.0, 'is_bar': False,
+            'label': '溫度 Temperature(℃)', 'color': '#A23B5A', 'step': 1.0, 'is_bar': False,
             'lines': [(35.5, '非常酷熱 35.5', '#EF4444'), (32.5, '酷熱 32.5', '#F97316'), (27.5, '炎熱 27.5', '#F59E0B'), (17.5, '和暖 17.5', '#10B981'), (12.5, '清涼 12.5', '#0EA5E9'), (7.5, '寒冷 7.5', '#3B82F6')]
         },
         'apparent': {
-            'label': '體感溫度 Apparent Temp(℃)', 'color': '#EA580C', 'default_step': 1.0, 'is_bar': False,
+            'label': '體感溫度 Apparent Temp(℃)', 'color': '#EA580C', 'step': 1.0, 'is_bar': False,
             'lines': [(35.5, '非常酷熱 35.5', '#EF4444'), (32.5, '酷熱 32.5', '#F97316'), (27.5, '炎熱 27.5', '#F59E0B'), (17.5, '和暖 17.5', '#10B981'), (12.5, '清涼 12.5', '#0EA5E9'), (7.5, '寒冷 7.5', '#3B82F6')]
         },
         'wbgt': {
-            'label': '暑熱指數 WBGT(℃)', 'color': '#D97706', 'default_step': 1.0, 'is_bar': False,
+            'label': '暑熱指數 WBGT(℃)', 'color': '#D97706', 'step': 1.0, 'is_bar': False,
             'lines': [(32.0, '極度危險 32', '#991B1B'), (31.0, '非常危險 31', '#DC2626'), (30.0, '危險 30', '#EA580C'), (28.0, '警戒 28', '#F59E0B'), (25.0, '注意 25', '#EAB308')]
         },
         'humidity': {
-            'label': '濕度 Humidity(%)', 'color': '#2A7B9B', 'default_step': 5.0, 'is_bar': False,
+            'label': '濕度 Humidity(%)', 'color': '#2A7B9B', 'step': 5.0, 'is_bar': False,
             'lines': [(95.0, '非常潮濕 95%', '#3B82F6'), (88.0, '潮濕 88%', '#0EA5E9'), (50.0, '正常 50%', '#10B981'), (30.0, '乾燥 30%', '#F59E0B')]
         },
         'wind_speed': {
-            'label': '風速 Wind Speed(km/h)', 'color': '#0284C7', 'default_step': 4.0, 'is_bar': False,
-            'lines': [(118.0, '颶風 118', '#DC2626'), (88.0, '暴風 88', '#F97316'), (63.0, '烈風 63', '#F59E0B'), (41.0, '強風 41', '#0284C7'), (31.0, '清勁 31', '#10B981')]
+            'label': '風速 Wind Speed(km/h)', 'color': '#8B3A62', 'step': 4.0, 'is_bar': False,
+            'lines': [(62.5, '強風 62.5', '#7F710B'), (40.5, '清勁 40.5', '#154C83')]
         },
         'rain': {
-            'label': '降水量 Rainfall(mm)', 'color': '#1D4ED8', 'default_step': 2.0, 'is_bar': True,
+            'label': '降水量 Rainfall(mm)', 'color': '#1D4ED8', 'step': 2.0, 'is_bar': True,
             'lines': [(10.0, '10mm', '#149F37'), (20.0, '20mm', '#878E14'), (50.0, '50mm', '#921818')]
         },
         'pressure': {
-            'label': '海平面氣壓 Pressure(hPa)', 'color': '#1E3A8A', 'default_step': 1.0, 'is_bar': False,
+            'label': '海平面氣壓 Pressure(hPa)', 'color': '#1E3A8A', 'step': 1.0, 'is_bar': False,
             'lines': [(1013.25, '標準大氣壓 1013.25', '#64748B')]
         }
     }
 
-    # 全局 X 軸時間範圍：前推 24 小時
+    # 4. 全局 X 軸時間範圍：以最新數據時間點為 end，前推 24 小時（例如 15:35 ~ 15:35）
     global_max_dt = df['datetime'].max()
     x_end = global_max_dt
     x_start = x_end - pd.Timedelta(hours=24)
 
-    # 2. 計算風速與各要素的動態 Y 軸（只留 1 個單位給風標，動態步長）
+    # 7. 計算各氣象要素的「統一 Y 軸範圍」
     UNIFIED_Y_LIMITS = {}
     for col, cfg in METRIC_DEFS.items():
         sub_df = df.copy()
@@ -788,33 +734,28 @@ def render_trend_charts():
             all_v = sub_df[col].dropna()
 
         if all_v.empty:
-            UNIFIED_Y_LIMITS[col] = (0, 10, cfg['default_step'])
+            UNIFIED_Y_LIMITS[col] = (0, 10, cfg['step'])
             continue
 
         y_min, y_max = all_v.min(), all_v.max()
+        step = cfg['step']
 
         if col == 'wind_speed':
-            # 依風速跨度自動選擇合適步長 (2, 4, 5, 10)
-            span = max(y_max, 10)
-            if span > 100: step = 15.0
-            elif span > 60: step = 10.0
-            elif span > 30: step = 5.0
-            else: step = 4.0
-
-            # 2. 需求修復：只需預留 1 個間距空間給風標
-            plot_ymin = -step * 1.0
-            plot_ymax = np.ceil(y_max / step) * step + step
-            UNIFIED_Y_LIMITS[col] = (plot_ymin, plot_ymax, step)
+            # 8. 根據最低風速下探 4 個單位 space 給箭頭使用
+            plot_ymin = int(np.floor(y_min / step) * step - 4 * step)
+            plot_ymax = max(24, int(np.ceil(y_max / step) * step + step))
         elif col in ['temp', 'apparent', 'wbgt', 'pressure']:
-            step = 1.0
             plot_ymin = np.floor(y_min) - 1
             plot_ymax = np.ceil(y_max) + 1
-            UNIFIED_Y_LIMITS[col] = (plot_ymin, plot_ymax, step)
         else:
-            step = cfg['default_step']
             plot_ymin = max(0, np.floor(y_min / step) * step - step)
             plot_ymax = np.ceil(y_max / step) * step + step
-            UNIFIED_Y_LIMITS[col] = (plot_ymin, plot_ymax, step)
+
+        if plot_ymin >= plot_ymax:
+            plot_ymin -= 1
+            plot_ymax += 1
+
+        UNIFIED_Y_LIMITS[col] = (plot_ymin, plot_ymax, step)
 
     # 渲染各測站的獨立要素時序圖
     for station_name in STATION_COORDS.keys():
@@ -858,7 +799,7 @@ def render_trend_charts():
             if cfg['is_bar']:
                 ax.bar(plot_df['datetime'], plot_df[col], width=pd.Timedelta(minutes=8), color=cfg['color'], alpha=0.85, edgecolor='none')
             else:
-                ax.plot(plot_df['datetime'], plot_df[col], color=cfg['color'], linewidth=1.6, antialiased=True, label=col.capitalize() if col != 'wind_speed' else 'Wind Speed')
+                ax.plot(plot_df['datetime'], plot_df[col], color=cfg['color'], linewidth=1.5, antialiased=True, label=col.capitalize() if col != 'wind_speed' else 'Wind Speed')
 
             if col == 'wind_speed':
                 gust_valid = st_df.dropna(subset=['gust_speed'])
@@ -867,54 +808,63 @@ def render_trend_charts():
                 leg = ax.legend(loc='upper left', frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=11)
                 leg.get_frame().set_linewidth(1.0)
 
+            # 4. 精確設定 X 軸範圍 (15:35 ~ 15:35)
             ax.set_xlim(x_start, x_end)
 
+            # 7. 統一 Y 軸設定
             y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
             ax.set_ylim(plot_ymin, plot_ymax)
             ax.set_yticks(y_ticks)
 
             def y_fmt(v):
-                if col == 'wind_speed' and v < 0: return "" # 隱藏預留給風標的負數刻度
+                if col == 'wind_speed' and v < 0: return ""
                 return f"{int(v)}" if float(v).is_integer() else f"{v:.1f}"
 
-            ax.set_yticklabels([y_fmt(y) for y in y_ticks], fontsize=13.5, color=cfg['color'], family='monospace')
+            ax.set_yticklabels([y_fmt(y) for y in y_ticks], fontsize=14, color=cfg['color'], family='monospace')
 
-            # 警戒標註線
+            # 輔助標記線
             if 'lines' in cfg:
                 for threshold_val, line_label, line_color in cfg['lines']:
-                    if 0 <= threshold_val < plot_ymax:
+                    if plot_ymin < threshold_val < plot_ymax:
                         ax.axhline(y=threshold_val, color=line_color, linestyle='--', linewidth=0.9, alpha=0.6, zorder=2)
                         ax.text(x_end, threshold_val, f" {line_label}", color=line_color, 
                                 va='center', ha='left', fontsize=9.5, alpha=0.85, clip_on=True)
 
-            # 3. 風向改為整點繪製標準氣象風標 (Wind Barb)
+            # 8. 清晰美觀的風向箭頭繪製
             if col == 'wind_speed':
                 arrow_df = st_df.dropna(subset=['wind_dir'])
-                barb_y = plot_ymin + 0.5 * step
-                
-                # 篩選整點整刻數據 (避免密集)
-                hourly_candidates = arrow_df.copy()
-                hourly_candidates['minute'] = hourly_candidates['datetime'].dt.minute
-                hourly_candidates['date_hour'] = hourly_candidates['datetime'].dt.strftime('%Y-%m-%d %H')
-                
-                # 尋找最接近整點 (0 分) 的點
-                near_hour = hourly_candidates[(hourly_candidates['minute'] <= 6) | (hourly_candidates['minute'] >= 54)].copy()
-                if not near_hour.empty:
-                    near_hour['diff_0'] = near_hour['minute'].apply(lambda m: min(m, 60 - m))
-                    sampled_barbs = near_hour.sort_values('diff_0').groupby('date_hour').first().reset_index()
-                    
-                    for _, r in sampled_barbs.iterrows():
-                        d_t = r['datetime']
-                        if d_t < x_start or d_t > x_end:
-                            continue
+                base_arrow_y = plot_ymin + 2.0 * step
+                for _, r in arrow_df.iterrows():
+                    d_t = r['datetime']
+                    if pd.isnull(d_t) or d_t < x_start or d_t > x_end:
+                        continue
+                    if d_t.minute <= 8 or d_t.minute >= 52:
                         w_dir = r.get('wind_dir')
-                        w_spd = r.get('wind_speed', 0.0)
                         try: deg = float(w_dir)
                         except: deg = dir_deg_map.get(str(w_dir).upper(), None)
 
                         if deg is not None:
+                            # 氣象風向為來向，箭頭指向去向
+                            rot_rad = np.radians(deg + 180)
+                            arrow_len_hours = 0.35
+                            arrow_len_y = 1.0 * step
+                            dx = np.sin(rot_rad) * arrow_len_hours
+                            dy = np.cos(rot_rad) * arrow_len_y
+                            
                             t_num = mdates.date2num(d_t)
-                            draw_meteorological_wind_barb(ax, t_num, barb_y, deg, w_spd, scale_hours=0.45, scale_y=step * 0.45)
+                            t_delta_num = dx / 24.0
+
+                            ax.annotate(
+                                "",
+                                xy=(t_num + t_delta_num, base_arrow_y + dy),
+                                xytext=(t_num, base_arrow_y),
+                                arrowprops=dict(
+                                    arrowstyle="->,head_length=0.4,head_width=0.25",
+                                    color="#2563EB",
+                                    lw=1.6
+                                ),
+                                zorder=6
+                            )
 
             ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
             ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
@@ -927,19 +877,19 @@ def render_trend_charts():
                 return hour_str
 
             ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
-            plt.setp(ax.get_xticklabels(), fontsize=12.5, color=TEXT_COLOR, family='monospace')
+            plt.setp(ax.get_xticklabels(), fontsize=13, color=TEXT_COLOR, family='monospace')
 
-            ax.grid(True, which='major', linestyle=':', linewidth=1.3, color=GRID_BORDER_COLOR, alpha=0.95)
-            ax.tick_params(axis='both', which='major', length=5, width=1.0, color=GRID_BORDER_COLOR, direction='out')
+            ax.grid(True, which='major', linestyle=':', linewidth=1.6, color=GRID_BORDER_COLOR, alpha=0.95)
+            ax.tick_params(axis='both', which='major', length=6, width=1.1, color=GRID_BORDER_COLOR, direction='out')
             ax.tick_params(axis='x', which='minor', length=3, width=0.8, color=GRID_BORDER_COLOR, direction='out')
 
             for spine in ax.spines.values():
                 spine.set_visible(True)
                 spine.set_color(GRID_BORDER_COLOR)
-                spine.set_linewidth(1.2)
+                spine.set_linewidth(1.3)
 
-            ax.set_ylabel(cfg['label'], fontsize=14, color=cfg['color'], labelpad=12)
-            ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=14, color=TEXT_COLOR, labelpad=14)
+            ax.set_ylabel(cfg['label'], fontsize=15, color=cfg['color'], labelpad=12)
+            ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
 
             ax.text(0.0, 1.02, header_station_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR)
             ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
@@ -948,7 +898,9 @@ def render_trend_charts():
             plt.savefig(f"static/images/line_{station_name}_{col}.png", dpi=120, bbox_inches='tight')
             plt.close(fig)
 
-    # 跨海大橋專用折線圖
+    # ==========================================
+    # 5. & 6. 新增大橋風力趨勢圖與大橋陣風趨勢圖
+    # ==========================================
     bridge_colors = {
         "友誼大橋北": "#1E40AF", "友誼大橋南": "#3B82F6",
         "澳門大橋北": "#047857", "澳門大橋南": "#10B981",
@@ -973,11 +925,12 @@ def render_trend_charts():
                         linewidth=1.8, antialiased=True)
 
         ax.set_xlim(x_start, x_end)
-        _, plot_ymax, step = UNIFIED_Y_LIMITS['wind_speed']
+        plot_ymin, plot_ymax, step = UNIFIED_Y_LIMITS['wind_speed']
+        # 大橋專用圖不需要留負數區給風向箭頭，從 0 開始
         y_ticks = np.arange(0, plot_ymax + step * 0.1, step)
         ax.set_ylim(0, plot_ymax)
         ax.set_yticks(y_ticks)
-        ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=13.5, color='#0284C7', family='monospace')
+        ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=14, color='#8B3A62', family='monospace')
 
         for threshold_val, line_label, line_color in METRIC_DEFS['wind_speed']['lines']:
             if 0 < threshold_val < plot_ymax:
@@ -987,11 +940,11 @@ def render_trend_charts():
         ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
         ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
         ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
-        plt.setp(ax.get_xticklabels(), fontsize=12.5, color=TEXT_COLOR, family='monospace')
+        plt.setp(ax.get_xticklabels(), fontsize=13, color=TEXT_COLOR, family='monospace')
 
-        ax.grid(True, which='major', linestyle=':', linewidth=1.3, color=GRID_BORDER_COLOR, alpha=0.95)
-        ax.set_ylabel(type_label, fontsize=14, color='#0284C7', labelpad=12)
-        ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=14, color=TEXT_COLOR, labelpad=14)
+        ax.grid(True, which='major', linestyle=':', linewidth=1.6, color=GRID_BORDER_COLOR, alpha=0.95)
+        ax.set_ylabel(type_label, fontsize=15, color='#8B3A62', labelpad=12)
+        ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
 
         ax.legend(loc='upper left', ncol=4, frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=11)
         ax.text(0.0, 1.02, title_prefix, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
@@ -1001,120 +954,7 @@ def render_trend_charts():
         plt.savefig(f"static/images/{filename}", dpi=120, bbox_inches='tight')
         plt.close(fig)
 
-    print("✅ 時序趨勢圖 (包含標準風羽標與動態 Y 軸) 全部渲染完成！")
-
-# ==========================================
-# 5. 新增：24 小時溫差折線圖
-# ==========================================
-def render_24h_temp_range_charts():
-    """
-    計算並繪製各測站過去 24 小時的氣溫日較差 / 溫差趨勢圖 (最大值 - 最小值及實時動態溫差)
-    生成：
-      - static/images/line_{station_name}_temp_range.png (單站動態)
-      - static/images/line_macau_24h_temp_range.png (全澳溫差一覽)
-    """
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    df = pd.read_sql_query("SELECT * FROM weather_history ORDER BY timestamp ASC", conn)
-    conn.close()
-
-    if df.empty: return
-
-    df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau').dt.tz_localize(None)
-    global_max_dt = df['datetime'].max()
-    x_end = global_max_dt
-    x_start = x_end - pd.Timedelta(hours=24)
-    df_24h = df[df['datetime'] >= x_start].copy()
-
-    GRID_BORDER_COLOR = '#CBD5E1'
-    TEXT_COLOR = '#334155'
-    header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
-
-    # 1. 繪製全澳代表性測站溫差折線圖
-    fig, ax = plt.subplots(figsize=(15, 6.5), dpi=120)
-    fig.patch.set_facecolor('white')
-    ax.set_facecolor('white')
-
-    station_palette = {
-        "大潭山": "#E11D48", "大炮台": "#2563EB", 
-        "紀念孫中山公園": "#059669", "路環": "#D97706",
-        "九澳": "#7C3AED", "黑沙環": "#0284C7"
-    }
-
-    for st_name, color in station_palette.items():
-        st_df = df_24h[df_24h['station'] == st_name].dropna(subset=['temp']).copy()
-        if st_df.empty: continue
-        # 繪製各站相對於 24 小時基底溫度的動態
-        plot_df = insert_nans_on_gap(st_df, 'temp', max_gap_minutes=25)
-        ax.plot(plot_df['datetime'], plot_df['temp'], label=st_name, color=color, linewidth=1.6, antialiased=True)
-
-    ax.set_xlim(x_start, x_end)
-    ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-    ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
-
-    def format_hour_ticks(x, pos=None):
-        dt = mdates.num2date(x)
-        hour_str = f"{dt.strftime('%H')}H"
-        if dt.hour == 0:
-            return f"{hour_str}\n{dt.strftime('%d %b')}"
-        return hour_str
-
-    ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
-    plt.setp(ax.get_xticklabels(), fontsize=12.5, color=TEXT_COLOR, family='monospace')
-
-    ax.grid(True, which='major', linestyle=':', linewidth=1.3, color=GRID_BORDER_COLOR, alpha=0.95)
-    ax.set_ylabel('溫度 Temperature(℃)', fontsize=14, color='#A23B5A', labelpad=12)
-    ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=14, color=TEXT_COLOR, labelpad=14)
-    ax.legend(loc='upper left', ncol=6, frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=11)
-
-    ax.text(0.0, 1.02, "澳門各區 24 小時氣溫變化與溫差對比", transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
-    ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
-
-    plt.tight_layout()
-    plt.savefig("static/images/line_macau_24h_temp_range.png", dpi=120, bbox_inches='tight')
-    plt.close(fig)
-
-    # 2. 獨立生成每個測站過去 24 小時累積最高/最低溫差區間圖
-    for st_name in STATION_COORDS.keys():
-        if st_name in BRIDGE_STATIONS: continue
-        st_df = df_24h[df_24h['station'] == st_name].dropna(subset=['temp']).copy()
-        if st_df.empty: continue
-
-        fig, ax = plt.subplots(figsize=(15, 6.5), dpi=120)
-        fig.patch.set_facecolor('white')
-        ax.set_facecolor('white')
-
-        t_min = st_df['temp'].min()
-        t_max = st_df['temp'].max()
-        t_range = round(t_max - t_min, 1)
-
-        plot_df = insert_nans_on_gap(st_df, 'temp', max_gap_minutes=25)
-        ax.plot(plot_df['datetime'], plot_df['temp'], color='#E11D48', linewidth=1.8, label=f'實時氣溫 (24H 溫差: {t_range}℃)')
-        ax.axhline(y=t_max, color='#DC2626', linestyle=':', linewidth=1.2, label=f'24H 最高溫: {t_max}℃')
-        ax.axhline(y=t_min, color='#0284C7', linestyle=':', linewidth=1.2, label=f'24H 最低溫: {t_min}℃')
-        ax.fill_between(plot_df['datetime'], t_min, plot_df['temp'], color='#FDA4AF', alpha=0.25)
-
-        ax.set_xlim(x_start, x_end)
-        ax.set_ylim(math.floor(t_min) - 1, math.ceil(t_max) + 1)
-        ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-        ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
-        ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
-        plt.setp(ax.get_xticklabels(), fontsize=12.5, color=TEXT_COLOR, family='monospace')
-
-        ax.grid(True, which='major', linestyle=':', linewidth=1.3, color=GRID_BORDER_COLOR, alpha=0.95)
-        ax.set_ylabel('溫度 Temperature(℃)', fontsize=14, color='#A23B5A', labelpad=12)
-        ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=14, color=TEXT_COLOR, labelpad=14)
-
-        code = STATION_COORDS[st_name].get("code", "")
-        header_st = f"{st_name}({code})" if code else st_name
-        ax.text(0.0, 1.02, f"{header_st} - 24小時氣溫與溫差走勢", transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR)
-        ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
-        ax.legend(loc='upper left', frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=11)
-
-        plt.tight_layout()
-        plt.savefig(f"static/images/line_{st_name}_temp_range.png", dpi=120, bbox_inches='tight')
-        plt.close(fig)
-
-    print("✅ 24 小時溫差趨勢圖 (全澳綜合 + 各站明細) 生成完成！")
+    print("✅ 時序趨勢圖 (包含大橋風速、大橋陣風趨勢圖與統一 Y 軸) 全部渲染完成！")
 
 # ==========================================
 # 繪製 24 小時紫外線折線圖
@@ -1128,7 +968,7 @@ def render_uv_trend_chart():
 
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau').dt.tz_localize(None)
 
-    GRID_BORDER_COLOR = '#CBD5E1'
+    GRID_BORDER_COLOR = '#8DA59A'
     TEXT_COLOR = '#334155'
     UV_COLOR = '#EA580C'
 
@@ -1158,9 +998,9 @@ def render_uv_trend_chart():
     y_ticks = np.arange(0, plot_ymax + 1, 2)
     ax.set_ylim(0, plot_ymax)
     ax.set_yticks(y_ticks)
-    ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=13.5, color=UV_COLOR, family='monospace')
+    ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=14, color=UV_COLOR, family='monospace')
 
-    uv_levels = [(11.0, '極高 11+', '#7C3AED'), (8.0, '甚高 8-10', '#DC2626'), (6.0, '高 6-7', '#F97316'), (3.0, '中 3-5', '#CA8A04')]
+    uv_levels = [(11.0, '極高 11+', '#8B5CF6'), (8.0, '甚高 8-10', '#EF4444'), (6.0, '高 6-7', '#F97316'), (3.0, '中 3-5', '#EAB308')]
     for uv_val, uv_lbl, uv_c in uv_levels:
         if 0 < uv_val < plot_ymax:
             ax.axhline(y=uv_val, color=uv_c, linestyle='--', linewidth=0.9, alpha=0.5)
@@ -1177,19 +1017,19 @@ def render_uv_trend_chart():
         return hour_str
 
     ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
-    plt.setp(ax.get_xticklabels(), fontsize=12.5, color=TEXT_COLOR, family='monospace')
+    plt.setp(ax.get_xticklabels(), fontsize=13, color=TEXT_COLOR, family='monospace')
 
-    ax.grid(True, which='major', linestyle=':', linewidth=1.3, color=GRID_BORDER_COLOR, alpha=0.95)
-    ax.tick_params(axis='both', which='major', length=5, width=1.0, color=GRID_BORDER_COLOR, direction='out')
+    ax.grid(True, which='major', linestyle=':', linewidth=1.6, color=GRID_BORDER_COLOR, alpha=0.95)
+    ax.tick_params(axis='both', which='major', length=6, width=1.1, color=GRID_BORDER_COLOR, direction='out')
     ax.tick_params(axis='x', which='minor', length=3, width=0.8, color=GRID_BORDER_COLOR, direction='out')
 
     for spine in ax.spines.values():
         spine.set_visible(True)
         spine.set_color(GRID_BORDER_COLOR)
-        spine.set_linewidth(1.2)
+        spine.set_linewidth(1.3)
 
-    ax.set_ylabel('紫外線指數 UV Index', fontsize=14, color=UV_COLOR, labelpad=12)
-    ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=14, color=TEXT_COLOR, labelpad=14)
+    ax.set_ylabel('紫外線指數 UV Index', fontsize=15, color=UV_COLOR, labelpad=12)
+    ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
 
     header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
     ax.text(0.0, 1.02, "大潭山(TG) 紫外線指數 UV Index", transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR)
@@ -1270,7 +1110,6 @@ if __name__ == '__main__':
     if stations_data:
         render_distribution_maps(stations_data, current_uvi)
         render_trend_charts()
-        render_24h_temp_range_charts() # 5. 執行溫差圖生成
         render_uv_trend_chart()
         generate_24h_rainfall_summary()
         print(f"🎉 全部功能升級完畢！當前 XML 觀測時間：{update_time_str}")
