@@ -17,7 +17,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.patches import Polygon, FancyBboxPatch, FancyArrowPatch
+from matplotlib.patches import Polygon, FancyBboxPatch
 from matplotlib import transforms
 import matplotlib.dates as mdates
 import geopandas as gpd
@@ -182,6 +182,16 @@ def get_temp_style(temp):
     else: c = PALETTE['b-purple']
     return c, get_contrast_text_color(c)
 
+def get_temp_diff_style(diff):
+    if diff is None or np.isnan(diff): return "#78797A", "#FFFFFF"
+    d = float(diff)
+    if d > 0.2:
+        return "#EF4444", "#FFFFFF"   # + 紅色
+    elif d < -0.2:
+        return "#3B82F6", "#FFFFFF"   # - 藍色
+    else:
+        return "#78797A", "#FFFFFF"   # 0 灰色
+
 def get_wbgt_style(wbgt):
     if wbgt is None or np.isnan(wbgt): return "#555555", "#FFFFFF"
     w = float(wbgt)
@@ -223,14 +233,17 @@ def get_raintotal_style(val):
     if v >= 0.1:   return "#227192", "#FFFFFF"
     return "#636363", "#FFFFFF"
 
+# 依需求 3 更新風力分級標準:
+# 0-30 清勁以下 gray, 31-40 清勁 green, 41-62 強風 blue, 63-87 烈風 amber, 88-117 暴風 orange, 118+ 颶風 red
 def get_wind_style(wind):
-    if wind is None or np.isnan(wind): return "#78797a", "#FFFFFF"
+    if wind is None or np.isnan(wind): return "#78797A", "#FFFFFF"
     w = float(wind)
-    if w >= 117.5: return "#6a0606", "#FFFFFF"
-    if w >= 87.5:  return "#b1510d", "#FFFFFF"
-    if w >= 62.5:  return "#7f710b", "#FFFFFF"
-    if w >= 40.5:  return "#154c83", "#FFFFFF"
-    return "#11750a", "#FFFFFF"
+    if w >= 118.0: return "#EF4444", "#FFFFFF"  # 颶風 red
+    if w >= 88.0:  return "#F97316", "#FFFFFF"  # 暴風 orange
+    if w >= 63.0:  return "#F59E0B", "#FFFFFF"  # 烈風 amber
+    if w >= 41.0:  return "#3B82F6", "#FFFFFF"  # 強風 blue
+    if w >= 31.0:  return "#10B981", "#FFFFFF"  # 清勁 green
+    return "#78797A", "#FFFFFF"                  # 清勁以下 gray
 
 def get_pressure_style(p):
     if p is None or np.isnan(p): return "#78797a", "#FFFFFF"
@@ -301,6 +314,7 @@ def export_csv(pub_time_str, stations):
             "temp": d.get('temp_now'),
             "temp_max": d.get('temp_max'),
             "temp_min": d.get('temp_min'),
+            "temp_diff_24h": d.get('temp_diff_24h'),
             "humidity": d.get('humidity'),
             "wind_speed": d.get('wind_speed'),
             "gust_speed": d.get('gust_speed'),
@@ -340,6 +354,38 @@ def parse_xml_timestamp(root):
             pass
     fallback_dt = datetime.now(MACAU_TZ)
     return fallback_dt.strftime("%Y-%m-%d %H:%M"), fallback_dt.timestamp()
+
+def compute_24h_temp_diff(stations, current_timestamp):
+    """計算各站 24 小時溫差: Current Temp - Temp 24H prior"""
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        target_ts_24h = current_timestamp - 86400
+        # 尋找 24 小時前 (±35 分鐘內) 最接近的一筆數據
+        for name, data in stations.items():
+            cur_temp = data.get('temp_now')
+            if cur_temp is None or np.isnan(cur_temp):
+                data['temp_diff_24h'] = None
+                continue
+            query = """
+                SELECT temp, timestamp FROM weather_history
+                WHERE station = ? AND temp IS NOT NULL
+                  AND timestamp BETWEEN ? AND ?
+                ORDER BY ABS(timestamp - ?) ASC LIMIT 1
+            """
+            cursor = conn.cursor()
+            cursor.execute(query, (name, target_ts_24h - 2100, target_ts_24h + 2100, target_ts_24h))
+            row = cursor.fetchone()
+            if row and row[0] is not None:
+                past_temp = float(row[0])
+                data['temp_diff_24h'] = round(cur_temp - past_temp, 1)
+            else:
+                data['temp_diff_24h'] = None
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ 計算 24 小時溫差異常: {e}")
+        for name, data in stations.items():
+            if 'temp_diff_24h' not in data:
+                data['temp_diff_24h'] = None
 
 def fetch_smg_weather():
     global update_time_str
@@ -430,6 +476,7 @@ def fetch_smg_weather():
                     if v_node is not None and v_node.text:
                         item['wind_dir'] = v_node.text.strip().upper()
 
+    compute_24h_temp_diff(stations, pub_timestamp)
     save_to_db(stations, update_time_str, pub_timestamp)
 
     with open(JSON_PATH, 'w', encoding='utf-8') as f:
@@ -480,6 +527,18 @@ def render_distribution_maps(stations, current_uvi=0.0):
         ("≥4.5° 非常寒冷", PALETTE['b-indigo']), ("<4.5° 極為寒冷", PALETTE['b-purple'])
     ]
 
+    temp_diff_legend = [
+        (">0°C 氣溫升高 (+)", "#EF4444"),
+        ("<0°C 氣溫下降 (-)", "#3B82F6"),
+        ("0°C 氣溫持平", "#78797A")
+    ]
+
+    wind_legend = [
+        ("≥118 颶風", "#EF4444"), ("88-117 暴風", "#F97316"),
+        ("63-87 烈風", "#F59E0B"), ("41-62 強風", "#3B82F6"),
+        ("31-40 清勁", "#10B981"), ("0-30 清勁以下", "#78797A")
+    ]
+
     pressure_legend = [
         ("≥1025 hPa", '#1E3A8A'), ("1020-1024 hPa", '#2563EB'),
         ("1015-1019 hPa", '#3B82F6'), ("1010-1014 hPa", '#10B981'),
@@ -489,6 +548,7 @@ def render_distribution_maps(stations, current_uvi=0.0):
 
     tasks = [
         ('temp_now', '實時氣溫分佈', '°C', lambda v: get_temp_style(v), temp_legend),
+        ('temp_diff_24h', '24小時氣溫變幅', '°C', get_temp_diff_style, temp_diff_legend),
         ('apparent', '實時體感溫度分佈', '°C', lambda v: get_temp_style(v), temp_legend),
         ('wbgt', '實時暑熱指數 WBGT', '°C', lambda v: get_wbgt_style(v), [
             ("≥32° 極度危險", '#991B1B'), ("≥31° 非常危險", '#DC2626'),
@@ -510,11 +570,8 @@ def render_distribution_maps(stations, current_uvi=0.0):
             ("≥350 mm", "#000000"), ("200-349.9 mm", "#921818"), ("100-199.9 mm", "#e86119"),
             ("50-99.9 mm", "#878e14"), ("0.1-49.9 mm", "#227192"), ("0 mm", "#636363")
         ]),
-        ('wind_speed', '平均風速分佈', 'km/h', get_wind_style, [
-            ("≥117.5 颶風", "#6a0606"), ("≥87.5 暴風/烈風", "#b1510d"),
-            ("≥62.5 強風", "#7f710b"), ("≥40.5 清勁", "#154c83"), ("<40.5 微風/和緩", "#11750a")
-        ]),
-        ('gust_speed', '最高陣風分佈', 'km/h', get_wind_style, None),
+        ('wind_speed', '平均風速分佈', 'km/h', get_wind_style, wind_legend),
+        ('gust_speed', '最高陣風分佈', 'km/h', get_wind_style, wind_legend),
         ('pressure', '海平面氣壓分佈', 'hPa', get_pressure_style, pressure_legend),
         ('wind_dir', '實時風向與風速分佈', '', None, None)
     ]
@@ -542,7 +599,7 @@ def render_distribution_maps(stations, current_uvi=0.0):
             lon, lat = data['lon'], data['lat']
             is_bridge = name in BRIDGE_STATIONS
 
-            if key in ['temp_now', 'temp_max', 'temp_min', 'humidity', 'rain_h', 'rain_d', 'apparent', 'wbgt', 'pressure'] and is_bridge:
+            if key in ['temp_now', 'temp_diff_24h', 'temp_max', 'temp_min', 'humidity', 'rain_h', 'rain_d', 'apparent', 'wbgt', 'pressure'] and is_bridge:
                 continue
             if key == 'pressure' and name not in PRESSURE_STATIONS:
                 continue
@@ -569,7 +626,7 @@ def render_distribution_maps(stations, current_uvi=0.0):
                         bbox=dict(boxstyle="round,pad=0.25", facecolor='white', edgecolor='none', alpha=0.88), zorder=6)
             else:
                 bg_color, font_color = style_fn(val)
-                val_text = f"{val:g}"
+                val_text = f"{val:+g}" if key == 'temp_diff_24h' else f"{val:g}"
 
                 ax.annotate(
                     f"{val_text}{unit}",
@@ -627,7 +684,7 @@ def render_distribution_maps(stations, current_uvi=0.0):
         plt.savefig(f"static/images/{key}.png", dpi=140, bbox_inches='tight')
         plt.close(fig)
 
-    print("✅ 全要素地圖分佈圖 (包含 pressure.png, apparent.png, wbgt.png) 渲染完成！")
+    print("✅ 全要素地圖分佈圖 (包含 temp_diff_24h.png 與新風力分級) 渲染完成！")
 
 # ==========================================
 # 輔助函數：智能插入 NaN 實現中斷斷線
@@ -676,6 +733,26 @@ def render_trend_charts():
     df['wbgt'] = [estimate_wbgt_kmh(t, h, w, uv_latest) for t, h, w in zip(df['temp'], df['humidity'], df['wind_speed'])]
     df['apparent'] = [calculate_apparent_temperature(t, h, w) for t, h, w in zip(df['temp'], df['humidity'], df['wind_speed'])]
 
+    # 4. 計算每個觀測點與 24 小時前的溫差序列 (Temp Diff 24H)
+    temp_diff_series = []
+    for idx, row in df.iterrows():
+        st = row['station']
+        t_curr = row['temp']
+        ts_curr = row['timestamp']
+        if pd.isna(t_curr):
+            temp_diff_series.append(np.nan)
+            continue
+        ts_24h = ts_curr - 86400
+        # 尋找前 24H 同一站點最近的氣溫
+        candidates = df[(df['station'] == st) & (df['timestamp'] >= ts_24h - 2100) & (df['timestamp'] <= ts_24h + 2100) & df['temp'].notna()]
+        if not candidates.empty:
+            closest_idx = (candidates['timestamp'] - ts_24h).abs().idxmin()
+            past_t = candidates.loc[closest_idx, 'temp']
+            temp_diff_series.append(round(t_curr - past_t, 1))
+        else:
+            temp_diff_series.append(np.nan)
+    df['temp_diff_24h'] = temp_diff_series
+
     GRID_BORDER_COLOR = '#8DA59A'
     TEXT_COLOR = '#334155'
     header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
@@ -685,10 +762,15 @@ def render_trend_charts():
         'S': 180, 'SSW': 202.5, 'SW': 225, 'WSW': 247.5, 'W': 270, 'WNW': 292.5, 'NW': 315, 'NNW': 337.5
     }
 
+    # 各要素定義 (含需求 3 之最新風力分級標記線)
     METRIC_DEFS = {
         'temp': {
             'label': '溫度 Temperature(℃)', 'color': '#A23B5A', 'step': 1.0, 'is_bar': False,
             'lines': [(35.5, '非常酷熱 35.5', '#EF4444'), (32.5, '酷熱 32.5', '#F97316'), (27.5, '炎熱 27.5', '#F59E0B'), (17.5, '和暖 17.5', '#10B981'), (12.5, '清涼 12.5', '#0EA5E9'), (7.5, '寒冷 7.5', '#3B82F6')]
+        },
+        'temp_diff_24h': {
+            'label': '24小時溫差 24H Temp Change(℃)', 'color': '#EF4444', 'step': 1.0, 'is_bar': False,
+            'lines': [(0.0, '0℃ 氣溫持平', '#64748B')]
         },
         'apparent': {
             'label': '體感溫度 Apparent Temp(℃)', 'color': '#EA580C', 'step': 1.0, 'is_bar': False,
@@ -703,8 +785,14 @@ def render_trend_charts():
             'lines': [(95.0, '非常潮濕 95%', '#3B82F6'), (88.0, '潮濕 88%', '#0EA5E9'), (50.0, '正常 50%', '#10B981'), (30.0, '乾燥 30%', '#F59E0B')]
         },
         'wind_speed': {
-            'label': '風速 Wind Speed(km/h)', 'color': '#8B3A62', 'step': 4.0, 'is_bar': False,
-            'lines': [(62.5, '強風 62.5', '#7F710B'), (40.5, '清勁 40.5', '#154C83')]
+            'label': '風速 Wind Speed(km/h)', 'color': '#8B3A62', 'step': 5.0, 'is_bar': False,
+            'lines': [
+                (118.0, '颶風 118', '#EF4444'),
+                (88.0,  '暴風 88',  '#F97316'),
+                (63.0,  '烈風 63',  '#F59E0B'),
+                (41.0,  '強風 41',  '#3B82F6'),
+                (31.0,  '清勁 31',  '#10B981')
+            ]
         },
         'rain': {
             'label': '降水量 Rainfall(mm)', 'color': '#1D4ED8', 'step': 2.0, 'is_bar': True,
@@ -716,10 +804,12 @@ def render_trend_charts():
         }
     }
 
+    # 全局 X 軸時間範圍：以最新數據時間點為 end，前推 24 小時
     global_max_dt = df['datetime'].max()
     x_end = global_max_dt
     x_start = x_end - pd.Timedelta(hours=24)
 
+    # 計算各氣象要素的統一 Y 軸範圍 (包含動態 Step)
     UNIFIED_Y_LIMITS = {}
     for col, cfg in METRIC_DEFS.items():
         sub_df = df.copy()
@@ -733,15 +823,30 @@ def render_trend_charts():
             continue
 
         y_min, y_max = all_v.min(), all_v.max()
-        step = cfg['step']
 
         if col == 'wind_speed':
-            plot_ymin = int(np.floor(y_min / step) * step - 4 * step)
-            plot_ymax = max(24, int(np.ceil(y_max / step) * step + step))
+            # 1. 動態計算間距：依據風速最大值自動適應，不再固定為 4
+            v_range = y_max - y_min
+            if v_range > 80: step = 10.0
+            elif v_range > 40: step = 5.0
+            elif v_range > 20: step = 4.0
+            else: step = 2.0
+            cfg['step'] = step
+
+            # 1. Y 軸僅為風向風羽預留 1 格空間 (即 -1 * step)
+            plot_ymin = -1.0 * step
+            plot_ymax = int(np.ceil(y_max / step) * step + step)
+            if plot_ymax < 20: plot_ymax = 20
+        elif col == 'temp_diff_24h':
+            step = 1.0
+            plot_ymin = np.floor(min(-1.0, y_min)) - 1
+            plot_ymax = np.ceil(max(1.0, y_max)) + 1
         elif col in ['temp', 'apparent', 'wbgt', 'pressure']:
+            step = cfg['step']
             plot_ymin = np.floor(y_min) - 1
             plot_ymax = np.ceil(y_max) + 1
         else:
+            step = cfg['step']
             plot_ymin = max(0, np.floor(y_min / step) * step - step)
             plot_ymax = np.ceil(y_max / step) * step + step
 
@@ -751,6 +856,7 @@ def render_trend_charts():
 
         UNIFIED_Y_LIMITS[col] = (plot_ymin, plot_ymax, step)
 
+    # 渲染各測站的獨立要素時序圖
     for station_name in STATION_COORDS.keys():
         st_df = df[df['station'] == station_name].copy()
         if st_df.empty: 
@@ -764,7 +870,7 @@ def render_trend_charts():
         if is_bridge:
             metrics = ['wind_speed']
         else:
-            metrics = ['temp', 'apparent', 'wbgt', 'humidity', 'wind_speed', 'rain']
+            metrics = ['temp', 'temp_diff_24h', 'apparent', 'wbgt', 'humidity', 'wind_speed', 'rain']
             if station_name in PRESSURE_STATIONS:
                 metrics.append('pressure')
 
@@ -791,6 +897,11 @@ def render_trend_charts():
 
             if cfg['is_bar']:
                 ax.bar(plot_df['datetime'], plot_df[col], width=pd.Timedelta(minutes=8), color=cfg['color'], alpha=0.85, edgecolor='none')
+            elif col == 'temp_diff_24h':
+                # 4. 24 小時溫差圖：正溫差紅線，負溫差藍線，並繪製雙色漸變填充
+                ax.plot(plot_df['datetime'], plot_df[col], color='#EF4444', linewidth=1.6, label='24H Temp Diff')
+                ax.fill_between(plot_df['datetime'], plot_df[col], 0, where=(plot_df[col] >= 0), color='#EF4444', alpha=0.25, interpolate=True)
+                ax.fill_between(plot_df['datetime'], plot_df[col], 0, where=(plot_df[col] < 0), color='#3B82F6', alpha=0.25, interpolate=True)
             else:
                 ax.plot(plot_df['datetime'], plot_df[col], color=cfg['color'], linewidth=1.5, antialiased=True, label=col.capitalize() if col != 'wind_speed' else 'Wind Speed')
 
@@ -809,10 +920,12 @@ def render_trend_charts():
 
             def y_fmt(v):
                 if col == 'wind_speed' and v < 0: return ""
+                if col == 'temp_diff_24h' and v > 0: return f"+{int(v)}" if float(v).is_integer() else f"+{v:.1f}"
                 return f"{int(v)}" if float(v).is_integer() else f"{v:.1f}"
 
             ax.set_yticklabels([y_fmt(y) for y in y_ticks], fontsize=14, color=cfg['color'], family='monospace')
 
+            # 標記線
             if 'lines' in cfg:
                 for threshold_val, line_label, line_color in cfg['lines']:
                     if plot_ymin < threshold_val < plot_ymax:
@@ -820,39 +933,62 @@ def render_trend_charts():
                         ax.text(x_end, threshold_val, f" {line_label}", color=line_color, 
                                 va='center', ha='left', fontsize=9.5, alpha=0.85, clip_on=True)
 
+            # 2. & 3. 風向僅在「整點」顯示，並改用標準氣象「風羽圖」(Wind Barb)
             if col == 'wind_speed':
-                arrow_df = st_df.dropna(subset=['wind_dir'])
-                base_arrow_y = plot_ymin + 2.0 * step
-                for _, r in arrow_df.iterrows():
-                    d_t = r['datetime']
-                    if pd.isnull(d_t) or d_t < x_start or d_t > x_end:
-                        continue
-                    if d_t.minute <= 8 or d_t.minute >= 52:
+                arrow_df = st_df.dropna(subset=['wind_dir']).copy()
+                arrow_df['minute'] = arrow_df['datetime'].dt.minute
+                # 篩選整點前後 10 分鐘，每個小時只保留最接近 00 分的單一記錄
+                whole_hour_candidates = arrow_df[(arrow_df['minute'] <= 10) | (arrow_df['minute'] >= 50)].copy()
+                
+                if not whole_hour_candidates.empty:
+                    whole_hour_candidates['diff_hour'] = np.minimum(whole_hour_candidates['minute'], (60 - whole_hour_candidates['minute']).abs())
+                    whole_hour_candidates['hour_str'] = whole_hour_candidates['datetime'].dt.strftime('%Y-%m-%d %H')
+                    hourly_barbs = whole_hour_candidates.sort_values('diff_hour').groupby('hour_str').first().reset_index()
+
+                    barb_x = []
+                    barb_y = []
+                    barb_u = []
+                    barb_v = []
+                    barb_colors = []
+
+                    barb_base_y = plot_ymin + 0.5 * step  # 位於底部專用預留區間
+
+                    for _, r in hourly_barbs.iterrows():
+                        d_t = r['datetime']
+                        if pd.isnull(d_t) or d_t < x_start or d_t > x_end:
+                            continue
                         w_dir = r.get('wind_dir')
+                        w_spd = r.get('wind_speed', 0.0) or 0.0
                         try: deg = float(w_dir)
                         except: deg = dir_deg_map.get(str(w_dir).upper(), None)
 
                         if deg is not None:
-                            rot_rad = np.radians(deg + 180)
-                            arrow_len_hours = 0.35
-                            arrow_len_y = 1.0 * step
-                            dx = np.sin(rot_rad) * arrow_len_hours
-                            dy = np.cos(rot_rad) * arrow_len_y
-                            
-                            t_num = mdates.date2num(d_t)
-                            t_delta_num = dx / 24.0
+                            # 氣象風向轉 u, v 分量 (風羽指向風來向)
+                            # 1 節 (knot) ≈ 1.852 km/h
+                            spd_kt = max(2.0, float(w_spd) / 1.852)
+                            rad = np.radians(deg)
+                            u = -spd_kt * np.sin(rad)
+                            v = -spd_kt * np.cos(rad)
 
-                            ax.annotate(
-                                "",
-                                xy=(t_num + t_delta_num, base_arrow_y + dy),
-                                xytext=(t_num, base_arrow_y),
-                                arrowprops=dict(
-                                    arrowstyle="->,head_length=0.4,head_width=0.25",
-                                    color="#2563EB",
-                                    lw=1.6
-                                ),
-                                zorder=6
-                            )
+                            barb_x.append(mdates.date2num(d_t))
+                            barb_y.append(barb_base_y)
+                            barb_u.append(u)
+                            barb_v.append(v)
+                            c, _ = get_wind_style(w_spd)
+                            barb_colors.append(c)
+
+                    if barb_x:
+                        # 繪製專業風羽
+                        ax.barbs(
+                            barb_x, barb_y, barb_u, barb_v,
+                            length=5.5,
+                            pivot='middle',
+                            color='#2563EB',
+                            barbcolor='#1E40AF',
+                            flagcolor='#1E40AF',
+                            linewidth=1.2,
+                            zorder=6
+                        )
 
             ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
             ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
@@ -886,6 +1022,7 @@ def render_trend_charts():
             plt.savefig(f"static/images/line_{station_name}_{col}.png", dpi=120, bbox_inches='tight')
             plt.close(fig)
 
+    # 跨海大橋風力趨勢圖
     bridge_colors = {
         "友誼大橋北": "#1E40AF", "友誼大橋南": "#3B82F6",
         "澳門大橋北": "#047857", "澳門大橋南": "#10B981",
@@ -938,7 +1075,7 @@ def render_trend_charts():
         plt.savefig(f"static/images/{filename}", dpi=120, bbox_inches='tight')
         plt.close(fig)
 
-    print("✅ 時序趨勢圖 (包含大橋風速、大橋陣風趨勢圖與統一 Y 軸) 全部渲染完成！")
+    print("✅ 時序趨勢圖 (包含整點風羽 Wind Barb、24H 溫差折線與大橋圖) 全部渲染完成！")
 
 # ==========================================
 # 繪製 24 小時紫外線折線圖
@@ -1025,53 +1162,64 @@ def render_uv_trend_chart():
     print("✅ 紫外線折線圖生成完成！")
 
 # ==========================================
-# 24 小時降雨量統計表 (支援初次無歷史紀錄回退機制)
+# 24 小時降雨量統計表 (保證永久輸出 JSON 文件)
 # ==========================================
 def generate_24h_rainfall_summary(stations_data=None):
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    df = pd.read_sql_query("SELECT * FROM weather_history ORDER BY timestamp ASC", conn)
-    conn.close()
-
+    output_path = "static/images/rainfall_24h_summary.json"
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     records = []
 
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        df = pd.read_sql_query("SELECT * FROM weather_history ORDER BY timestamp ASC", conn)
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ 讀取資料庫異常: {e}")
+        df = pd.DataFrame()
+
     if not df.empty:
-        df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau')
-        latest_time = df['datetime'].max()
-        start_24h_window = latest_time - timedelta(hours=24)
-        df_24h = df[df['datetime'] >= start_24h_window].copy()
+        try:
+            df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau')
+            latest_time = df['datetime'].max()
+            start_24h_window = latest_time - timedelta(hours=24)
+            df_24h = df[df['datetime'] >= start_24h_window].copy()
 
-        for station, info in STATION_COORDS.items():
-            if station in BRIDGE_STATIONS:
-                continue
-            st_data = df_24h[df_24h['station'] == station].copy()
-            
-            total_24h_rain = 0.0
-            current_h_rain = 0.0
+            for station, info in STATION_COORDS.items():
+                if station in BRIDGE_STATIONS:
+                    continue
+                st_data = df_24h[df_24h['station'] == station].copy()
+                
+                total_24h_rain = 0.0
+                current_h_rain = 0.0
 
-            if not st_data.empty:
-                st_data['minute'] = st_data['datetime'].dt.minute
-                st_data['date_hour'] = st_data['datetime'].dt.strftime('%Y-%m-%d %H')
-                sample_candidates = st_data[(st_data['minute'] >= 30) & (st_data['minute'] <= 40)].copy()
-                if not sample_candidates.empty:
-                    sample_candidates['diff_35'] = (sample_candidates['minute'] - 35).abs()
-                    sampled_hourly = sample_candidates.sort_values('diff_35').groupby('date_hour').first().reset_index()
-                    total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
-                else:
-                    sampled_hourly = st_data.groupby(st_data['datetime'].dt.strftime('%Y-%m-%d %H')).last().reset_index()
-                    total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
+                if not st_data.empty:
+                    st_data['minute'] = st_data['datetime'].dt.minute
+                    st_data['date_hour'] = st_data['datetime'].dt.strftime('%Y-%m-%d %H')
+                    sample_candidates = st_data[(st_data['minute'] >= 30) & (st_data['minute'] <= 40)].copy()
+                    if not sample_candidates.empty:
+                        sample_candidates['diff_35'] = (sample_candidates['minute'] - 35).abs()
+                        sampled_hourly = sample_candidates.sort_values('diff_35').groupby('date_hour').first().reset_index()
+                        total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
+                    else:
+                        sampled_hourly = st_data.groupby(st_data['datetime'].dt.strftime('%Y-%m-%d %H')).last().reset_index()
+                        total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
 
-                latest_row = st_data.iloc[-1]
-                current_h_rain = latest_row['rain'] if pd.notnull(latest_row['rain']) else 0.0
+                    latest_row = st_data.iloc[-1]
+                    current_h_rain = latest_row['rain'] if pd.notnull(latest_row['rain']) else 0.0
 
-            records.append({
-                "Station": station,
-                "Code": info.get('code', ''),
-                "Area": info.get('area', ''),
-                "Current_Hourly_Rain (mm)": round(float(current_h_rain), 1),
-                "Past_24H_Total_Rain (mm)": round(float(total_24h_rain), 1)
-            })
-    else:
-        # 初次建立或 history.db 尚無積累數據時的回退處理
+                records.append({
+                    "Station": station,
+                    "Code": info.get('code', ''),
+                    "Area": info.get('area', ''),
+                    "Current_Hourly_Rain (mm)": round(float(current_h_rain), 1),
+                    "Past_24H_Total_Rain (mm)": round(float(total_24h_rain), 1)
+                })
+        except Exception as e:
+            print(f"⚠️ 分析 24 小時累積雨量錯誤: {e}")
+            records = []
+
+    # 如果歷史紀錄不足或分析為空，回退使用 stations_data 或預設值確保必定有 JSON 輸出
+    if not records:
         for station, info in STATION_COORDS.items():
             if station in BRIDGE_STATIONS:
                 continue
@@ -1087,18 +1235,17 @@ def generate_24h_rainfall_summary(stations_data=None):
             })
 
     summary_df = pd.DataFrame(records)
-    summary_df.sort_values(by="Past_24H_Total_Rain (mm)", ascending=False, inplace=True)
+    if not summary_df.empty and "Past_24H_Total_Rain (mm)" in summary_df.columns:
+        summary_df.sort_values(by="Past_24H_Total_Rain (mm)", ascending=False, inplace=True)
 
     print("\n" + "=" * 65)
-    print(f"📊 澳門過去 24 小時累積雨量統計表 (每小時 35 分定點抽樣加總)")
+    print("📊 澳門過去 24 小時累積雨量統計表 (每小時 35 分定點抽樣加總)")
     print("=" * 65)
     print(summary_df.to_string(index=False))
     print("=" * 65 + "\n")
 
-    output_path = "static/images/rainfall_24h_summary.json"
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     summary_df.to_json(output_path, orient="records", force_ascii=False, indent=2)
-    print(f"✅ 成功生成 {output_path}")
+    print(f"✅ 成功生成並輸出 {output_path}")
 
 # ==========================================
 # 程式進入點
@@ -1110,11 +1257,13 @@ if __name__ == '__main__':
     current_uvi = uv_data.get('uvi', 0.0) if uv_data else 0.0
 
     if stations_data:
-        # 優先生成表格 JSON，避免後續製圖網路超時或例外導致資料缺失
+        # 優先保證雨量 JSON 統計表輸出
         generate_24h_rainfall_summary(stations_data)
         render_distribution_maps(stations_data, current_uvi)
         render_trend_charts()
         render_uv_trend_chart()
         print(f"🎉 全部功能升級完畢！當前 XML 觀測時間：{update_time_str}")
     else:
-        print("❌ 無法獲取 SMG XML 數據，請檢查網絡連接。")
+        # 即便網路異常，依然保證輸出當前最新可用的雨量 JSON 檔案
+        generate_24h_rainfall_summary(None)
+        print("❌ 無法獲取 SMG XML 數據，已確保預備狀態檔案輸出。")
