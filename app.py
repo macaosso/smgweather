@@ -288,7 +288,6 @@ def save_to_db(stations, pub_time_str, pub_timestamp):
     conn.commit()
     conn.close()
 
-    # 1. 儲存時將 SysPubdate 寫入 CSV
     export_csv(pub_time_str, stations)
 
 def export_csv(pub_time_str, stations):
@@ -496,7 +495,6 @@ def render_distribution_maps(stations, current_uvi=0.0):
             ("≥30° 危險", '#EA580C'), ("≥28° 警戒", '#F59E0B'),
             ("≥25° 注意", '#EAB308'), ("<25° 正常", '#10B981')
         ]),
-        # 2. 最高溫與最低溫圖增加分級標準
         ('temp_max', '今日最高氣溫', '°C', lambda v: get_temp_style(v), temp_legend),
         ('temp_min', '今日最低氣溫', '°C', lambda v: get_temp_style(v), temp_legend),
         ('humidity', '實時相對濕度', '%', lambda v: get_humidity_style(v), [
@@ -517,7 +515,6 @@ def render_distribution_maps(stations, current_uvi=0.0):
             ("≥62.5 強風", "#7f710b"), ("≥40.5 清勁", "#154c83"), ("<40.5 微風/和緩", "#11750a")
         ]),
         ('gust_speed', '最高陣風分佈', 'km/h', get_wind_style, None),
-        # 3. 新增 static/images/pressure.png
         ('pressure', '海平面氣壓分佈', 'hPa', get_pressure_style, pressure_legend),
         ('wind_dir', '實時風向與風速分佈', '', None, None)
     ]
@@ -719,12 +716,10 @@ def render_trend_charts():
         }
     }
 
-    # 4. 全局 X 軸時間範圍：以最新數據時間點為 end，前推 24 小時（例如 15:35 ~ 15:35）
     global_max_dt = df['datetime'].max()
     x_end = global_max_dt
     x_start = x_end - pd.Timedelta(hours=24)
 
-    # 7. 計算各氣象要素的「統一 Y 軸範圍」
     UNIFIED_Y_LIMITS = {}
     for col, cfg in METRIC_DEFS.items():
         sub_df = df.copy()
@@ -741,7 +736,6 @@ def render_trend_charts():
         step = cfg['step']
 
         if col == 'wind_speed':
-            # 8. 根據最低風速下探 4 個單位 space 給箭頭使用
             plot_ymin = int(np.floor(y_min / step) * step - 4 * step)
             plot_ymax = max(24, int(np.ceil(y_max / step) * step + step))
         elif col in ['temp', 'apparent', 'wbgt', 'pressure']:
@@ -757,7 +751,6 @@ def render_trend_charts():
 
         UNIFIED_Y_LIMITS[col] = (plot_ymin, plot_ymax, step)
 
-    # 渲染各測站的獨立要素時序圖
     for station_name in STATION_COORDS.keys():
         st_df = df[df['station'] == station_name].copy()
         if st_df.empty: 
@@ -808,10 +801,8 @@ def render_trend_charts():
                 leg = ax.legend(loc='upper left', frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=11)
                 leg.get_frame().set_linewidth(1.0)
 
-            # 4. 精確設定 X 軸範圍 (15:35 ~ 15:35)
             ax.set_xlim(x_start, x_end)
 
-            # 7. 統一 Y 軸設定
             y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
             ax.set_ylim(plot_ymin, plot_ymax)
             ax.set_yticks(y_ticks)
@@ -822,7 +813,6 @@ def render_trend_charts():
 
             ax.set_yticklabels([y_fmt(y) for y in y_ticks], fontsize=14, color=cfg['color'], family='monospace')
 
-            # 輔助標記線
             if 'lines' in cfg:
                 for threshold_val, line_label, line_color in cfg['lines']:
                     if plot_ymin < threshold_val < plot_ymax:
@@ -830,7 +820,6 @@ def render_trend_charts():
                         ax.text(x_end, threshold_val, f" {line_label}", color=line_color, 
                                 va='center', ha='left', fontsize=9.5, alpha=0.85, clip_on=True)
 
-            # 8. 清晰美觀的風向箭頭繪製
             if col == 'wind_speed':
                 arrow_df = st_df.dropna(subset=['wind_dir'])
                 base_arrow_y = plot_ymin + 2.0 * step
@@ -844,7 +833,6 @@ def render_trend_charts():
                         except: deg = dir_deg_map.get(str(w_dir).upper(), None)
 
                         if deg is not None:
-                            # 氣象風向為來向，箭頭指向去向
                             rot_rad = np.radians(deg + 180)
                             arrow_len_hours = 0.35
                             arrow_len_y = 1.0 * step
@@ -898,9 +886,6 @@ def render_trend_charts():
             plt.savefig(f"static/images/line_{station_name}_{col}.png", dpi=120, bbox_inches='tight')
             plt.close(fig)
 
-    # ==========================================
-    # 5. & 6. 新增大橋風力趨勢圖與大橋陣風趨勢圖
-    # ==========================================
     bridge_colors = {
         "友誼大橋北": "#1E40AF", "友誼大橋南": "#3B82F6",
         "澳門大橋北": "#047857", "澳門大橋南": "#10B981",
@@ -926,7 +911,6 @@ def render_trend_charts():
 
         ax.set_xlim(x_start, x_end)
         plot_ymin, plot_ymax, step = UNIFIED_Y_LIMITS['wind_speed']
-        # 大橋專用圖不需要留負數區給風向箭頭，從 0 開始
         y_ticks = np.arange(0, plot_ymax + step * 0.1, step)
         ax.set_ylim(0, plot_ymax)
         ax.set_yticks(y_ticks)
@@ -1041,51 +1025,66 @@ def render_uv_trend_chart():
     print("✅ 紫外線折線圖生成完成！")
 
 # ==========================================
-# 24 小時降雨量統計表
+# 24 小時降雨量統計表 (支援初次無歷史紀錄回退機制)
 # ==========================================
-def generate_24h_rainfall_summary():
+def generate_24h_rainfall_summary(stations_data=None):
     conn = sqlite3.connect(DB_PATH, timeout=10)
     df = pd.read_sql_query("SELECT * FROM weather_history ORDER BY timestamp ASC", conn)
     conn.close()
 
-    if df.empty: return
-
-    df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau')
-    latest_time = df['datetime'].max()
-    start_24h_window = latest_time - timedelta(hours=24)
-    df_24h = df[df['datetime'] >= start_24h_window].copy()
-
     records = []
-    for station, info in STATION_COORDS.items():
-        if station in BRIDGE_STATIONS:
-            continue
-        st_data = df_24h[df_24h['station'] == station].copy()
-        
-        total_24h_rain = 0.0
-        current_h_rain = 0.0
 
-        if not st_data.empty:
-            st_data['minute'] = st_data['datetime'].dt.minute
-            st_data['date_hour'] = st_data['datetime'].dt.strftime('%Y-%m-%d %H')
-            sample_candidates = st_data[(st_data['minute'] >= 30) & (st_data['minute'] <= 40)].copy()
-            if not sample_candidates.empty:
-                sample_candidates['diff_35'] = (sample_candidates['minute'] - 35).abs()
-                sampled_hourly = sample_candidates.sort_values('diff_35').groupby('date_hour').first().reset_index()
-                total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
-            else:
-                sampled_hourly = st_data.groupby(st_data['datetime'].dt.strftime('%Y-%m-%d %H')).last().reset_index()
-                total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
+    if not df.empty:
+        df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau')
+        latest_time = df['datetime'].max()
+        start_24h_window = latest_time - timedelta(hours=24)
+        df_24h = df[df['datetime'] >= start_24h_window].copy()
 
-            latest_row = st_data.iloc[-1]
-            current_h_rain = latest_row['rain'] if pd.notnull(latest_row['rain']) else 0.0
+        for station, info in STATION_COORDS.items():
+            if station in BRIDGE_STATIONS:
+                continue
+            st_data = df_24h[df_24h['station'] == station].copy()
+            
+            total_24h_rain = 0.0
+            current_h_rain = 0.0
 
-        records.append({
-            "Station": station,
-            "Code": info.get('code', ''),
-            "Area": info.get('area', ''),
-            "Current_Hourly_Rain (mm)": round(float(current_h_rain), 1),
-            "Past_24H_Total_Rain (mm)": round(float(total_24h_rain), 1)
-        })
+            if not st_data.empty:
+                st_data['minute'] = st_data['datetime'].dt.minute
+                st_data['date_hour'] = st_data['datetime'].dt.strftime('%Y-%m-%d %H')
+                sample_candidates = st_data[(st_data['minute'] >= 30) & (st_data['minute'] <= 40)].copy()
+                if not sample_candidates.empty:
+                    sample_candidates['diff_35'] = (sample_candidates['minute'] - 35).abs()
+                    sampled_hourly = sample_candidates.sort_values('diff_35').groupby('date_hour').first().reset_index()
+                    total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
+                else:
+                    sampled_hourly = st_data.groupby(st_data['datetime'].dt.strftime('%Y-%m-%d %H')).last().reset_index()
+                    total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
+
+                latest_row = st_data.iloc[-1]
+                current_h_rain = latest_row['rain'] if pd.notnull(latest_row['rain']) else 0.0
+
+            records.append({
+                "Station": station,
+                "Code": info.get('code', ''),
+                "Area": info.get('area', ''),
+                "Current_Hourly_Rain (mm)": round(float(current_h_rain), 1),
+                "Past_24H_Total_Rain (mm)": round(float(total_24h_rain), 1)
+            })
+    else:
+        # 初次建立或 history.db 尚無積累數據時的回退處理
+        for station, info in STATION_COORDS.items():
+            if station in BRIDGE_STATIONS:
+                continue
+            d = (stations_data or {}).get(station, {})
+            current_h_rain = d.get('rain_h') or 0.0
+            day_rain = d.get('rain_d') or current_h_rain
+            records.append({
+                "Station": station,
+                "Code": info.get('code', ''),
+                "Area": info.get('area', ''),
+                "Current_Hourly_Rain (mm)": round(float(current_h_rain), 1),
+                "Past_24H_Total_Rain (mm)": round(float(day_rain), 1)
+            })
 
     summary_df = pd.DataFrame(records)
     summary_df.sort_values(by="Past_24H_Total_Rain (mm)", ascending=False, inplace=True)
@@ -1096,7 +1095,10 @@ def generate_24h_rainfall_summary():
     print(summary_df.to_string(index=False))
     print("=" * 65 + "\n")
 
-    summary_df.to_json("static/images/rainfall_24h_summary.json", orient="records", force_ascii=False, indent=2)
+    output_path = "static/images/rainfall_24h_summary.json"
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    summary_df.to_json(output_path, orient="records", force_ascii=False, indent=2)
+    print(f"✅ 成功生成 {output_path}")
 
 # ==========================================
 # 程式進入點
@@ -1108,10 +1110,11 @@ if __name__ == '__main__':
     current_uvi = uv_data.get('uvi', 0.0) if uv_data else 0.0
 
     if stations_data:
+        # 優先生成表格 JSON，避免後續製圖網路超時或例外導致資料缺失
+        generate_24h_rainfall_summary(stations_data)
         render_distribution_maps(stations_data, current_uvi)
         render_trend_charts()
         render_uv_trend_chart()
-        generate_24h_rainfall_summary()
         print(f"🎉 全部功能升級完畢！當前 XML 觀測時間：{update_time_str}")
     else:
         print("❌ 無法獲取 SMG XML 數據，請檢查網絡連接。")
