@@ -23,7 +23,7 @@ jobs:
       - name: 檢出主分支代碼
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: 配置 Python 3.10
         uses: actions/setup-python@v5
@@ -60,7 +60,13 @@ jobs:
             echo "[$(date '+%Y-%m-%d %H:%M:%S')] 開始執行澳門氣象同步輪詢..."
             echo "=========================================================="
 
-            # 拉取 gh-pages 分支歷史資料庫，維持時序連續性
+            cd "$GITHUB_WORKSPACE"
+
+            # 1. 強制同步 main 分支最新代碼，避免使用啟動時的舊版 index.html / app.py
+            git fetch origin main
+            git reset --hard origin/main
+
+            # 2. 拉取 gh-pages 分支歷史資料庫，維持時序連續性
             rm -rf /tmp/gh-pages-fetch
             if git clone --depth 1 --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/gh-pages-fetch 2>/dev/null; then
               cp -f /tmp/gh-pages-fetch/history.db ./history.db 2>/dev/null || true
@@ -68,20 +74,20 @@ jobs:
               rm -rf /tmp/gh-pages-fetch
             fi
 
-            # 確保 static 與 images 目錄存在
+            # 3. 確保目錄結構齊全
             mkdir -p static/images
             mkdir -p cache
 
-            # 執行核心 Python 腳本（不隱藏錯誤，直接輸出日誌以便排查）
+            # 4. 執行核心 Python 腳本
             python app.py
 
-            # 準備發布到 gh-pages 目錄
+            # 5. 準備發布到 gh-pages 目錄
             echo "準備同步發布至 gh-pages..."
             rm -rf /tmp/gh-pages-deploy
             mkdir -p /tmp/gh-pages-deploy/static/images
             mkdir -p /tmp/gh-pages-deploy/cache
 
-            # 正確複製所有生成檔案與目錄（同時兼容根目錄與 static/images/ 內的 JSON）
+            # 拷貝最新檔案 (確保 index.html 為最新拉取的版本)
             cp -f index.html /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -rf static /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f weather_data.json /tmp/gh-pages-deploy/ 2>/dev/null || true
@@ -101,14 +107,14 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b gh-pages
             git add -A
-            
+
             # 列出本次 commit 包含的文件清單，方便在 Action 日誌中確認
             echo "--- gh-pages 發布檔案列表 ---"
             git status --short
             echo "----------------------------"
 
             git commit -m "Auto Update: $(date '+%Y-%m-%d %H:%M:%S') [Macau SMG Sync]"
-            
+
             git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages || echo "推送失敗，等待下輪重試..."
 
             cd "$GITHUB_WORKSPACE"
