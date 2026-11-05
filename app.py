@@ -40,11 +40,15 @@ ox.settings.log_console = False
 DB_PATH = 'history.db'
 JSON_PATH = 'weather_data.json'
 CSV_PATH = 'static/weather_data.csv'
+WIND_INDEX_DB = 'windindex.db'
+WIND_INDEX_JSON = 'windindexdata.json'
+
 MACAU_TZ = ZoneInfo('Asia/Macau')
 
 update_time_str = datetime.now(MACAU_TZ).strftime('%Y-%m-%d %H:%M')
 date_part = datetime.now(MACAU_TZ).strftime('%m/%d')
 time_part = datetime.now(MACAU_TZ).strftime('%H:%M')
+pub_timestamp = datetime.now(MACAU_TZ).timestamp()
 
 plt.rcParams['font.sans-serif'] = [
     'Noto Sans CJK TC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei',
@@ -158,7 +162,6 @@ def load_mapdata_json(json_file='mapdata.json'):
 
 unified_land_gdf, bridges_gdf = load_mapdata_json('mapdata.json')
 
-# 若本機或執行環境中需要補充 OSM 鄰近陸地 (如珠海)，進行輔助加載
 try:
     if unified_land_gdf is None or unified_land_gdf.empty:
         print("正在嘗試從 OSM 獲取澳門及周邊地圖...")
@@ -280,6 +283,17 @@ def init_db():
     conn.commit()
     conn.close()
 
+def init_wind_index_db():
+    conn = sqlite3.connect(WIND_INDEX_DB)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS wind_index_history
+                 (time_str TEXT, timestamp REAL UNIQUE,
+                  land_u REAL, land_ug REAL,
+                  bridge_v REAL, bridge_vg REAL,
+                  wind_index REAL, grade TEXT)''')
+    conn.commit()
+    conn.close()
+
 def save_to_db(stations, pub_time_str, pub_timestamp):
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
@@ -335,6 +349,89 @@ def save_uv_to_db(uv_data, pub_time_str, pub_timestamp):
     conn.close()
 
 # ==========================================
+# 風力指數計算與儲存 (windindex.db & windindexdata.json)
+# ==========================================
+def compute_and_save_wind_index(stations_data, pub_time_str, pub_timestamp):
+    land_ws, land_gust = [], []
+    bridge_ws, bridge_gust = [], []
+
+    for name, d in stations_data.items():
+        ws = d.get('wind_speed')
+        g = d.get('gust_speed')
+        is_bridge = name in BRIDGE_STATIONS
+
+        if ws is not None and not np.isnan(ws):
+            (bridge_ws if is_bridge else land_ws).append(float(ws))
+        if g is not None and not np.isnan(g):
+            (bridge_gust if is_bridge else land_gust).append(float(g))
+
+    U = float(np.mean(land_ws)) if land_ws else 0.0
+    Ug = float(np.mean(land_gust)) if land_gust else 0.0
+    V = float(np.mean(bridge_ws)) if bridge_ws else 0.0
+    Vg = float(np.mean(bridge_gust)) if bridge_gust else 0.0
+
+    def get_r(a):
+        r = -0.00005 * (a ** 2) + 0.0081 * a - 0.0005
+        return max(r, 0.0)
+
+    Ur = get_r(U)
+    Vr = get_r(V)
+    wind_idx = 0.56 * ((1.0 - Ur) * U + Ur * Ug) + 0.44 * ((1.0 - Vr) * V + Vr * Vg)
+    idx_rounded = round(wind_idx, 1)
+
+    if idx_rounded <= 13:
+        grade = "輕微"
+    elif idx_rounded <= 24:
+        grade = "清勁"
+    elif idx_rounded <= 44:
+        grade = "強勁"
+    elif idx_rounded <= 74:
+        grade = "強烈"
+    else:
+        grade = "極強"
+
+    # 1. 寫入 windindex.db
+    conn = sqlite3.connect(WIND_INDEX_DB, timeout=10)
+    c = conn.cursor()
+    c.execute("DELETE FROM wind_index_history WHERE timestamp < ?", (pub_timestamp - 7 * 86400,))
+    c.execute('''INSERT OR REPLACE INTO wind_index_history 
+                 (time_str, timestamp, land_u, land_ug, bridge_v, bridge_vg, wind_index, grade)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+              (pub_time_str, pub_timestamp, round(U, 2), round(Ug, 2), round(V, 2), round(Vg, 2), idx_rounded, grade))
+    conn.commit()
+    conn.close()
+
+    # 2. 輸出 windindexdata.json
+    json_stations = {}
+    for name, d in stations_data.items():
+        json_stations[name] = {
+            "wind_speed": d.get('wind_speed'),
+            "gust_speed": d.get('gust_speed'),
+            "is_bridge": name in BRIDGE_STATIONS,
+            "code": d.get('code', '')
+        }
+
+    payload = {
+        "update_time": pub_time_str,
+        "timestamp": pub_timestamp,
+        "wind_index": idx_rounded,
+        "grade": grade,
+        "land": {
+            "avg_wind_speed": round(U, 2),
+            "avg_wind_gust": round(Ug, 2)
+        },
+        "bridge": {
+            "avg_wind_speed": round(V, 2),
+            "avg_wind_gust": round(Vg, 2)
+        },
+        "stations": json_stations
+    }
+    with open(WIND_INDEX_JSON, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+
+    return idx_rounded, grade
+
+# ==========================================
 # 數據獲取與解析
 # ==========================================
 def parse_xml_timestamp(root):
@@ -376,7 +473,7 @@ def compute_24h_temp_diff(stations, current_timestamp):
         print(f"⚠️ 計算 24 小時溫差異常: {e}")
 
 def fetch_smg_weather(current_uvi=0.0):
-    global update_time_str, date_part, time_part
+    global update_time_str, date_part, time_part, pub_timestamp
     print(f"[{datetime.now(MACAU_TZ).strftime('%H:%M:%S')}] 獲取 SMG 實時 XML 氣象數據...")
     url = "https://xml.smg.gov.mo/c_actualweather.xml"
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -516,7 +613,7 @@ def fetch_smg_uvi():
     return uv_data
 
 # ==========================================
-# 繪製各項分佈底圖 (精準 4:3 佈局、字體放大、圖例與標題升級)
+# 繪製各項分佈底圖
 # ==========================================
 def render_distribution_maps(stations, current_uvi=0.0):
     for st_name, d in stations.items():
@@ -584,14 +681,10 @@ def render_distribution_maps(stations, current_uvi=0.0):
     logo_path = 'MSSO(H).png' if os.path.exists('MSSO(H).png') else ('static/images/MSSO(H).png' if os.path.exists('static/images/MSSO(H).png') else None)
 
     for key, title_text, style_fn, legend_items in tasks:
-        # 建立嚴格 4:3 比例 1600x1200
         fig = plt.figure(figsize=(16.0, 12.0), dpi=100)
         ax = fig.add_axes([0, 0, 1, 1])
         draw_base_map(ax)
 
-        # ----------------------------------------------------
-        # 1. 重新設計的左上角整體卡片 (雙層流暢標題與時間標籤)
-        # ----------------------------------------------------
         card_w, card_h = 0.285, 0.076
         card_x, card_y = 0.045, 0.885
         header_card = FancyBboxPatch((card_x, card_y), card_w, card_h, transform=ax.transAxes,
@@ -599,7 +692,6 @@ def render_distribution_maps(stations, current_uvi=0.0):
                                      facecolor="#FFFFFF", edgecolor="#94A3B8", linewidth=1.5, zorder=15)
         ax.add_patch(header_card)
         
-        # 橙黃亮眼指示條
         accent_bar = FancyBboxPatch((card_x, card_y), 0.009, card_h, transform=ax.transAxes,
                                     boxstyle="round,pad=0,rounding_size=0.005",
                                     facecolor="#F59E0B", edgecolor="none", zorder=16)
@@ -607,7 +699,6 @@ def render_distribution_maps(stations, current_uvi=0.0):
         ax.text(card_x + 0.022, card_y + card_h / 2, title_text, transform=ax.transAxes,
                 fontsize=24, fontweight='bold', color='#0F172A', va='center', ha='left', zorder=17)
 
-        # 時間外框卡片
         time_w, time_h = 0.245, 0.054
         time_y = card_y - 0.068
         time_card = FancyBboxPatch((card_x, time_y), time_w, time_h, transform=ax.transAxes,
@@ -625,9 +716,6 @@ def render_distribution_maps(stations, current_uvi=0.0):
         ax.text(card_x + dt_tag_w + (time_w - dt_tag_w) / 2, time_y + time_h / 2, time_part, transform=ax.transAxes,
                 fontsize=19, fontweight='bold', color='#F8FAFC', va='center', ha='center', zorder=17)
 
-        # ----------------------------------------------------
-        # 2. 測站標籤系統 (大字號數值圓球 + 深藍地名方塊)
-        # ----------------------------------------------------
         for name, data in stations.items():
             val = data.get(key)
             lon, lat = data['lon'], data['lat']
@@ -697,9 +785,6 @@ def render_distribution_maps(stations, current_uvi=0.0):
                         bbox=dict(boxstyle="square,pad=0.28", facecolor='#0E3A53', edgecolor='none'),
                         zorder=11)
 
-        # ----------------------------------------------------
-        # 3. 重新設計的右側圖例面板
-        # ----------------------------------------------------
         if legend_items:
             n_items = len(legend_items)
             leg_w = 0.198
@@ -722,9 +807,6 @@ def render_distribution_maps(stations, current_uvi=0.0):
                 ax.text(leg_x + 0.038, curr_y, label, transform=ax.transAxes,
                         fontsize=13.5, color='#F8FAFC', va='center', ha='left', fontweight='500', zorder=16)
 
-        # ----------------------------------------------------
-        # 4. 右下角 MSSO Logo
-        # ----------------------------------------------------
         if logo_path and os.path.exists(logo_path):
             try:
                 logo_img = Image.open(logo_path)
@@ -739,7 +821,6 @@ def render_distribution_maps(stations, current_uvi=0.0):
             ax.text(0.885, 0.045, "WEATHER MACAU", transform=ax.transAxes,
                     fontsize=12, fontweight='bold', color='#94A3B8', ha='center', va='center', zorder=18)
 
-        # 嚴格依照 4:3 畫布輸出，避免被裁切縮形
         plt.savefig(f"static/images/{key}.png", dpi=100, facecolor='#475569')
         plt.close(fig)
 
@@ -910,7 +991,7 @@ def render_trend_charts():
 
     for station_name in STATION_COORDS.keys():
         st_df = df[df['station'] == station_name].copy()
-        if st_df.empty: 
+        if st_df.empty:
             continue
 
         is_bridge = station_name in BRIDGE_STATIONS
@@ -1061,7 +1142,6 @@ def render_trend_charts():
             plt.savefig(f"static/images/line_{station_name}_{col}.png", dpi=120, bbox_inches='tight')
             plt.close(fig)
 
-    # 跨海大橋風力趨勢圖
     bridge_colors = {
         "友誼大橋北": "#1E40AF", "友誼大橋南": "#3B82F6",
         "澳門大橋北": "#047857", "澳門大橋南": "#10B981",
@@ -1201,6 +1281,101 @@ def render_uv_trend_chart():
     print("✅ 紫外線折線圖生成完成！")
 
 # ==========================================
+# 繪製風力指數歷史折線圖
+# ==========================================
+def render_wind_index_chart():
+    conn = sqlite3.connect(WIND_INDEX_DB, timeout=10)
+    df = pd.read_sql_query("SELECT * FROM wind_index_history ORDER BY timestamp ASC", conn)
+    conn.close()
+
+    if df.empty:
+        print("⚠️ windindex.db 為空，略過風力指數折線圖繪製。")
+        return
+
+    df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau').dt.tz_localize(None)
+
+    fig, ax = plt.subplots(figsize=(15, 6.5), dpi=120)
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
+
+    plot_df = insert_nans_on_gap(df, 'wind_index', max_gap_minutes=25)
+
+    x_end = df['datetime'].max()
+    x_start = x_end - pd.Timedelta(hours=24)
+    ax.set_xlim(x_start, x_end)
+
+    max_val = df['wind_index'].dropna().max() if not df['wind_index'].dropna().empty else 20
+    plot_ymax = max(80, int(np.ceil(max_val / 10.0) * 10 + 10))
+    ax.set_ylim(0, plot_ymax)
+
+    grades = [
+        (0, 13, "輕微 (≤13)", "#E7F2D4", "#227722"),
+        (13, 24, "清勁 (14-24)", "#E1ECF9", "#2255BB"),
+        (24, 44, "強勁 (25-44)", "#FCE8D8", "#DD2222"),
+        (44, 74, "強烈 (45-74)", "#F9D8F2", "#8822BB"),
+        (74, plot_ymax, "極強 (≥75)", "#E6D9BC", "#774422")
+    ]
+
+    for low, high, g_label, bg_color, line_color in grades:
+        eff_high = min(high, plot_ymax)
+        if eff_high > low:
+            ax.axhspan(low, eff_high, facecolor=bg_color, alpha=0.35, zorder=1)
+        if 0 < low < plot_ymax:
+            ax.axhline(low, color=line_color, linestyle='--', linewidth=1.1, alpha=0.7, zorder=2)
+            ax.text(x_end, low, f" {low}", color=line_color, va='center', ha='left', fontsize=9.5, fontweight='bold')
+        mid_y = (low + eff_high) / 2.0
+        if mid_y < plot_ymax:
+            ax.text(x_start + pd.Timedelta(minutes=20), mid_y, g_label, 
+                    color=line_color, fontsize=11, fontweight='bold', alpha=0.85, va='center', zorder=2)
+
+    ax.plot(plot_df['datetime'], plot_df['wind_index'], color='#1E293B', linewidth=2.2, label='風力指數 Wind Index', zorder=4)
+    ax.scatter(df['datetime'], df['wind_index'], color='#0F172A', s=20, alpha=0.85, zorder=5)
+
+    step = 10
+    y_ticks = np.arange(0, plot_ymax + 1, step)
+    ax.set_yticks(y_ticks)
+    ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=13, color='#1E293B', family='monospace')
+
+    ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
+
+    def format_hour_ticks(x, pos=None):
+        dt = mdates.num2date(x)
+        hour_str = f"{dt.strftime('%H')}H"
+        return f"{hour_str}\n{dt.strftime('%d %b')}" if dt.hour == 0 else hour_str
+
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
+    plt.setp(ax.get_xticklabels(), fontsize=13, color='#334155', family='monospace')
+
+    GRID_BORDER_COLOR = '#8DA59A'
+    TEXT_COLOR = '#334155'
+    ax.grid(True, which='major', linestyle=':', linewidth=1.4, color=GRID_BORDER_COLOR, alpha=0.8)
+    ax.tick_params(axis='both', which='major', length=6, width=1.1, color=GRID_BORDER_COLOR, direction='out')
+
+    for spine in ax.spines.values():
+        spine.set_color(GRID_BORDER_COLOR)
+        spine.set_linewidth(1.3)
+
+    ax.set_ylabel('風力指數 Wind Index', fontsize=15, color='#0F172A', labelpad=12)
+    ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
+
+    latest_val = df['wind_index'].iloc[-1]
+    latest_grade = df['grade'].iloc[-1]
+    title_left = f"澳門風力指數趨勢 (最新: {latest_val:.1f} - {latest_grade})"
+    header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
+
+    ax.text(0.0, 1.02, title_left, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
+    ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
+
+    ax.legend(loc='upper right', frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=11)
+
+    plt.tight_layout()
+    output_img = "static/images/line_wind_index.png"
+    plt.savefig(output_img, dpi=120, bbox_inches='tight')
+    plt.close(fig)
+    print(f"✅ 風力指數折線圖渲染完成：{output_img}")
+
+# ==========================================
 # 24 小時降雨量統計表
 # ==========================================
 def generate_24h_rainfall_summary(stations_data=None):
@@ -1290,6 +1465,7 @@ def generate_24h_rainfall_summary(stations_data=None):
 # ==========================================
 if __name__ == '__main__':
     init_db()
+    init_wind_index_db()
     
     # 1. 優先獲取 UVI 資料
     uv_data = fetch_smg_uvi()
@@ -1299,10 +1475,14 @@ if __name__ == '__main__':
     stations_data = fetch_smg_weather(current_uvi=current_uvi)
 
     if stations_data:
+        # 計算風力指數、儲存資料庫與 JSON
+        compute_and_save_wind_index(stations_data, update_time_str, pub_timestamp)
+
         generate_24h_rainfall_summary(stations_data)
         render_distribution_maps(stations_data, current_uvi)
         render_trend_charts()
         render_uv_trend_chart()
+        render_wind_index_chart()
         print(f"🎉 全部功能升級完畢！當前 XML 觀測時間：{update_time_str}")
     else:
         generate_24h_rainfall_summary(None)
