@@ -18,7 +18,6 @@ jobs:
     permissions:
       contents: write
       actions: write
-      workflows: write
 
     steps:
       - name: 檢出主分支代碼
