@@ -16,20 +16,20 @@ import sqlite3
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import Polygon, FancyBboxPatch, Circle
-from matplotlib import transforms
+import matplotlib.patheffects as pe
+from matplotlib.patches import Polygon
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.dates as mdates
 from PIL import Image
 import geopandas as gpd
-from shapely.geometry import shape, box
-from shapely.ops import unary_union
+from shapely.geometry import box
 import osmnx as ox
 
 warnings.filterwarnings("ignore")
 
-# 建立輸出目錄
+# ==========================================
+# 建立輸出目錄與快取設定
+# ==========================================
 os.makedirs('static/images', exist_ok=True)
 os.makedirs('cache', exist_ok=True)
 
@@ -43,8 +43,6 @@ CSV_PATH = 'static/weather_data.csv'
 MACAU_TZ = ZoneInfo('Asia/Macau')
 
 update_time_str = datetime.now(MACAU_TZ).strftime('%Y-%m-%d %H:%M')
-date_part = datetime.now(MACAU_TZ).strftime('%m/%d')
-time_part = datetime.now(MACAU_TZ).strftime('%H:%M')
 
 plt.rcParams['font.sans-serif'] = [
     'Noto Sans CJK TC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei',
@@ -53,7 +51,7 @@ plt.rcParams['font.sans-serif'] = [
 plt.rcParams['axes.unicode_minus'] = False
 
 # ==========================================
-# 氣象站點設定
+# 1. 測站坐標與基本配置
 # ==========================================
 STATION_COORDS = {
     "紀念孫中山公園": {"lat": 22.216088, "lon": 113.544967, "area": "澳門半島", "code": "DP", "disp": "孫中山公園"},
@@ -81,6 +79,142 @@ BRIDGE_STATIONS = [
 ]
 
 PRESSURE_STATIONS = ["外港碼頭", "媽閣", "大潭山", "澳門大學", "九澳", "東亞運大馬路"]
+
+# ==========================================
+# 2. 各項要素色階映射函數 (依照最新色階)
+# ==========================================
+def get_temp_color(v):
+    if v is None: return "#9E9E9E"
+    if v >= 37.5: return "#8B0000"      # 極為酷熱 (Dark Red)
+    if v >= 35.5: return "#D32F2F"      # 非常酷熱 (Furnace Red)
+    if v >= 32.5: return "#E64A19"      # 酷熱 (Redstone)
+    if v >= 27.5: return "#FF8F00"      # 炎熱 (Orange)
+    if v >= 22.5: return "#FFA726"      # 溫暖 (Coral Orange)
+    if v >= 17.5: return "#FFCA28"      # 和暖 (Amber)
+    if v >= 12.5: return "#7CB342"      # 清涼 (Pickle Green)
+    if v >= 7.5:  return "#1E88E5"      # 寒冷 (Denim Blue)
+    if v >= 3.5:  return "#1565C0"      # 非常寒冷 (Midnight Blue)
+    return "#4A148C"                    # 極為寒冷 (Plum Purple)
+
+def get_temp_diff_color(v):
+    if v is None: return "#9E9E9E"
+    if v > 0: return "#D32F2F"          # + furnace
+    if v == 0: return "#9E9E9E"         # 0 gray
+    return "#1565C0"                    # - midnight blue
+
+def get_wbgt_color(v):
+    if v is None: return "#9E9E9E"
+    if v >= 31.5: return "#8B0000"      # 極危
+    if v >= 30.5: return "#F57C00"      # 危險 (orange)
+    if v >= 29.5: return "#FFB300"      # 警戒 (amber)
+    if v >= 27.5: return "#7CB342"      # 注意 (pickle green)
+    return "#4FC3F7"                    # 正常 (light blue)
+
+def get_wind_color(v):
+    if v is None: return "#9E9E9E"
+    if v >= 117.5: return "#D32F2F"     # 颶風 (red)
+    if v >= 87.5:  return "#FB8C00"     # 暴風 (orange)
+    if v >= 62.5:  return "#FFC107"     # 烈風 (amber)
+    if v >= 40.5:  return "#1E88E5"     # 強風 (blue)
+    if v >= 30.5:  return "#43A047"     # 清勁 (green)
+    return "#9E9E9E"                    # 清勁以下 (gray)
+
+def get_rain1h_color(v):
+    if v is None: return "#9E9E9E"
+    if v >= 100.0: return "#7B1FA2"     # 大暴雨 (purple)
+    if v >= 50.0:  return "#E53935"     # 暴雨 (red)
+    if v >= 20.0:  return "#1E88E5"     # 大雨 (blue)
+    if v >= 10.0:  return "#43A047"     # 驟雨 (green)
+    if v >= 0.1:   return "#81C784"     # 雨 (light green)
+    return "#BDBDBD"                    # 0 gray
+
+def get_rain24h_color(v):
+    if v is None: return "#9E9E9E"
+    if v >= 350.0: return "#212121"     # black
+    if v >= 200.0: return "#D32F2F"     # red
+    if v >= 100.0: return "#FB8C00"     # orange
+    if v >= 50.0:  return "#FFC107"     # amber
+    if v >= 0.1:   return "#4FC3F7"     # light blue
+    return "#BDBDBD"                    # 0 gray
+
+def get_pressure_color(v):
+    if v is None: return "#9E9E9E"
+    if v >= 1030.0: return "#8B0000"
+    if v >= 1025.0: return "#C62828"
+    if v >= 1020.0: return "#E65100"
+    if v >= 1016.0: return "#F57C00"
+    if v >= 1012.0: return "#FBC02D"
+    if v >= 1008.0: return "#7CB342"
+    if v >= 1000.0: return "#00897B"
+    if v >= 990.0:  return "#0288D1"
+    if v >= 980.0:  return "#1565C0"
+    if v >= 970.0:  return "#283593"
+    if v >= 960.0:  return "#6A1B9A"
+    return "#311B92"
+
+def get_humidity_color(h):
+    if h is None: return "#9E9E9E"
+    if h >= 95: return "#7B1FA2"
+    if h >= 85: return "#1565C0"
+    if h >= 70: return "#43A047"
+    if h >= 40: return "#FB8C00"
+    return "#D32F2F"
+
+# ==========================================
+# 3. 初始化底圖 (OSM 下載並裁剪)
+# ==========================================
+print("正在初始化下載地圖底圖與 OSM 大橋...")
+bbox = (113.48, 22.08, 113.68, 22.25)
+zhuhai, macau, water, bridges = None, None, None, None
+
+try:
+    zhuhai = ox.geocode_to_gdf("Zhuhai, China")
+    macau = ox.geocode_to_gdf("Macau, China")
+    water = ox.features_from_bbox(bbox=bbox, tags={"natural": ["water", "bay", "strait"], "waterway": ["riverbank", "river", "dock"]})
+    if water is not None and not water.empty:
+        water = water[water.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+        water = water[water.geometry.area > 0.000005]
+        
+    bridge_tags = {"bridge": "yes", "highway": ["motorway", "trunk", "primary", "secondary"]}
+    bridges = ox.features_from_bbox(bbox=bbox, tags=bridge_tags)
+    if bridges is not None and not bridges.empty:
+        bridges = bridges[bridges.geometry.type.isin(['LineString', 'MultiLineString'])]
+        if macau is not None and not macau.empty:
+            macau_geom = macau.geometry.unary_union
+            bridges = bridges[bridges.intersects(macau_geom)]
+except Exception as e:
+    print(f"底圖下載注意/失敗: {e}")
+
+if bridges is None:
+    bridges = gpd.GeoDataFrame()
+
+# ==========================================
+# 4. 16:9 底圖與繪圖核心函數
+# ==========================================
+def draw_base_map(ax):
+    # 底圖配色：溫和現代淺色調
+    bg_water = '#DCEEFB'     # 水體淺藍
+    land_zhuhai = '#F7F4EB'  # 珠海陸地淡黃白
+    land_macau = '#FFFFFF'   # 澳門陸地純白
+    border_color = '#D1D5DB' # 柔和邊界線
+    bridge_color = '#B0BEC5' # 橋樑線條
+
+    ax.set_facecolor(bg_water)
+    
+    if zhuhai is not None:
+        zhuhai.plot(ax=ax, color=land_zhuhai, edgecolor=border_color, linewidth=0.8, zorder=1)
+    if macau is not None:
+        macau.plot(ax=ax, color=land_macau, edgecolor=border_color, linewidth=1.0, zorder=2)
+    if water is not None and not water.empty:
+        water.plot(ax=ax, color=bg_water, edgecolor='none', zorder=3)
+    if bridges is not None and not bridges.empty:
+        bridges.plot(ax=ax, color=bridge_color, edgecolor='white', linewidth=1.8, zorder=4)
+
+    # 精準 16:9 坐標跨度
+    ax.set_xlim(113.485, 113.685)
+    ax.set_ylim(22.105, 22.235)
+    ax.set_aspect(1.0 / 0.927) # 緯度正形補償，保證不被壓扁
+    ax.set_axis_off()
 
 # ==========================================
 # 氣象指數數學公式
@@ -112,158 +246,6 @@ def calculate_apparent_temperature(ta, rh, w):
         return round(float(apparent_temp), 1)
     except:
         return None
-
-# ==========================================
-# 嚴格 4:3 (1600x1200) 座標範圍與 mapdata.json 支援
-# ==========================================
-LAT_CENTER = 22.165
-LON_CENTER = 113.563
-LAT_SPAN = 0.120
-LON_SPAN = (4.0 / 3.0) * LAT_SPAN / math.cos(math.radians(LAT_CENTER))
-
-MAP_BBOX = {
-    'min_lat': LAT_CENTER - LAT_SPAN / 2,
-    'max_lat': LAT_CENTER + LAT_SPAN / 2,
-    'min_lon': LON_CENTER - LON_SPAN / 2,
-    'max_lon': LON_CENTER + LON_SPAN / 2
-}
-
-def load_mapdata_json(json_file='mapdata.json'):
-    """從 mapdata.json 載入並融合高精度澳門陸地與大橋圖層"""
-    if not os.path.exists(json_file):
-        return None, None
-    try:
-        with open(json_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        land_geoms = []
-        bridge_geoms = []
-        for feat in data.get('features', []):
-            lbl = feat.get('properties', {}).get('label', '')
-            geom = shape(feat['geometry'])
-            if '橋' in lbl or '口岸' in lbl:
-                bridge_geoms.append(geom)
-            else:
-                land_geoms.append(geom)
-
-        land_union = unary_union(land_geoms) if land_geoms else None
-        bridge_union = unary_union(bridge_geoms) if bridge_geoms else None
-        
-        land_gdf = gpd.GeoDataFrame(geometry=[land_union], crs="EPSG:4326") if land_union else None
-        bridge_gdf = gpd.GeoDataFrame(geometry=[bridge_union], crs="EPSG:4326") if bridge_union else None
-        return land_gdf, bridge_gdf
-    except Exception as e:
-        print(f"⚠️ 解析 mapdata.json 失敗: {e}")
-        return None, None
-
-unified_land_gdf, bridges_gdf = load_mapdata_json('mapdata.json')
-
-# 若本機或執行環境中需要補充 OSM 鄰近陸地 (如珠海)，進行輔助加載
-try:
-    if unified_land_gdf is None or unified_land_gdf.empty:
-        print("正在嘗試從 OSM 獲取澳門及周邊地圖...")
-        zhuhai_raw = ox.geocode_to_gdf("Zhuhai, China")
-        macau_raw = ox.geocode_to_gdf("Macau, China")
-        all_geoms = []
-        if macau_raw is not None and not macau_raw.empty:
-            all_geoms.append(macau_raw.geometry.unary_union)
-        if zhuhai_raw is not None and not zhuhai_raw.empty:
-            all_geoms.append(zhuhai_raw.geometry.unary_union)
-        if all_geoms:
-            unified_land_gdf = gpd.GeoDataFrame(geometry=[unary_union(all_geoms)], crs="EPSG:4326")
-except Exception as e:
-    print(f"OSM 補充下載略過: {e}")
-
-def draw_base_map(ax):
-    """深灰藍海面 (#475569) + 奶白灰色融合陸地 (#E2E8F0) + 純白海岸邊線"""
-    bg_water = '#475569'
-    land_color = '#E2E8F0'
-    bridge_color = '#BAC7CC'
-    
-    ax.set_facecolor(bg_water)
-    
-    if unified_land_gdf is not None and not unified_land_gdf.empty:
-        unified_land_gdf.plot(ax=ax, color=land_color, edgecolor='#FFFFFF', linewidth=1.6, zorder=2)
-    
-    if bridges_gdf is not None and not bridges_gdf.empty:
-        bridges_gdf.plot(ax=ax, color=bridge_color, edgecolor='#FFFFFF', linewidth=1.5, zorder=3)
-
-    ax.set_xlim(MAP_BBOX['min_lon'], MAP_BBOX['max_lon'])
-    ax.set_ylim(MAP_BBOX['min_lat'], MAP_BBOX['max_lat'])
-    ax.set_aspect(1.0 / math.cos(math.radians(LAT_CENTER)))
-    ax.set_axis_off()
-
-# ==========================================
-# 參考圖標準配色映射
-# ==========================================
-def get_temp_style(temp):
-    if temp is None or np.isnan(temp): return '#94A3B8', '#FFFFFF'
-    t = float(temp)
-    if t >= 35.0: return '#DC2626', '#FFFFFF'     # 極端酷熱
-    elif t >= 33.0: return '#EF4444', '#FFFFFF'   # 酷熱
-    elif t >= 28.0: return '#F97316', '#FFFFFF'   # 炎熱
-    elif t >= 22.1: return '#EAB308', '#FFFFFF'   # 溫暖
-    elif t >= 17.1: return '#84CC16', '#FFFFFF'   # 和暖
-    elif t >= 12.1: return '#10B981', '#FFFFFF'   # 清涼
-    elif t >= 7.1:  return '#06B6D4', '#FFFFFF'   # 寒冷
-    else: return '#8B5CF6', '#FFFFFF'             # 嚴寒
-
-def get_temp_diff_style(diff):
-    if diff is None or np.isnan(diff): return '#94A3B8', '#FFFFFF'
-    d = float(diff)
-    if d > 0: return '#EF4444', '#FFFFFF'
-    elif d < 0: return '#06B6D4', '#FFFFFF'
-    return '#94A3B8', '#FFFFFF'
-
-def get_humidity_style(h):
-    if h is None or np.isnan(h): return '#94A3B8', '#FFFFFF'
-    h = float(h)
-    if h >= 95: return '#8B5CF6', '#FFFFFF'
-    elif h >= 85: return '#3B82F6', '#FFFFFF'
-    elif h >= 71: return '#10B981', '#FFFFFF'
-    elif h >= 40: return '#EAB308', '#FFFFFF'
-    else: return '#EF4444', '#FFFFFF'
-
-def get_wind_style(w):
-    if w is None or np.isnan(w): return '#94A3B8', '#FFFFFF'
-    w = float(w)
-    if w >= 118: return '#DC2626', '#FFFFFF'
-    elif w >= 88: return '#EA580C', '#FFFFFF'
-    elif w >= 63: return '#D97706', '#FFFFFF'
-    elif w >= 41: return '#16A34A', '#FFFFFF'
-    return '#0D9488', '#FFFFFF'
-
-def get_pressure_style(p):
-    if p is None or np.isnan(p): return '#94A3B8', '#FFFFFF'
-    p = float(p)
-    if p >= 1030.0: return '#1E3A8A', '#FFFFFF'
-    elif p >= 1010.0: return '#2563EB', '#FFFFFF'
-    elif p >= 1000.0: return '#16A34A', '#FFFFFF'
-    elif p >= 990.0: return '#EAB308', '#FFFFFF'
-    elif p >= 980.0: return '#F97316', '#FFFFFF'
-    elif p >= 970.0: return '#EF4444', '#FFFFFF'
-    elif p >= 950.0: return '#DC2626', '#FFFFFF'
-    else: return '#7C3AED', '#FFFFFF'
-
-def get_rain1h_style(v):
-    if v is None or np.isnan(v): return "#94A3B8", "#FFFFFF"
-    v = float(v)
-    if v >= 100.0: return "#7C3AED", "#FFFFFF"
-    if v >= 50.0:  return "#DC2626", "#FFFFFF"
-    if v >= 20.0:  return "#EA580C", "#FFFFFF"
-    if v >= 10.0:  return "#16A34A", "#FFFFFF"
-    if v >= 0.1:   return "#2563EB", "#FFFFFF"
-    return "#94A3B8", "#FFFFFF"
-
-def get_wbgt_style(wbgt):
-    if wbgt is None or np.isnan(wbgt): return "#94A3B8", "#FFFFFF"
-    w = float(wbgt)
-    if w >= 32: return '#991B1B', '#FFFFFF'
-    elif w >= 31: return '#DC2626', '#FFFFFF'
-    elif w >= 30: return '#EA580C', '#FFFFFF'
-    elif w >= 28: return '#F59E0B', '#FFFFFF'
-    elif w >= 25: return '#EAB308', '#FFFFFF'
-    return '#10B981', '#FFFFFF'
 
 # ==========================================
 # 資料庫管理與 CSV 存儲
@@ -376,7 +358,7 @@ def compute_24h_temp_diff(stations, current_timestamp):
         print(f"⚠️ 計算 24 小時溫差異常: {e}")
 
 def fetch_smg_weather(current_uvi=0.0):
-    global update_time_str, date_part, time_part
+    global update_time_str
     print(f"[{datetime.now(MACAU_TZ).strftime('%H:%M:%S')}] 獲取 SMG 實時 XML 氣象數據...")
     url = "https://xml.smg.gov.mo/c_actualweather.xml"
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -390,12 +372,6 @@ def fetch_smg_weather(current_uvi=0.0):
         return None
 
     update_time_str, pub_timestamp = parse_xml_timestamp(root)
-    try:
-        dt_obj = datetime.strptime(update_time_str, '%Y-%m-%d %H:%M')
-        date_part = dt_obj.strftime('%m/%d')
-        time_part = dt_obj.strftime('%H:%M')
-    except:
-        pass
 
     stations = {name: dict(info) for name, info in STATION_COORDS.items()}
 
@@ -516,7 +492,7 @@ def fetch_smg_uvi():
     return uv_data
 
 # ==========================================
-# 繪製各項分佈底圖 (精準 4:3 佈局、字體放大、圖例與標題升級)
+# 繪製各要素分佈底圖 (16:9 全新底圖邏輯)
 # ==========================================
 def render_distribution_maps(stations, current_uvi=0.0):
     for st_name, d in stations.items():
@@ -527,223 +503,116 @@ def render_distribution_maps(stations, current_uvi=0.0):
             d['apparent'] = calculate_apparent_temperature(t, h, w) if (t is not None and h is not None) else None
             d['wbgt'] = estimate_wbgt_kmh(t, h, w, current_uvi) if (t is not None and h is not None) else None
 
-    temp_legend = [
-        ("極端酷熱 (≥35.0℃)", "#DC2626"),
-        ("酷熱 (33.0-34.9℃)", "#EF4444"),
-        ("炎熱 (28.0-32.9℃)", "#F97316"),
-        ("溫暖 (22.1-27.9℃)", "#EAB308"),
-        ("和暖 (17.1-22.0℃)", "#84CC16"),
-        ("清涼 (12.1-17.0℃)", "#10B981"),
-        ("寒冷 (7.1-12.0℃)", "#06B6D4"),
-        ("嚴寒 (≤7.0℃)", "#8B5CF6")
-    ]
-
-    humidity_legend = [
-        ("非常潮濕 (95-100%)", "#8B5CF6"),
-        ("潮濕 (85-94%)", "#3B82F6"),
-        ("正常 (71-84%)", "#10B981"),
-        ("乾燥 (40-70%)", "#EAB308"),
-        ("非常乾燥 (0-39%)", "#EF4444")
-    ]
-
-    wind_legend = [
-        ("颶風 (≥118 km/h)", "#DC2626"),
-        ("暴風 (88-117 km/h)", "#EA580C"),
-        ("烈風 (63-87 km/h)", "#D97706"),
-        ("強風 (41-62 km/h)", "#16A34A"),
-        ("清勁或以下 (0-40 km/h)", "#0D9488")
-    ]
-
-    pressure_legend = [
-        ("≥ 1030.0 hPa", "#1E3A8A"),
-        ("1010.0-1029.9 hPa", "#2563EB"),
-        ("1000.0-1009.9 hPa", "#16A34A"),
-        ("990.0-999.9 hPa", "#EAB308"),
-        ("980.0-989.9 hPa", "#F97316"),
-        ("970.0-979.9 hPa", "#EF4444"),
-        ("950.0-969.9 hPa", "#DC2626"),
-        ("≤ 949.9 hPa", "#7C3AED")
-    ]
-
     tasks = [
-        ('temp_now', '分區氣溫', get_temp_style, temp_legend),
-        ('temp_diff_24h', '過去24小時氣溫差別', get_temp_diff_style, None),
-        ('apparent', '體感溫度', get_temp_style, temp_legend),
-        ('wbgt', '暑熱指數 WBGT', get_wbgt_style, None),
-        ('temp_max', '今日最高氣溫', get_temp_style, temp_legend),
-        ('temp_min', '今日最低氣溫', get_temp_style, temp_legend),
-        ('humidity', '相對濕度', get_humidity_style, humidity_legend),
-        ('rain_h', '過去一小時降水', get_rain1h_style, None),
-        ('rain_d', '今日累積降水', get_rain1h_style, None),
-        ('wind_speed', '過去10分鐘平均風速及風向', get_wind_style, wind_legend),
-        ('gust_speed', '最高陣風分佈', get_wind_style, wind_legend),
-        ('wind_dir', '實時風向與風速分佈', get_wind_style, wind_legend),
-        ('pressure', '平均海平面氣壓', get_pressure_style, pressure_legend),
+        ('temp_now', '分區氣溫 (°C)', get_temp_color),
+        ('temp_diff_24h', '過去24小時氣溫差別 (°C)', get_temp_diff_color),
+        ('apparent', '體感溫度 (°C)', get_temp_color),
+        ('wbgt', '暑熱指數 WBGT (°C)', get_wbgt_color),
+        ('temp_max', '今日最高氣溫 (°C)', get_temp_color),
+        ('temp_min', '今日最低氣溫 (°C)', get_temp_color),
+        ('humidity', '相對濕度 (%)', get_humidity_color),
+        ('rain_h', '過去一小時降水 (mm)', get_rain1h_color),
+        ('rain_d', '今日累積降水 (mm)', get_rain24h_color),
+        ('wind_speed', '過去10分鐘平均風速 (km/h)', get_wind_color),
+        ('gust_speed', '最高陣風分佈 (km/h)', get_wind_color),
+        ('wind_dir', '實時風向與風速分佈 (km/h)', get_wind_color),
+        ('pressure', '平均海平面氣壓 (hPa)', get_pressure_color),
     ]
 
     logo_path = 'MSSO(H).png' if os.path.exists('MSSO(H).png') else ('static/images/MSSO(H).png' if os.path.exists('static/images/MSSO(H).png') else None)
 
-    for key, title_text, style_fn, legend_items in tasks:
-        # 建立嚴格 4:3 比例 1600x1200
-        fig = plt.figure(figsize=(16.0, 12.0), dpi=100)
+    for key, title_text, color_fn in tasks:
+        fig = plt.figure(figsize=(16, 9), dpi=150)
         ax = fig.add_axes([0, 0, 1, 1])
+        
+        # 繪製 16:9 淺色清新現代底圖
         draw_base_map(ax)
 
-        # ----------------------------------------------------
-        # 1. 重新設計的左上角整體卡片 (雙層流暢標題與時間標籤)
-        # ----------------------------------------------------
-        card_w, card_h = 0.285, 0.076
-        card_x, card_y = 0.045, 0.885
-        header_card = FancyBboxPatch((card_x, card_y), card_w, card_h, transform=ax.transAxes,
-                                     boxstyle="round,pad=0.006,rounding_size=0.016",
-                                     facecolor="#FFFFFF", edgecolor="#94A3B8", linewidth=1.5, zorder=15)
-        ax.add_patch(header_card)
-        
-        # 橙黃亮眼指示條
-        accent_bar = FancyBboxPatch((card_x, card_y), 0.009, card_h, transform=ax.transAxes,
-                                    boxstyle="round,pad=0,rounding_size=0.005",
-                                    facecolor="#F59E0B", edgecolor="none", zorder=16)
-        ax.add_patch(accent_bar)
-        ax.text(card_x + 0.022, card_y + card_h / 2, title_text, transform=ax.transAxes,
-                fontsize=24, fontweight='bold', color='#0F172A', va='center', ha='left', zorder=17)
+        # 左上角標題與更新時間資訊卡
+        info_box = dict(boxstyle='round,pad=0.6', facecolor='white', edgecolor='#CFD8DC', alpha=0.92, lw=1.2)
+        time_text = f"●  更新時間  :  {update_time_str}\n●  觀測項目  :  {title_text}"
+        ax.text(113.490, 22.228, time_text,
+                fontsize=13, fontweight='bold', color='#263238',
+                va='top', ha='left', zorder=10, bbox=info_box)
 
-        # 時間外框卡片
-        time_w, time_h = 0.245, 0.054
-        time_y = card_y - 0.068
-        time_card = FancyBboxPatch((card_x, time_y), time_w, time_h, transform=ax.transAxes,
-                                   boxstyle="round,pad=0.006,rounding_size=0.014",
-                                   facecolor="#0F172A", edgecolor="#334155", linewidth=1.2, zorder=15)
-        ax.add_patch(time_card)
-        
-        dt_tag_w = 0.108
-        date_badge = FancyBboxPatch((card_x, time_y), dt_tag_w, time_h, transform=ax.transAxes,
-                                    boxstyle="round,pad=0.005,rounding_size=0.012",
-                                    facecolor="#F59E0B", edgecolor="none", zorder=16)
-        ax.add_patch(date_badge)
-        ax.text(card_x + dt_tag_w / 2, time_y + time_h / 2, date_part, transform=ax.transAxes,
-                fontsize=19, fontweight='bold', color='#FFFFFF', va='center', ha='center', zorder=17)
-        ax.text(card_x + dt_tag_w + (time_w - dt_tag_w) / 2, time_y + time_h / 2, time_part, transform=ax.transAxes,
-                fontsize=19, fontweight='bold', color='#F8FAFC', va='center', ha='center', zorder=17)
-
-        # ----------------------------------------------------
-        # 2. 測站標籤系統 (大字號數值圓球 + 深藍地名方塊)
-        # ----------------------------------------------------
+        # 站點數值與膠囊標籤
         for name, data in stations.items():
             val = data.get(key)
             lon, lat = data['lon'], data['lat']
+            disp_name = data.get('disp', name)
             is_bridge = name in BRIDGE_STATIONS
 
             if key in ['temp_now', 'temp_diff_24h', 'temp_max', 'temp_min', 'humidity', 'rain_h', 'rain_d', 'apparent', 'wbgt', 'pressure'] and is_bridge:
                 continue
             if key == 'pressure' and name not in PRESSURE_STATIONS:
                 continue
-            if val is None:
-                continue
 
-            disp_name = data.get('disp', name)
+            if val is not None and not (isinstance(val, float) and np.isnan(val)):
+                color = color_fn(val)
 
-            if key in ['wind_speed', 'gust_speed', 'wind_dir']:
-                dir_map = {'N':0, 'NNE':22.5, 'NE':45, 'ENE':67.5, 'E':90, 'ESE':112.5, 'SE':135, 'SSE':157.5,
-                           'S':180, 'SSW':202.5, 'SW':225, 'WSW':247.5, 'W':270, 'WNW':292.5, 'NW':315, 'NNW':337.5}
-                try: deg = float(data.get('wind_dir', 0))
-                except: deg = dir_map.get(str(data.get('wind_dir')).upper(), 0)
-
-                spd_val = data.get('wind_speed' if key != 'gust_speed' else 'gust_speed', 0.0) or 0.0
-                bg_c, _ = get_wind_style(spd_val)
-                val_display = int(round(spd_val))
-
-                arrow_poly = np.array([[0, 2.3], [-1.1, -1.3], [0, -0.4], [1.1, -1.3]])
-                t = transforms.Affine2D().rotate_deg(deg).scale(0.0034).translate(lon, lat) + ax.transData
-                ax.add_patch(Polygon(arrow_poly, closed=True, facecolor=bg_c, edgecolor='#FFFFFF', linewidth=1.8, transform=t, zorder=10))
-
-                ax.text(lon, lat, f"{val_display}", fontsize=14, fontweight='bold', color='#FFFFFF',
-                        ha='center', va='center', zorder=12)
-
-                ax.text(lon + 0.0080, lat, disp_name, fontsize=13.5, fontweight='bold', color='#FFFFFF',
-                        ha='left', va='center',
-                        bbox=dict(boxstyle="square,pad=0.28", facecolor='#0E3A53', edgecolor='none'),
-                        zorder=11)
-
-            elif key == 'temp_diff_24h':
-                d_val = float(val)
-                symbol = "▲" if d_val >= 0 else "▼"
-                bg_color = "#EF4444" if d_val >= 0 else "#06B6D4"
-                val_text = f"{symbol}{abs(d_val):.1f}"
-
-                ax.text(lon - 0.0042, lat, val_text, fontsize=15, fontweight='bold', color='#FFFFFF',
-                        ha='right', va='center',
-                        bbox=dict(boxstyle="round,pad=0.40,rounding_size=0.6", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=2.0),
-                        zorder=12)
-
-                ax.text(lon - 0.0018, lat, disp_name, fontsize=14, fontweight='bold', color='#FFFFFF',
-                        ha='left', va='center',
-                        bbox=dict(boxstyle="square,pad=0.28", facecolor='#0E3A53', edgecolor='none'),
-                        zorder=11)
-
-            else:
-                bg_color, font_color = style_fn(val)
-                if key in ['temp_now', 'apparent', 'wbgt', 'temp_max', 'temp_min', 'pressure']:
-                    val_str = f"{val:.1f}"
+                if key in ['wind_speed', 'gust_speed', 'wind_dir']:
+                    dir_map = {'N':0, 'NNE':22.5, 'NE':45, 'ENE':67.5, 'E':90, 'ESE':112.5, 'SE':135, 'SSE':157.5,
+                               'S':180, 'SSW':202.5, 'SW':225, 'WSW':247.5, 'W':270, 'WNW':292.5, 'NW':315, 'NNW':337.5}
+                    try: deg = float(data.get('wind_dir', 0))
+                    except: deg = dir_map.get(str(data.get('wind_dir')).upper(), 0)
+                    
+                    spd_val = data.get('wind_speed' if key != 'gust_speed' else 'gust_speed', 0.0) or 0.0
+                    arrow_poly = np.array([[0, 2.3], [-1.1, -1.3], [0, -0.4], [1.1, -1.3]])
+                    t = (matplotlib.transforms.Affine2D().rotate_deg(deg).scale(0.0030).translate(lon, lat) + ax.transData)
+                    ax.add_patch(Polygon(arrow_poly, closed=True, facecolor=color, edgecolor='#37474F', linewidth=1.2, transform=t, zorder=8))
+                    
+                    ax.text(lon, lat, f"{int(round(spd_val))}", fontsize=9.0, fontweight='heavy', color='#212121',
+                            ha='center', va='center', zorder=9)
+                    ax.text(lon, lat - 0.0055, disp_name, fontsize=8.5, fontweight='bold', color='#37474F',
+                            ha='center', va='top', zorder=8,
+                            path_effects=[pe.withStroke(linewidth=2.5, foreground='white')])
+                elif key == 'temp_diff_24h':
+                    d_val = float(val)
+                    prefix = "+" if d_val > 0 else ""
+                    badge_text = f"{prefix}{d_val:.1f}"
+                    ax.text(lon, lat, badge_text, fontsize=9.5, fontweight='heavy', color='#FFFFFF',
+                            ha='center', va='center', zorder=8,
+                            bbox=dict(boxstyle='round,pad=0.35,rounding_size=0.5', facecolor=color, edgecolor='#37474F', linewidth=1.2))
+                    ax.text(lon, lat - 0.0055, disp_name, fontsize=8.5, fontweight='bold', color='#37474F',
+                            ha='center', va='top', zorder=8,
+                            path_effects=[pe.withStroke(linewidth=2.5, foreground='white')])
                 else:
-                    val_str = f"{int(round(val))}"
+                    if key in ['temp_now', 'apparent', 'wbgt', 'temp_max', 'temp_min', 'pressure']:
+                        badge_text = f"{val:.1f}"
+                    else:
+                        badge_text = f"{int(round(val))}"
 
-                ax.text(lon - 0.0042, lat, val_str, fontsize=15.5, fontweight='bold', color=font_color,
-                        ha='right', va='center',
-                        bbox=dict(boxstyle="round,pad=0.42,rounding_size=0.8", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=2.0),
-                        zorder=12)
+                    ax.text(lon, lat, badge_text, fontsize=9.5, fontweight='heavy', color='#212121',
+                            ha='center', va='center', zorder=8,
+                            bbox=dict(boxstyle='round,pad=0.35,rounding_size=0.5', facecolor=color, edgecolor='#37474F', linewidth=1.2))
+                    ax.text(lon, lat - 0.0055, disp_name, fontsize=8.5, fontweight='bold', color='#37474F',
+                            ha='center', va='top', zorder=8,
+                            path_effects=[pe.withStroke(linewidth=2.5, foreground='white')])
+            else:
+                # 無數據時渲染點位與站名
+                ax.scatter(lon, lat, color='#90A4AE', s=25, edgecolor='#37474F', zorder=7)
+                ax.text(lon, lat - 0.0045, disp_name, fontsize=8, fontweight='bold', color='#546E7A',
+                        ha='center', va='top', zorder=8,
+                        path_effects=[pe.withStroke(linewidth=2, foreground='white')])
 
-                ax.text(lon - 0.0018, lat, disp_name, fontsize=14, fontweight='bold', color='#FFFFFF',
-                        ha='left', va='center',
-                        bbox=dict(boxstyle="square,pad=0.28", facecolor='#0E3A53', edgecolor='none'),
-                        zorder=11)
-
-        # ----------------------------------------------------
-        # 3. 重新設計的右側圖例面板
-        # ----------------------------------------------------
-        if legend_items:
-            n_items = len(legend_items)
-            leg_w = 0.198
-            item_h = 0.050
-            leg_h = item_h * n_items + 0.035
-            leg_x = 0.775
-            leg_y = 0.50 - leg_h / 2
-
-            leg_card = FancyBboxPatch((leg_x, leg_y), leg_w, leg_h, transform=ax.transAxes,
-                                      boxstyle="round,pad=0.008,rounding_size=0.016",
-                                      facecolor="#0F172A", edgecolor="#334155", linewidth=1.2, alpha=0.88, zorder=14)
-            ax.add_patch(leg_card)
-
-            start_y = leg_y + leg_h - 0.036
-            for i, (label, col) in enumerate(legend_items):
-                curr_y = start_y - i * item_h
-                circle = Circle((leg_x + 0.020, curr_y), 0.0085, transform=ax.transAxes,
-                                facecolor=col, edgecolor='#FFFFFF', linewidth=1.0, zorder=16)
-                ax.add_patch(circle)
-                ax.text(leg_x + 0.038, curr_y, label, transform=ax.transAxes,
-                        fontsize=13.5, color='#F8FAFC', va='center', ha='left', fontweight='500', zorder=16)
-
-        # ----------------------------------------------------
-        # 4. 右下角 MSSO Logo
-        # ----------------------------------------------------
+        # 右下角 MSSO Logo (縮小尺寸 zoom=0.12)
         if logo_path and os.path.exists(logo_path):
             try:
                 logo_img = Image.open(logo_path)
-                imagebox = OffsetImage(logo_img, zoom=0.22)
-                ab = AnnotationBbox(imagebox, (0.885, 0.095), frameon=False, xycoords='axes fraction', zorder=18)
+                imagebox = OffsetImage(logo_img, zoom=0.12)
+                ab = AnnotationBbox(imagebox, (0.935, 0.065), frameon=False, xycoords='axes fraction', zorder=12)
                 ax.add_artist(ab)
             except Exception as e:
                 print(f"Logo 載入失敗: {e}")
         else:
-            ax.text(0.885, 0.080, "MSSO", transform=ax.transAxes,
-                    fontsize=28, fontweight='heavy', color='#FFFFFF', ha='center', va='center', zorder=18)
-            ax.text(0.885, 0.045, "WEATHER MACAU", transform=ax.transAxes,
-                    fontsize=12, fontweight='bold', color='#94A3B8', ha='center', va='center', zorder=18)
+            ax.text(0.935, 0.055, "MSSO", transform=ax.transAxes,
+                    fontsize=20, fontweight='heavy', color='#37474F', ha='center', va='center', zorder=12)
 
-        # 嚴格依照 4:3 畫布輸出，避免被裁切縮形
-        plt.savefig(f"static/images/{key}.png", dpi=100, facecolor='#475569')
+        out_file = f"static/images/{key}.png"
+        plt.savefig(out_file, format='png', dpi=150)
         plt.close(fig)
 
-    print("✅ 4:3 全要素高清晰地圖渲染完畢！")
+    print("✅ 16:9 全要素氣象地圖渲染完畢！")
 
 # ==========================================
 # 輔助函數：智能插入 NaN 實現中斷斷線
@@ -771,7 +640,7 @@ def insert_nans_on_gap(df, col, max_gap_minutes=25):
     return pd.DataFrame(new_rows).reset_index(drop=True)
 
 # ==========================================
-# 繪製各測站歷史時序折線圖
+# 繪製各測站歷史時序折線圖 (保持原樣不變)
 # ==========================================
 def render_trend_charts():
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -1014,7 +883,7 @@ def render_trend_charts():
                             barb_y.append(barb_base_y)
                             barb_u.append(u)
                             barb_v.append(v)
-                            c, _ = get_wind_style(w_spd)
+                            c = get_wind_color(w_spd)
                             barb_colors.append(c)
 
                     if barb_x:
@@ -1117,7 +986,7 @@ def render_trend_charts():
     print("✅ 時序趨勢圖全部渲染完成！")
 
 # ==========================================
-# 繪製 24 小時紫外線折線圖
+# 繪製 24 小時紫外線折線圖 (保持原樣不變)
 # ==========================================
 def render_uv_trend_chart():
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -1201,7 +1070,7 @@ def render_uv_trend_chart():
     print("✅ 紫外線折線圖生成完成！")
 
 # ==========================================
-# 24 小時降雨量統計表
+# 24 小時降雨量統計表 (保持原樣不變)
 # ==========================================
 def generate_24h_rainfall_summary(stations_data=None):
     output_path = "static/images/rainfall_24h_summary.json"
@@ -1291,11 +1160,11 @@ def generate_24h_rainfall_summary(stations_data=None):
 if __name__ == '__main__':
     init_db()
     
-    # 1. 優先獲取 UVI 資料
+    # 1. 獲取 UVI 資料
     uv_data = fetch_smg_uvi()
     current_uvi = uv_data.get('uvi', 0.0) if uv_data else 0.0
 
-    # 2. 獲取氣象數據
+    # 2. 獲取 SMG 氣象數據
     stations_data = fetch_smg_weather(current_uvi=current_uvi)
 
     if stations_data:
@@ -1303,7 +1172,7 @@ if __name__ == '__main__':
         render_distribution_maps(stations_data, current_uvi)
         render_trend_charts()
         render_uv_trend_chart()
-        print(f"🎉 全部功能升級完畢！當前 XML 觀測時間：{update_time_str}")
+        print(f"🎉 全部功能更新完畢！當前 XML 觀測時間：{update_time_str}")
     else:
         generate_24h_rainfall_summary(None)
         print("❌ 無法獲取 SMG XML 數據，已確保預備狀態檔案輸出。")
