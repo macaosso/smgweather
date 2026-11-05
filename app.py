@@ -81,9 +81,19 @@ BRIDGE_STATIONS = [
 PRESSURE_STATIONS = ["外港碼頭", "媽閣", "大潭山", "澳門大學", "九澳", "東亞運大馬路"]
 
 # ==========================================
-# 2. 各項要素色階映射函數 (依照最新色階)
+# 2. 安全浮點轉換與各要素色階映射函數
 # ==========================================
+def safe_float(v):
+    if v is None:
+        return None
+    try:
+        val = float(v)
+        return None if np.isnan(val) else val
+    except (ValueError, TypeError):
+        return None
+
 def get_temp_color(v):
+    v = safe_float(v)
     if v is None: return "#9E9E9E"
     if v >= 37.5: return "#8B0000"      # 極為酷熱 (Dark Red)
     if v >= 35.5: return "#D32F2F"      # 非常酷熱 (Furnace Red)
@@ -97,12 +107,14 @@ def get_temp_color(v):
     return "#4A148C"                    # 極為寒冷 (Plum Purple)
 
 def get_temp_diff_color(v):
+    v = safe_float(v)
     if v is None: return "#9E9E9E"
     if v > 0: return "#D32F2F"          # + furnace
     if v == 0: return "#9E9E9E"         # 0 gray
     return "#1565C0"                    # - midnight blue
 
 def get_wbgt_color(v):
+    v = safe_float(v)
     if v is None: return "#9E9E9E"
     if v >= 31.5: return "#8B0000"      # 極危
     if v >= 30.5: return "#F57C00"      # 危險 (orange)
@@ -111,8 +123,9 @@ def get_wbgt_color(v):
     return "#4FC3F7"                    # 正常 (light blue)
 
 def get_wind_color(v):
+    v = safe_float(v)
     if v is None: return "#9E9E9E"
-    if v >= 117.5: return "#D32F2F"     # 颶風 (red)
+    if v >= 117.5: return "#D32F2F"     # 颶風 (red)[cite: 1]
     if v >= 87.5:  return "#FB8C00"     # 暴風 (orange)
     if v >= 62.5:  return "#FFC107"     # 烈風 (amber)
     if v >= 40.5:  return "#1E88E5"     # 強風 (blue)
@@ -120,6 +133,7 @@ def get_wind_color(v):
     return "#9E9E9E"                    # 清勁以下 (gray)
 
 def get_rain1h_color(v):
+    v = safe_float(v)
     if v is None: return "#9E9E9E"
     if v >= 100.0: return "#7B1FA2"     # 大暴雨 (purple)
     if v >= 50.0:  return "#E53935"     # 暴雨 (red)
@@ -129,6 +143,7 @@ def get_rain1h_color(v):
     return "#BDBDBD"                    # 0 gray
 
 def get_rain24h_color(v):
+    v = safe_float(v)
     if v is None: return "#9E9E9E"
     if v >= 350.0: return "#212121"     # black
     if v >= 200.0: return "#D32F2F"     # red
@@ -138,6 +153,7 @@ def get_rain24h_color(v):
     return "#BDBDBD"                    # 0 gray
 
 def get_pressure_color(v):
+    v = safe_float(v)
     if v is None: return "#9E9E9E"
     if v >= 1030.0: return "#8B0000"
     if v >= 1025.0: return "#C62828"
@@ -153,6 +169,7 @@ def get_pressure_color(v):
     return "#311B92"
 
 def get_humidity_color(h):
+    h = safe_float(h)
     if h is None: return "#9E9E9E"
     if h >= 95: return "#7B1FA2"
     if h >= 85: return "#1565C0"
@@ -192,7 +209,6 @@ if bridges is None:
 # 4. 16:9 底圖與繪圖核心函數
 # ==========================================
 def draw_base_map(ax):
-    # 底圖配色：溫和現代淺色調
     bg_water = '#DCEEFB'     # 水體淺藍
     land_zhuhai = '#F7F4EB'  # 珠海陸地淡黃白
     land_macau = '#FFFFFF'   # 澳門陸地純白
@@ -547,8 +563,13 @@ def render_distribution_maps(stations, current_uvi=0.0):
             if key == 'pressure' and name not in PRESSURE_STATIONS:
                 continue
 
-            if val is not None and not (isinstance(val, float) and np.isnan(val)):
-                color = color_fn(val)
+            # 安全判斷：當前數值有效時才執行渲染
+            has_val = val is not None and not (isinstance(val, float) and np.isnan(val))
+
+            if has_val:
+                # 關鍵修復：若當前項目為風向 wind_dir，取色指標使用風速數值而非字串
+                color_target = data.get('wind_speed', 0.0) if key == 'wind_dir' else val
+                color = color_fn(color_target)[cite: 1]
 
                 if key in ['wind_speed', 'gust_speed', 'wind_dir']:
                     dir_map = {'N':0, 'NNE':22.5, 'NE':45, 'ENE':67.5, 'E':90, 'ESE':112.5, 'SE':135, 'SSE':157.5,
@@ -578,9 +599,9 @@ def render_distribution_maps(stations, current_uvi=0.0):
                             path_effects=[pe.withStroke(linewidth=2.5, foreground='white')])
                 else:
                     if key in ['temp_now', 'apparent', 'wbgt', 'temp_max', 'temp_min', 'pressure']:
-                        badge_text = f"{val:.1f}"
+                        badge_text = f"{float(val):.1f}"
                     else:
-                        badge_text = f"{int(round(val))}"
+                        badge_text = f"{int(round(float(val)))}"
 
                     ax.text(lon, lat, badge_text, fontsize=9.5, fontweight='heavy', color='#212121',
                             ha='center', va='center', zorder=8,
@@ -589,7 +610,7 @@ def render_distribution_maps(stations, current_uvi=0.0):
                             ha='center', va='top', zorder=8,
                             path_effects=[pe.withStroke(linewidth=2.5, foreground='white')])
             else:
-                # 無數據時渲染點位與站名
+                # 無數據時渲染灰色點位與站名
                 ax.scatter(lon, lat, color='#90A4AE', s=25, edgecolor='#37474F', zorder=7)
                 ax.text(lon, lat - 0.0045, disp_name, fontsize=8, fontweight='bold', color='#546E7A',
                         ha='center', va='top', zorder=8,
