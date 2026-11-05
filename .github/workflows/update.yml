@@ -45,7 +45,7 @@ jobs:
 
       - name: 安裝 Python 核心庫
         run: |
-          uv pip install --system requests pandas numpy matplotlib geopandas osmnx
+          uv pip install --system requests pandas numpy matplotlib geopandas osmnx pillow
 
       - name: 執行 4.5 小時常駐循環 (每 5 分鐘抓取更新一次)
         run: |
@@ -94,6 +94,11 @@ jobs:
             cp -f weather_data.json /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f history.db /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -rf cache/* /tmp/gh-pages-deploy/cache/ 2>/dev/null || true
+
+            # 同步 MSSO(H).png 到根目錄與 static/images 目錄
+            cp -f "MSSO(H).png" /tmp/gh-pages-deploy/ 2>/dev/null || true
+            cp -f "MSSO(H).png" /tmp/gh-pages-deploy/static/images/ 2>/dev/null || true
+            cp -f static/images/"MSSO(H).png" /tmp/gh-pages-deploy/ 2>/dev/null || true
 
             # 額外防禦：若 JSON 在 static/images，拷貝一份到根目錄；反之亦然
             if [ -f static/images/rainfall_24h_summary.json ]; then
