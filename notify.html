@@ -96,7 +96,7 @@
       <div class="flex items-center gap-2 flex-shrink-0">
         <button id="btnNotifyPermission" onclick="requestPermission()" class="px-2.5 sm:px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-500 hover:bg-rose-400 active:scale-95 text-white transition flex items-center gap-1.5 shadow-lg shadow-rose-500/25">
           <i class="fa-solid fa-bell text-xs"></i>
-          <span id="btnPermissionText">啟用通知權限</span>
+          <span id="btnPermissionText">啟用離線與桌面通知</span>
         </button>
 
         <button onclick="fetchAndCheck(true)" title="立即手動更新" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 flex items-center justify-center border border-slate-700 transition">
@@ -172,8 +172,8 @@
         <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
           <div>
             <div class="text-[10px] font-sans text-slate-400">推播機制模式</div>
-            <div class="text-sm font-bold text-emerald-400 mt-0.5">無去重模式 (NO DEDUP)</div>
-            <div class="text-[10px] font-sans text-slate-500">更新即通知，不設冷卻防抖</div>
+            <div class="text-sm font-bold text-emerald-400 mt-0.5">離線 ServiceWorker + 直推</div>
+            <div class="text-[10px] font-sans text-slate-500">更新即通知，列出超標要素</div>
           </div>
           <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
             <i class="fa-solid fa-bolt text-sm"></i>
@@ -187,7 +187,7 @@
             <div class="text-[10px] font-sans text-slate-500">每次資料更新且超標觸發</div>
           </div>
           <div class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center">
-            <i class="fa-solid fa-bell-ring text-sm"></i>
+            <i class="fa-solid fa-bell text-sm"></i>
           </div>
         </div>
 
@@ -247,10 +247,33 @@
     let notificationCount = 0;
     let timerCountdown = 60;
     const POLL_INTERVAL_SECONDS = 60;
+    let swRegistration = null;
 
     // =========================================================================
-    // 1. 瀏覽器通知權限管理
+    // 1. Service Worker 註冊與推播權限管理
     // =========================================================================
+    async function initServiceWorker() {
+      if ('serviceWorker' in navigator) {
+        try {
+          swRegistration = await navigator.serviceWorker.register('sw.js');
+          addLog("Service Worker 已註冊 (支援背景與離線推播)", "text-emerald-400");
+
+          // 嘗試啟用 Chrome 定期背景同步 (Periodic Sync)
+          if ('periodicSync' in swRegistration) {
+            const status = await navigator.permissions.query({ name: 'periodic-background-sync' });
+            if (status.state === 'granted') {
+              await swRegistration.periodicSync.register('check-weather-extreme', {
+                minInterval: 60 * 1000 // 嘗試每分鐘或系統允許最短週期喚醒
+              });
+              addLog("定期背景檢查 (Periodic Sync) 已掛載", "text-sky-400");
+            }
+          }
+        } catch (err) {
+          addLog(`Service Worker 註冊失敗: ${err.message}`, "text-rose-400");
+        }
+      }
+    }
+
     async function requestPermission() {
       if (!("Notification" in window)) {
         alert("目前瀏覽器不支援 Web Notification API");
@@ -277,7 +300,7 @@
 
       if (Notification.permission === "granted") {
         btn.className = "px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 cursor-default";
-        btn.innerHTML = `<i class="fa-solid fa-check text-xs"></i><span>通知已授權</span>`;
+        btn.innerHTML = `<i class="fa-solid fa-check text-xs"></i><span>通知已授權 (含離線背景)</span>`;
         btn.onclick = null;
       } else if (Notification.permission === "denied") {
         btn.className = "px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1.5";
@@ -286,48 +309,66 @@
     }
 
     // =========================================================================
-    // 2. 推播觸發核心 (NO DEDUPLICATION: 更新即彈窗)
+    // 2. 推播觸發核心：直接呈現天氣指標統計與各站達標狀況
     // =========================================================================
-    function triggerNotification(triggeredList, updateTime) {
+    function triggerNotification(triggeredList, stats, updateTime) {
       notificationCount++;
       document.getElementById("notifiedCount").innerText = `${notificationCount} 次`;
 
-      const title = `⚠️ 澳門氣象極端預警 (${triggeredList.length} 項指標超標)`;
-      const bodyLines = triggeredList.slice(0, 5).map(item => `• [${item.station}] ${item.type}: ${item.value}`);
-      if (triggeredList.length > 5) {
-        bodyLines.push(`...及其他 ${triggeredList.length - 5} 處測站指標超標`);
+      // 構建要素統計摘要
+      const statParts = [];
+      if (stats.hot > 0) statParts.push(`酷熱: ${stats.hot}站`);
+      if (stats.cold > 0) statParts.push(`寒冷: ${stats.cold}站`);
+      if (stats.wbgt > 0) statParts.push(`WBGT: ${stats.wbgt}站`);
+      if (stats.app > 0) statParts.push(`極熱體感: ${stats.app}站`);
+      if (stats.wind > 0) statParts.push(`強風: ${stats.wind}站`);
+      if (stats.gust > 0) statParts.push(`陣風: ${stats.gust}站`);
+      if (stats.rain > 0) statParts.push(`時雨量: ${stats.rain}站`);
+
+      const title = `⚠️ 澳門極端天氣 [${triggeredList.length}項指標超標]`;
+
+      // 構建直接展示天氣數據的內文
+      const bodyLines = [
+        `【達標統計】${statParts.join(' | ')}`,
+        `【實時測站達標數據】`
+      ];
+
+      // 列出前 4 筆超標具體測站與數值
+      triggeredList.slice(0, 4).forEach(item => {
+        bodyLines.push(`• [${item.station}] ${item.type}達 ${item.value}`);
+      });
+
+      if (triggeredList.length > 4) {
+        bodyLines.push(`...及其他 ${triggeredList.length - 4} 處指標超標`);
       }
-      bodyLines.push(`數據時間：${updateTime || new Date().toLocaleTimeString()}`);
+      bodyLines.push(`更新時間：${updateTime || new Date().toLocaleTimeString()}`);
 
-      const bodyText = bodyLines.join("\\n");
+      const bodyText = bodyLines.join("\n");
 
-      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.ready.then(reg => {
-          reg.showNotification(title, {
-            body: bodyText,
-            icon: "https://cdn-icons-png.flaticon.com/512/1146/1146869.png",
-            tag: "extreme-alert-" + Date.now(),
-            renotify: true,
-            vibrate: [200, 100, 200]
-          });
-        });
-      } else if ("Notification" in window && Notification.permission === "granted") {
-        const notif = new Notification(title, {
+      // 透過 Service Worker 發出（可支援離開分頁、螢幕鎖定時常駐通知）
+      if (swRegistration && swRegistration.showNotification && Notification.permission === "granted") {
+        swRegistration.showNotification(title, {
           body: bodyText,
           icon: "https://cdn-icons-png.flaticon.com/512/1146/1146869.png",
-          tag: "extreme-alert-" + Date.now()
+          badge: "https://cdn-icons-png.flaticon.com/512/1146/1146869.png",
+          tag: "extreme-alert-" + (updateTime || Date.now()),
+          renotify: true,
+          requireInteraction: true,
+          vibrate: [250, 100, 250, 100, 250]
         });
-        notif.onclick = () => {
-          window.focus();
-          notif.close();
-        };
+      } else if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(title, {
+          body: bodyText,
+          icon: "https://cdn-icons-png.flaticon.com/512/1146/1146869.png",
+          tag: "extreme-alert-" + (updateTime || Date.now())
+        });
       }
 
-      addLog(`[推播發送] ${title} (${updateTime})`, "text-rose-400 font-bold");
+      addLog(`[推播發送] ${title} - ${statParts.join(', ')}`, "text-rose-400 font-bold");
     }
 
     // =========================================================================
-    // 3. 資料處理與 7 大極端條件檢測 (直接解析 JSON 產出結構)
+    // 3. 資料處理與 7 大極端條件檢測
     // =========================================================================
     function processWeatherData(data, isManual = false) {
       const currentUpdateTime = data.update_time || null;
@@ -350,6 +391,7 @@
       }
 
       const allTriggeredItems = [];
+      const stats = { wbgt: 0, hot: 0, cold: 0, wind: 0, gust: 0, app: 0, rain: 0 };
       const stationsTriggeredCount = {};
 
       const gridHtml = stationNames.map(stName => {
@@ -366,13 +408,13 @@
         const stAlerts = [];
 
         // 7 大觸發條件檢驗
-        if (wbgt !== null && wbgt >= 28.0) stAlerts.push({ station: stName, type: "暑熱 WBGT", value: `${wbgt}°C`, tag: "wbgt" });
-        if (temp !== null && temp >= 32.5) stAlerts.push({ station: stName, type: "酷熱高溫", value: `${temp}°C`, tag: "hot" });
-        if (temp !== null && temp <= 12.5) stAlerts.push({ station: stName, type: "低溫寒冷", value: `${temp}°C`, tag: "cold" });
-        if (wind !== null && wind >= 35.0) stAlerts.push({ station: stName, type: "平均強風", value: `${wind} km/h`, tag: "wind" });
-        if (gust !== null && gust >= 60.0) stAlerts.push({ station: stName, type: "最高陣風", value: `${gust} km/h`, tag: "gust" });
-        if (apparent !== null && apparent >= 35.5) stAlerts.push({ station: stName, type: "極熱體感", value: `${apparent}°C`, tag: "app" });
-        if (rain !== null && rain >= 10.0) stAlerts.push({ station: stName, type: "時雨量大雨", value: `${rain} mm`, tag: "rain" });
+        if (wbgt !== null && wbgt >= 28.0) { stAlerts.push({ station: stName, type: "暑熱 WBGT", value: `${wbgt}°C` }); stats.wbgt++; }
+        if (temp !== null && temp >= 32.5) { stAlerts.push({ station: stName, type: "酷熱高溫", value: `${temp}°C` }); stats.hot++; }
+        if (temp !== null && temp <= 12.5) { stAlerts.push({ station: stName, type: "低溫寒冷", value: `${temp}°C` }); stats.cold++; }
+        if (wind !== null && wind >= 35.0) { stAlerts.push({ station: stName, type: "平均強風", value: `${wind} km/h` }); stats.wind++; }
+        if (gust !== null && gust >= 60.0) { stAlerts.push({ station: stName, type: "最高陣風", value: `${gust} km/h` }); stats.gust++; }
+        if (apparent !== null && apparent >= 35.5) { stAlerts.push({ station: stName, type: "極熱體感", value: `${apparent}°C` }); stats.app++; }
+        if (rain !== null && rain >= 10.0) { stAlerts.push({ station: stName, type: "時雨量大雨", value: `${rain} mm` }); stats.rain++; }
 
         if (stAlerts.length > 0) {
           allTriggeredItems.push(...stAlerts);
@@ -462,7 +504,7 @@
         ? `達標測站 (${triggeredStNames.length}): ${triggeredStNames.join(', ')}` 
         : '全澳無指標超標';
 
-      // 關鍵推播動作：時間戳有變動 (或手動檢驗)，且存在達標項目 -> 無去重立即推播
+      // 觸發條件判定
       if (isDataUpdated || isManual) {
         if (isDataUpdated) {
           lastKnownSysPubdate = currentUpdateTime;
@@ -470,7 +512,7 @@
         }
 
         if (allTriggeredItems.length > 0) {
-          triggerNotification(allTriggeredItems, currentUpdateTime);
+          triggerNotification(allTriggeredItems, stats, currentUpdateTime);
         } else {
           addLog(`[檢查完成] 全澳各測站指標皆處於正常標準內`, "text-emerald-400");
         }
@@ -513,9 +555,10 @@
     }
 
     // =========================================================================
-    // 6. 倒數計時與生命週期啟動
+    // 6. 生命週期與倒數計時啟動
     // =========================================================================
     window.addEventListener("load", () => {
+      initServiceWorker();
       updatePermissionUi();
       fetchAndCheck(true);
 
