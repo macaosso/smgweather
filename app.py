@@ -569,7 +569,7 @@ def render_distribution_maps(stations, current_uvi=0.0):
             if has_val:
                 # 關鍵修復：若當前項目為風向 wind_dir，取色指標使用風速數值而非字串
                 color_target = data.get('wind_speed', 0.0) if key == 'wind_dir' else val
-                color = color_fn(color_target)[cite: 1]
+                color = color_fn(color_target)
 
                 if key in ['wind_speed', 'gust_speed', 'wind_dir']:
                     dir_map = {'N':0, 'NNE':22.5, 'NE':45, 'ENE':67.5, 'E':90, 'ESE':112.5, 'SE':135, 'SSE':157.5,
