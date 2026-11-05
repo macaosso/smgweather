@@ -18,6 +18,7 @@ jobs:
     permissions:
       contents: write
       actions: write
+      workflows: write
 
     steps:
       - name: 檢出主分支代碼
@@ -62,7 +63,7 @@ jobs:
 
             cd "$GITHUB_WORKSPACE"
 
-            # 1. 強制同步 main 分支最新代碼，避免使用啟動時的舊版 index.html / notify.html / app.py
+            # 1. 強制同步 main 分支最新代碼，避免使用啟動時的舊版 index.html / notify.html / sw.js / app.py
             git fetch origin main
             git reset --hard origin/main
 
@@ -87,9 +88,10 @@ jobs:
             mkdir -p /tmp/gh-pages-deploy/static/images
             mkdir -p /tmp/gh-pages-deploy/cache
 
-            # 拷貝最新檔案 (確保 index.html 與 notify.html 為最新版本)
+            # 拷貝最新檔案 (確保 index.html、notify.html 與 sw.js 為最新版本)
             cp -f index.html /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f notify.html /tmp/gh-pages-deploy/ 2>/dev/null || true
+            cp -f sw.js /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -rf static /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f weather_data.json /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f history.db /tmp/gh-pages-deploy/ 2>/dev/null || true
@@ -135,4 +137,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # 檢查 workflow 檔案名稱 (若檔案名為 update.yml 則觸發)
           gh workflow run update.yml --ref main || echo "自動觸發結束。"
