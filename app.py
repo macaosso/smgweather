@@ -23,8 +23,8 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.dates as mdates
 from PIL import Image
 import geopandas as gpd
+from shapely.geometry import shape, box
 from shapely.ops import unary_union
-from shapely.geometry import box
 import osmnx as ox
 
 warnings.filterwarnings("ignore")
@@ -47,14 +47,13 @@ date_part = datetime.now(MACAU_TZ).strftime('%m/%d')
 time_part = datetime.now(MACAU_TZ).strftime('%H:%M')
 
 plt.rcParams['font.sans-serif'] = [
-    'Microsoft YaHei', 'SimHei', 'PingFang SC', 
-    'Noto Sans CJK SC', 'Noto Sans CJK TC', 'WenQuanYi Micro Hei', 
-    'Arial Unicode MS', 'sans-serif'
+    'Noto Sans CJK TC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei',
+    'PingFang SC', 'Microsoft YaHei', 'SimHei', 'sans-serif'
 ]
 plt.rcParams['axes.unicode_minus'] = False
 
 # ==========================================
-# 氣象站點設定 (維持澳門經緯度)
+# 氣象站點設定
 # ==========================================
 STATION_COORDS = {
     "紀念孫中山公園": {"lat": 22.216088, "lon": 113.544967, "area": "澳門半島", "code": "DP", "disp": "孫中山公園"},
@@ -84,7 +83,7 @@ BRIDGE_STATIONS = [
 PRESSURE_STATIONS = ["外港碼頭", "媽閣", "大潭山", "澳門大學", "九澳", "東亞運大馬路"]
 
 # ==========================================
-# 氣象指數數學公式 (WBGT & 體感溫度)
+# 氣象指數數學公式
 # ==========================================
 def estimate_wbgt_kmh(ta, rh, w, uvi=0.0):
     if any(v is None or np.isnan(v) for v in [ta, rh, w]):
@@ -115,15 +114,12 @@ def calculate_apparent_temperature(ta, rh, w):
         return None
 
 # ==========================================
-# 嚴格 16:9 地圖投影範圍計算與底圖幾何整合
+# 嚴格 4:3 (1600x1200) 座標範圍與 mapdata.json 支援
 # ==========================================
-# 在緯度 22.16° 下，1度緯度約 111.0km，1度經度約 102.8km (cos(22.16°) = 0.9261)
-# 為了維持真實地理長寬比 (Equal Aspect) 且畫幅精準為 16:9 (1.7778)
-# Lon_span = 1.7778 * Lat_span / 0.9261 ≈ 1.9197 * Lat_span
-LAT_CENTER = 22.168
-LON_CENTER = 113.555
-LAT_SPAN = 0.148
-LON_SPAN = LAT_SPAN * (16.0 / 9.0) / math.cos(math.radians(LAT_CENTER))
+LAT_CENTER = 22.165
+LON_CENTER = 113.563
+LAT_SPAN = 0.120
+LON_SPAN = (4.0 / 3.0) * LAT_SPAN / math.cos(math.radians(LAT_CENTER))
 
 MAP_BBOX = {
     'min_lat': LAT_CENTER - LAT_SPAN / 2,
@@ -132,66 +128,65 @@ MAP_BBOX = {
     'max_lon': LON_CENTER + LON_SPAN / 2
 }
 
-print(f"16:9 座標範圍: Lat [{MAP_BBOX['min_lat']:.4f}, {MAP_BBOX['max_lat']:.4f}], Lon [{MAP_BBOX['min_lon']:.4f}, {MAP_BBOX['max_lon']:.4f}]")
-
-unified_land_gdf = None
-bridges_gdf = None
-
-try:
-    print("正在下載並融合成一體化澳門/鄰近陸地底圖 (Union Polygon)...")
-    clip_box = box(MAP_BBOX['min_lon'] - 0.05, MAP_BBOX['min_lat'] - 0.05, 
-                   MAP_BBOX['max_lon'] + 0.05, MAP_BBOX['max_lat'] + 0.05)
-    
-    # 獲取澳門與珠海邊界並進行 Union 融合
-    macau_raw = ox.geocode_to_gdf("Macau, China")
-    zhuhai_raw = ox.geocode_to_gdf("Zhuhai, China")
-    
-    land_geoms = []
-    if macau_raw is not None and not macau_raw.empty:
-        land_geoms.append(macau_raw.geometry.unary_union)
-    if zhuhai_raw is not None and not zhuhai_raw.empty:
-        land_geoms.append(zhuhai_raw.geometry.unary_union)
-
-    if land_geoms:
-        combined_land = unary_union(land_geoms).intersection(clip_box)
+def load_mapdata_json(json_file='mapdata.json'):
+    """從 mapdata.json 載入並融合高精度澳門陸地與大橋圖層"""
+    if not os.path.exists(json_file):
+        return None, None
+    try:
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
         
-        # 下載水體進行水道鏤空，確保十字門、濠江、內港水道清晰
-        water_features = ox.features_from_bbox(
-            bbox=(MAP_BBOX['min_lat'] - 0.02, MAP_BBOX['max_lat'] + 0.02, MAP_BBOX['max_lon'] + 0.02, MAP_BBOX['min_lon'] - 0.02),
-            tags={"natural": ["water", "bay", "strait"], "waterway": ["riverbank", "river", "dock"]}
-        )
-        if water_features is not None and not water_features.empty:
-            water_polys = water_features[water_features.geometry.type.isin(['Polygon', 'MultiPolygon'])]
-            if not water_polys.empty:
-                water_union = water_polys.geometry.unary_union
-                combined_land = combined_land.difference(water_union)
+        land_geoms = []
+        bridge_geoms = []
+        for feat in data.get('features', []):
+            lbl = feat.get('properties', {}).get('label', '')
+            geom = shape(feat['geometry'])
+            if '橋' in lbl or '口岸' in lbl:
+                bridge_geoms.append(geom)
+            else:
+                land_geoms.append(geom)
 
-        unified_land_gdf = gpd.GeoDataFrame(geometry=[combined_land], crs="EPSG:4326")
+        land_union = unary_union(land_geoms) if land_geoms else None
+        bridge_union = unary_union(bridge_geoms) if bridge_geoms else None
+        
+        land_gdf = gpd.GeoDataFrame(geometry=[land_union], crs="EPSG:4326") if land_union else None
+        bridge_gdf = gpd.GeoDataFrame(geometry=[bridge_union], crs="EPSG:4326") if bridge_union else None
+        return land_gdf, bridge_gdf
+    except Exception as e:
+        print(f"⚠️ 解析 mapdata.json 失敗: {e}")
+        return None, None
 
-    # 下載跨海大橋
-    bridge_tags = {"bridge": "yes", "highway": ["motorway", "trunk", "primary", "secondary"]}
-    bridges = ox.features_from_bbox(
-        bbox=(MAP_BBOX['min_lat'], MAP_BBOX['max_lat'], MAP_BBOX['max_lon'], MAP_BBOX['min_lon']),
-        tags=bridge_tags
-    )
-    if bridges is not None and not bridges.empty:
-        bridges = bridges[bridges.geometry.type.isin(['LineString', 'MultiLineString'])]
-        bridges_gdf = bridges
+unified_land_gdf, bridges_gdf = load_mapdata_json('mapdata.json')
+
+# 若本機或執行環境中需要補充 OSM 鄰近陸地 (如珠海)，進行輔助加載
+try:
+    if unified_land_gdf is None or unified_land_gdf.empty:
+        print("正在嘗試從 OSM 獲取澳門及周邊地圖...")
+        zhuhai_raw = ox.geocode_to_gdf("Zhuhai, China")
+        macau_raw = ox.geocode_to_gdf("Macau, China")
+        all_geoms = []
+        if macau_raw is not None and not macau_raw.empty:
+            all_geoms.append(macau_raw.geometry.unary_union)
+        if zhuhai_raw is not None and not zhuhai_raw.empty:
+            all_geoms.append(zhuhai_raw.geometry.unary_union)
+        if all_geoms:
+            unified_land_gdf = gpd.GeoDataFrame(geometry=[unary_union(all_geoms)], crs="EPSG:4326")
 except Exception as e:
-    print(f"底圖構建異常: {e}")
+    print(f"OSM 補充下載略過: {e}")
 
 def draw_base_map(ax):
-    """嚴格依照參考圖：#546E7A 深灰藍水體、#DFE5E8 完整融合陸地、純白清晰海岸輪廓線"""
-    bg_water = '#546E7A'
-    land_color = '#DFE5E8'
+    """深灰藍海面 (#475569) + 奶白灰色融合陸地 (#E2E8F0) + 純白海岸邊線"""
+    bg_water = '#475569'
+    land_color = '#E2E8F0'
+    bridge_color = '#BAC7CC'
     
     ax.set_facecolor(bg_water)
     
     if unified_land_gdf is not None and not unified_land_gdf.empty:
-        unified_land_gdf.plot(ax=ax, color=land_color, edgecolor='#FFFFFF', linewidth=1.4, zorder=2)
+        unified_land_gdf.plot(ax=ax, color=land_color, edgecolor='#FFFFFF', linewidth=1.6, zorder=2)
     
     if bridges_gdf is not None and not bridges_gdf.empty:
-        bridges_gdf.plot(ax=ax, color='#BAC7CC', edgecolor='#FFFFFF', linewidth=1.6, zorder=3)
+        bridges_gdf.plot(ax=ax, color=bridge_color, edgecolor='#FFFFFF', linewidth=1.5, zorder=3)
 
     ax.set_xlim(MAP_BBOX['min_lon'], MAP_BBOX['max_lon'])
     ax.set_ylim(MAP_BBOX['min_lat'], MAP_BBOX['max_lat'])
@@ -199,69 +194,69 @@ def draw_base_map(ax):
     ax.set_axis_off()
 
 # ==========================================
-# 參考圖標準配色方案 (MET WARN 樣式)
+# 參考圖標準配色映射
 # ==========================================
 def get_temp_style(temp):
-    if temp is None or np.isnan(temp): return '#8F9CA3', '#FFFFFF'
+    if temp is None or np.isnan(temp): return '#94A3B8', '#FFFFFF'
     t = float(temp)
-    if t >= 35.0: return '#C53030', '#FFFFFF'     # 極端酷熱
-    elif t >= 33.0: return '#E53E3E', '#FFFFFF'   # 酷熱
-    elif t >= 28.0: return '#E06D53', '#FFFFFF'   # 炎熱
-    elif t >= 22.1: return '#E5A93C', '#FFFFFF'   # 溫暖
-    elif t >= 17.1: return '#7FB069', '#FFFFFF'   # 和暖
-    elif t >= 12.1: return '#48BB78', '#FFFFFF'   # 清涼
-    elif t >= 7.1:  return '#319795', '#FFFFFF'   # 寒冷
-    else: return '#6B46C1', '#FFFFFF'             # 嚴寒
+    if t >= 35.0: return '#DC2626', '#FFFFFF'     # 極端酷熱
+    elif t >= 33.0: return '#EF4444', '#FFFFFF'   # 酷熱
+    elif t >= 28.0: return '#F97316', '#FFFFFF'   # 炎熱
+    elif t >= 22.1: return '#EAB308', '#FFFFFF'   # 溫暖
+    elif t >= 17.1: return '#84CC16', '#FFFFFF'   # 和暖
+    elif t >= 12.1: return '#10B981', '#FFFFFF'   # 清涼
+    elif t >= 7.1:  return '#06B6D4', '#FFFFFF'   # 寒冷
+    else: return '#8B5CF6', '#FFFFFF'             # 嚴寒
 
 def get_temp_diff_style(diff):
-    if diff is None or np.isnan(diff): return '#78909C', '#FFFFFF'
+    if diff is None or np.isnan(diff): return '#94A3B8', '#FFFFFF'
     d = float(diff)
-    if d > 0: return '#E53E3E', '#FFFFFF'         # 升溫紅
-    elif d < 0: return '#38B2AC', '#FFFFFF'       # 降溫青
-    return '#78909C', '#FFFFFF'
+    if d > 0: return '#EF4444', '#FFFFFF'
+    elif d < 0: return '#06B6D4', '#FFFFFF'
+    return '#94A3B8', '#FFFFFF'
 
 def get_humidity_style(h):
-    if h is None or np.isnan(h): return '#78909C', '#FFFFFF'
+    if h is None or np.isnan(h): return '#94A3B8', '#FFFFFF'
     h = float(h)
-    if h >= 95: return '#6B46C1', '#FFFFFF'
-    elif h >= 85: return '#3182CE', '#FFFFFF'
-    elif h >= 71: return '#48BB78', '#FFFFFF'
-    elif h >= 40: return '#E5A93C', '#FFFFFF'
-    else: return '#C53030', '#FFFFFF'
+    if h >= 95: return '#8B5CF6', '#FFFFFF'
+    elif h >= 85: return '#3B82F6', '#FFFFFF'
+    elif h >= 71: return '#10B981', '#FFFFFF'
+    elif h >= 40: return '#EAB308', '#FFFFFF'
+    else: return '#EF4444', '#FFFFFF'
 
 def get_wind_style(w):
-    if w is None or np.isnan(w): return '#78909C', '#FFFFFF'
+    if w is None or np.isnan(w): return '#94A3B8', '#FFFFFF'
     w = float(w)
-    if w >= 118: return '#C53030', '#FFFFFF'
-    elif w >= 88: return '#DD6B20', '#FFFFFF'
-    elif w >= 63: return '#D69E2E', '#FFFFFF'
-    elif w >= 41: return '#38A169', '#FFFFFF'
-    return '#38B2AC', '#FFFFFF'
+    if w >= 118: return '#DC2626', '#FFFFFF'
+    elif w >= 88: return '#EA580C', '#FFFFFF'
+    elif w >= 63: return '#D97706', '#FFFFFF'
+    elif w >= 41: return '#16A34A', '#FFFFFF'
+    return '#0D9488', '#FFFFFF'
 
 def get_pressure_style(p):
-    if p is None or np.isnan(p): return '#78909C', '#FFFFFF'
+    if p is None or np.isnan(p): return '#94A3B8', '#FFFFFF'
     p = float(p)
-    if p >= 1030.0: return '#1A365D', '#FFFFFF'
-    elif p >= 1010.0: return '#4299E1', '#FFFFFF'
-    elif p >= 1000.0: return '#38A169', '#FFFFFF'
-    elif p >= 990.0: return '#ECC94B', '#FFFFFF'
-    elif p >= 980.0: return '#ED8936', '#FFFFFF'
-    elif p >= 970.0: return '#F56565', '#FFFFFF'
-    elif p >= 950.0: return '#E53E3E', '#FFFFFF'
-    else: return '#6B46C1', '#FFFFFF'
+    if p >= 1030.0: return '#1E3A8A', '#FFFFFF'
+    elif p >= 1010.0: return '#2563EB', '#FFFFFF'
+    elif p >= 1000.0: return '#16A34A', '#FFFFFF'
+    elif p >= 990.0: return '#EAB308', '#FFFFFF'
+    elif p >= 980.0: return '#F97316', '#FFFFFF'
+    elif p >= 970.0: return '#EF4444', '#FFFFFF'
+    elif p >= 950.0: return '#DC2626', '#FFFFFF'
+    else: return '#7C3AED', '#FFFFFF'
 
 def get_rain1h_style(v):
-    if v is None or np.isnan(v): return "#78909C", "#FFFFFF"
+    if v is None or np.isnan(v): return "#94A3B8", "#FFFFFF"
     v = float(v)
-    if v >= 100.0: return "#6B46C1", "#FFFFFF"
-    if v >= 50.0:  return "#C53030", "#FFFFFF"
-    if v >= 20.0:  return "#DD6B20", "#FFFFFF"
-    if v >= 10.0:  return "#38A169", "#FFFFFF"
-    if v >= 0.1:   return "#3182CE", "#FFFFFF"
-    return "#78909C", "#FFFFFF"
+    if v >= 100.0: return "#7C3AED", "#FFFFFF"
+    if v >= 50.0:  return "#DC2626", "#FFFFFF"
+    if v >= 20.0:  return "#EA580C", "#FFFFFF"
+    if v >= 10.0:  return "#16A34A", "#FFFFFF"
+    if v >= 0.1:   return "#2563EB", "#FFFFFF"
+    return "#94A3B8", "#FFFFFF"
 
 def get_wbgt_style(wbgt):
-    if wbgt is None or np.isnan(wbgt): return "#78909C", "#FFFFFF"
+    if wbgt is None or np.isnan(wbgt): return "#94A3B8", "#FFFFFF"
     w = float(wbgt)
     if w >= 32: return '#991B1B', '#FFFFFF'
     elif w >= 31: return '#DC2626', '#FFFFFF'
@@ -521,7 +516,7 @@ def fetch_smg_uvi():
     return uv_data
 
 # ==========================================
-# 繪製各項分佈底圖 (嚴格鎖定 16:9 且美化)
+# 繪製各項分佈底圖 (精準 4:3 佈局、字體放大、圖例與標題升級)
 # ==========================================
 def render_distribution_maps(stations, current_uvi=0.0):
     for st_name, d in stations.items():
@@ -533,41 +528,41 @@ def render_distribution_maps(stations, current_uvi=0.0):
             d['wbgt'] = estimate_wbgt_kmh(t, h, w, current_uvi) if (t is not None and h is not None) else None
 
     temp_legend = [
-        ("極端酷熱 (>=35.0℃)", "#C53030"),
-        ("酷熱 (33.0-34.9℃)", "#E53E3E"),
-        ("炎熱 (28.0-32.9℃)", "#E06D53"),
-        ("溫暖 (22.1-27.9℃)", "#E5A93C"),
-        ("和暖 (17.1-22.0℃)", "#7FB069"),
-        ("清涼 (12.1-17.0℃)", "#48BB78"),
-        ("寒冷 (7.1-12.0℃)", "#319795"),
-        ("嚴寒 (<=7.0℃)", "#6B46C1")
+        ("極端酷熱 (≥35.0℃)", "#DC2626"),
+        ("酷熱 (33.0-34.9℃)", "#EF4444"),
+        ("炎熱 (28.0-32.9℃)", "#F97316"),
+        ("溫暖 (22.1-27.9℃)", "#EAB308"),
+        ("和暖 (17.1-22.0℃)", "#84CC16"),
+        ("清涼 (12.1-17.0℃)", "#10B981"),
+        ("寒冷 (7.1-12.0℃)", "#06B6D4"),
+        ("嚴寒 (≤7.0℃)", "#8B5CF6")
     ]
 
     humidity_legend = [
-        ("非常潮濕 (95-100%)", "#6B46C1"),
-        ("潮濕 (85-95%)", "#3182CE"),
-        ("71-84%", "#48BB78"),
-        ("乾燥 (40-70%)", "#E5A93C"),
-        ("非常乾燥 (0-40%)", "#C53030")
+        ("非常潮濕 (95-100%)", "#8B5CF6"),
+        ("潮濕 (85-94%)", "#3B82F6"),
+        ("正常 (71-84%)", "#10B981"),
+        ("乾燥 (40-70%)", "#EAB308"),
+        ("非常乾燥 (0-39%)", "#EF4444")
     ]
 
     wind_legend = [
-        ("颶風 (>=118 km/h)", "#C53030"),
-        ("暴風 (88-117 km/h)", "#DD6B20"),
-        ("烈風 (63-87 km/h)", "#D69E2E"),
-        ("強風 (41-62 km/h)", "#38A169"),
-        ("清勁或以下 (0-40 km/h)", "#38B2AC")
+        ("颶風 (≥118 km/h)", "#DC2626"),
+        ("暴風 (88-117 km/h)", "#EA580C"),
+        ("烈風 (63-87 km/h)", "#D97706"),
+        ("強風 (41-62 km/h)", "#16A34A"),
+        ("清勁或以下 (0-40 km/h)", "#0D9488")
     ]
 
     pressure_legend = [
-        (">= 1030.0 hPa", "#1A365D"),
-        ("1010.0-1029.9 hPa", "#4299E1"),
-        ("1000.0-1009.9 hPa", "#38A169"),
-        ("990.0-999.9 hPa", "#ECC94B"),
-        ("980.0-989.9 hPa", "#ED8936"),
-        ("970.0-979.9 hPa", "#F56565"),
-        ("950.0-969.9 hPa", "#E53E3E"),
-        ("<= 949.9 hPa", "#6B46C1")
+        ("≥ 1030.0 hPa", "#1E3A8A"),
+        ("1010.0-1029.9 hPa", "#2563EB"),
+        ("1000.0-1009.9 hPa", "#16A34A"),
+        ("990.0-999.9 hPa", "#EAB308"),
+        ("980.0-989.9 hPa", "#F97316"),
+        ("970.0-979.9 hPa", "#EF4444"),
+        ("950.0-969.9 hPa", "#DC2626"),
+        ("≤ 949.9 hPa", "#7C3AED")
     ]
 
     tasks = [
@@ -581,51 +576,57 @@ def render_distribution_maps(stations, current_uvi=0.0):
         ('rain_h', '過去一小時降水', get_rain1h_style, None),
         ('rain_d', '今日累積降水', get_rain1h_style, None),
         ('wind_speed', '過去10分鐘平均風速及風向', get_wind_style, wind_legend),
+        ('gust_speed', '最高陣風分佈', get_wind_style, wind_legend),
+        ('wind_dir', '實時風向與風速分佈', get_wind_style, wind_legend),
         ('pressure', '平均海平面氣壓', get_pressure_style, pressure_legend),
     ]
 
     logo_path = 'MSSO(H).png' if os.path.exists('MSSO(H).png') else ('static/images/MSSO(H).png' if os.path.exists('static/images/MSSO(H).png') else None)
 
     for key, title_text, style_fn, legend_items in tasks:
-        # 建立精確 16:9 畫布 (1920x1080)
-        fig = plt.figure(figsize=(19.2, 10.8), dpi=100)
+        # 建立嚴格 4:3 比例 1600x1200
+        fig = plt.figure(figsize=(16.0, 12.0), dpi=100)
         ax = fig.add_axes([0, 0, 1, 1])
         draw_base_map(ax)
 
         # ----------------------------------------------------
-        # 1. 左上角標題與時間標籤 (嚴格防止字體重疊)
+        # 1. 重新設計的左上角整體卡片 (雙層流暢標題與時間標籤)
         # ----------------------------------------------------
-        # 標題白底卡片
-        rect_title = FancyBboxPatch((0.045, 0.885), 0.175, 0.065, transform=ax.transAxes,
-                                    boxstyle="round,pad=0.005,rounding_size=0.015",
-                                    facecolor="#FFFFFF", edgecolor="none", zorder=15)
-        ax.add_patch(rect_title)
-        # 橙黃直飾條
-        rect_bar = FancyBboxPatch((0.045, 0.885), 0.008, 0.065, transform=ax.transAxes,
-                                  boxstyle="round,pad=0,rounding_size=0.005",
-                                  facecolor="#E5A93C", edgecolor="none", zorder=16)
-        ax.add_patch(rect_bar)
-        ax.text(0.062, 0.917, title_text, transform=ax.transAxes,
-                fontsize=22, fontweight='bold', color='#1A202C', va='center', zorder=17)
+        card_w, card_h = 0.285, 0.076
+        card_x, card_y = 0.045, 0.885
+        header_card = FancyBboxPatch((card_x, card_y), card_w, card_h, transform=ax.transAxes,
+                                     boxstyle="round,pad=0.006,rounding_size=0.016",
+                                     facecolor="#FFFFFF", edgecolor="#94A3B8", linewidth=1.5, zorder=15)
+        ax.add_patch(header_card)
+        
+        # 橙黃亮眼指示條
+        accent_bar = FancyBboxPatch((card_x, card_y), 0.009, card_h, transform=ax.transAxes,
+                                    boxstyle="round,pad=0,rounding_size=0.005",
+                                    facecolor="#F59E0B", edgecolor="none", zorder=16)
+        ax.add_patch(accent_bar)
+        ax.text(card_x + 0.022, card_y + card_h / 2, title_text, transform=ax.transAxes,
+                fontsize=24, fontweight='bold', color='#0F172A', va='center', ha='left', zorder=17)
 
-        # 時間外框：左側橙黃日期、右側白底時間
-        t_box_y = 0.805
-        t_box_h = 0.058
-        rect_time_bg = FancyBboxPatch((0.045, t_box_y), 0.170, t_box_h, transform=ax.transAxes,
-                                      boxstyle="round,pad=0.005,rounding_size=0.014",
-                                      facecolor="#FFFFFF", edgecolor="none", zorder=15)
-        ax.add_patch(rect_time_bg)
-        rect_date_bg = FancyBboxPatch((0.045, t_box_y), 0.075, t_box_h, transform=ax.transAxes,
-                                      boxstyle="round,pad=0.005,rounding_size=0.012",
-                                      facecolor="#E5A93C", edgecolor="none", zorder=16)
-        ax.add_patch(rect_date_bg)
-        ax.text(0.0825, t_box_y + t_box_h / 2, date_part, transform=ax.transAxes,
-                fontsize=18, fontweight='bold', color='#FFFFFF', va='center', ha='center', zorder=17)
-        ax.text(0.162, t_box_y + t_box_h / 2, time_part, transform=ax.transAxes,
-                fontsize=18, fontweight='bold', color='#1A202C', va='center', ha='center', zorder=17)
+        # 時間外框卡片
+        time_w, time_h = 0.245, 0.054
+        time_y = card_y - 0.068
+        time_card = FancyBboxPatch((card_x, time_y), time_w, time_h, transform=ax.transAxes,
+                                   boxstyle="round,pad=0.006,rounding_size=0.014",
+                                   facecolor="#0F172A", edgecolor="#334155", linewidth=1.2, zorder=15)
+        ax.add_patch(time_card)
+        
+        dt_tag_w = 0.108
+        date_badge = FancyBboxPatch((card_x, time_y), dt_tag_w, time_h, transform=ax.transAxes,
+                                    boxstyle="round,pad=0.005,rounding_size=0.012",
+                                    facecolor="#F59E0B", edgecolor="none", zorder=16)
+        ax.add_patch(date_badge)
+        ax.text(card_x + dt_tag_w / 2, time_y + time_h / 2, date_part, transform=ax.transAxes,
+                fontsize=19, fontweight='bold', color='#FFFFFF', va='center', ha='center', zorder=17)
+        ax.text(card_x + dt_tag_w + (time_w - dt_tag_w) / 2, time_y + time_h / 2, time_part, transform=ax.transAxes,
+                fontsize=19, fontweight='bold', color='#F8FAFC', va='center', ha='center', zorder=17)
 
         # ----------------------------------------------------
-        # 2. 測站標籤 (膠囊圓球數值 + 深藍方塊地名)
+        # 2. 測站標籤系統 (大字號數值圓球 + 深藍地名方塊)
         # ----------------------------------------------------
         for name, data in stations.items():
             val = data.get(key)
@@ -641,41 +642,42 @@ def render_distribution_maps(stations, current_uvi=0.0):
 
             disp_name = data.get('disp', name)
 
-            if key == 'wind_speed':
+            if key in ['wind_speed', 'gust_speed', 'wind_dir']:
                 dir_map = {'N':0, 'NNE':22.5, 'NE':45, 'ENE':67.5, 'E':90, 'ESE':112.5, 'SE':135, 'SSE':157.5,
                            'S':180, 'SSW':202.5, 'SW':225, 'WSW':247.5, 'W':270, 'WNW':292.5, 'NW':315, 'NNW':337.5}
                 try: deg = float(data.get('wind_dir', 0))
                 except: deg = dir_map.get(str(data.get('wind_dir')).upper(), 0)
 
-                bg_c, _ = get_wind_style(val)
-                val_int = int(round(val))
+                spd_val = data.get('wind_speed' if key != 'gust_speed' else 'gust_speed', 0.0) or 0.0
+                bg_c, _ = get_wind_style(spd_val)
+                val_display = int(round(spd_val))
 
-                arrow_poly = np.array([[0, 2.0], [-1.0, -1.2], [0, -0.4], [1.0, -1.2]])
-                t = transforms.Affine2D().rotate_deg(deg).scale(0.0028).translate(lon, lat) + ax.transData
-                ax.add_patch(Polygon(arrow_poly, closed=True, facecolor=bg_c, edgecolor='#FFFFFF', linewidth=1.5, transform=t, zorder=10))
+                arrow_poly = np.array([[0, 2.3], [-1.1, -1.3], [0, -0.4], [1.1, -1.3]])
+                t = transforms.Affine2D().rotate_deg(deg).scale(0.0034).translate(lon, lat) + ax.transData
+                ax.add_patch(Polygon(arrow_poly, closed=True, facecolor=bg_c, edgecolor='#FFFFFF', linewidth=1.8, transform=t, zorder=10))
 
-                ax.text(lon, lat, f"{val_int}", fontsize=11.5, fontweight='bold', color='#FFFFFF',
+                ax.text(lon, lat, f"{val_display}", fontsize=14, fontweight='bold', color='#FFFFFF',
                         ha='center', va='center', zorder=12)
 
-                ax.text(lon + 0.0065, lat, disp_name, fontsize=11, fontweight='bold', color='#FFFFFF',
+                ax.text(lon + 0.0080, lat, disp_name, fontsize=13.5, fontweight='bold', color='#FFFFFF',
                         ha='left', va='center',
-                        bbox=dict(boxstyle="square,pad=0.25", facecolor='#0E3A53', edgecolor='none'),
+                        bbox=dict(boxstyle="square,pad=0.28", facecolor='#0E3A53', edgecolor='none'),
                         zorder=11)
 
             elif key == 'temp_diff_24h':
                 d_val = float(val)
                 symbol = "▲" if d_val >= 0 else "▼"
-                bg_color = "#E53E3E" if d_val >= 0 else "#38B2AC"
+                bg_color = "#EF4444" if d_val >= 0 else "#06B6D4"
                 val_text = f"{symbol}{abs(d_val):.1f}"
 
-                ax.text(lon - 0.0030, lat, val_text, fontsize=12, fontweight='bold', color='#FFFFFF',
+                ax.text(lon - 0.0042, lat, val_text, fontsize=15, fontweight='bold', color='#FFFFFF',
                         ha='right', va='center',
-                        bbox=dict(boxstyle="round,pad=0.35,rounding_size=0.6", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=1.5),
+                        bbox=dict(boxstyle="round,pad=0.40,rounding_size=0.6", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=2.0),
                         zorder=12)
 
-                ax.text(lon - 0.0012, lat, disp_name, fontsize=11, fontweight='bold', color='#FFFFFF',
+                ax.text(lon - 0.0018, lat, disp_name, fontsize=14, fontweight='bold', color='#FFFFFF',
                         ha='left', va='center',
-                        bbox=dict(boxstyle="square,pad=0.25", facecolor='#0E3A53', edgecolor='none'),
+                        bbox=dict(boxstyle="square,pad=0.28", facecolor='#0E3A53', edgecolor='none'),
                         zorder=11)
 
             else:
@@ -685,37 +687,40 @@ def render_distribution_maps(stations, current_uvi=0.0):
                 else:
                     val_str = f"{int(round(val))}"
 
-                ax.text(lon - 0.0030, lat, val_str, fontsize=12.5, fontweight='bold', color=font_color,
+                ax.text(lon - 0.0042, lat, val_str, fontsize=15.5, fontweight='bold', color=font_color,
                         ha='right', va='center',
-                        bbox=dict(boxstyle="round,pad=0.38,rounding_size=0.7", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=1.5),
+                        bbox=dict(boxstyle="round,pad=0.42,rounding_size=0.8", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=2.0),
                         zorder=12)
 
-                ax.text(lon - 0.0012, lat, disp_name, fontsize=11, fontweight='bold', color='#FFFFFF',
+                ax.text(lon - 0.0018, lat, disp_name, fontsize=14, fontweight='bold', color='#FFFFFF',
                         ha='left', va='center',
-                        bbox=dict(boxstyle="square,pad=0.25", facecolor='#0E3A53', edgecolor='none'),
+                        bbox=dict(boxstyle="square,pad=0.28", facecolor='#0E3A53', edgecolor='none'),
                         zorder=11)
 
         # ----------------------------------------------------
-        # 3. 右側圖例面板 (深藍灰微透面板)
+        # 3. 重新設計的右側圖例面板
         # ----------------------------------------------------
         if legend_items:
             n_items = len(legend_items)
-            leg_h = 0.048 * n_items + 0.04
-            leg_y = 0.48 - leg_h / 2
-            leg_bg = FancyBboxPatch((0.840, leg_y), 0.142, leg_h,
-                                    transform=ax.transAxes,
-                                    boxstyle="round,pad=0.008,rounding_size=0.015",
-                                    facecolor="#1A2D37", edgecolor="none", alpha=0.82, zorder=14)
-            ax.add_patch(leg_bg)
+            leg_w = 0.198
+            item_h = 0.050
+            leg_h = item_h * n_items + 0.035
+            leg_x = 0.775
+            leg_y = 0.50 - leg_h / 2
 
-            start_y = leg_y + leg_h - 0.038
+            leg_card = FancyBboxPatch((leg_x, leg_y), leg_w, leg_h, transform=ax.transAxes,
+                                      boxstyle="round,pad=0.008,rounding_size=0.016",
+                                      facecolor="#0F172A", edgecolor="#334155", linewidth=1.2, alpha=0.88, zorder=14)
+            ax.add_patch(leg_card)
+
+            start_y = leg_y + leg_h - 0.036
             for i, (label, col) in enumerate(legend_items):
-                curr_y = start_y - i * 0.048
-                circle = Circle((0.854, curr_y), 0.0075, transform=ax.transAxes,
-                                facecolor=col, edgecolor='none', zorder=16)
+                curr_y = start_y - i * item_h
+                circle = Circle((leg_x + 0.020, curr_y), 0.0085, transform=ax.transAxes,
+                                facecolor=col, edgecolor='#FFFFFF', linewidth=1.0, zorder=16)
                 ax.add_patch(circle)
-                ax.text(0.869, curr_y, label, transform=ax.transAxes,
-                        fontsize=10.5, color='#F1F5F9', va='center', ha='left', zorder=16)
+                ax.text(leg_x + 0.038, curr_y, label, transform=ax.transAxes,
+                        fontsize=13.5, color='#F8FAFC', va='center', ha='left', fontweight='500', zorder=16)
 
         # ----------------------------------------------------
         # 4. 右下角 MSSO Logo
@@ -723,22 +728,22 @@ def render_distribution_maps(stations, current_uvi=0.0):
         if logo_path and os.path.exists(logo_path):
             try:
                 logo_img = Image.open(logo_path)
-                imagebox = OffsetImage(logo_img, zoom=0.18)
-                ab = AnnotationBbox(imagebox, (0.915, 0.095), frameon=False, xycoords='axes fraction', zorder=18)
+                imagebox = OffsetImage(logo_img, zoom=0.22)
+                ab = AnnotationBbox(imagebox, (0.885, 0.095), frameon=False, xycoords='axes fraction', zorder=18)
                 ax.add_artist(ab)
             except Exception as e:
                 print(f"Logo 載入失敗: {e}")
         else:
-            ax.text(0.915, 0.080, "MSSO", transform=ax.transAxes,
-                    fontsize=26, fontweight='heavy', color='#FFFFFF', ha='center', va='center', zorder=18)
-            ax.text(0.915, 0.045, "WEATHER MACAU", transform=ax.transAxes,
-                    fontsize=11, fontweight='bold', color='#94A3B8', ha='center', va='center', zorder=18)
+            ax.text(0.885, 0.080, "MSSO", transform=ax.transAxes,
+                    fontsize=28, fontweight='heavy', color='#FFFFFF', ha='center', va='center', zorder=18)
+            ax.text(0.885, 0.045, "WEATHER MACAU", transform=ax.transAxes,
+                    fontsize=12, fontweight='bold', color='#94A3B8', ha='center', va='center', zorder=18)
 
-        # 嚴格輸出 16:9，不可使用 bbox_inches='tight' 以免外圍被裁剪變形
-        plt.savefig(f"static/images/{key}.png", dpi=100, facecolor='#546E7A')
+        # 嚴格依照 4:3 畫布輸出，避免被裁切縮形
+        plt.savefig(f"static/images/{key}.png", dpi=100, facecolor='#475569')
         plt.close(fig)
 
-    print("✅ 16:9 全要素高清晰地圖渲染完畢！")
+    print("✅ 4:3 全要素高清晰地圖渲染完畢！")
 
 # ==========================================
 # 輔助函數：智能插入 NaN 實現中斷斷線
@@ -1286,11 +1291,11 @@ def generate_24h_rainfall_summary(stations_data=None):
 if __name__ == '__main__':
     init_db()
     
-    # 1. 優先獲取 UVI 資料以供 WBGT 運算
+    # 1. 優先獲取 UVI 資料
     uv_data = fetch_smg_uvi()
     current_uvi = uv_data.get('uvi', 0.0) if uv_data else 0.0
 
-    # 2. 獲取氣象數據，並在寫入 weather_data.json 前完成 apparent 與 wbgt 計算
+    # 2. 獲取氣象數據
     stations_data = fetch_smg_weather(current_uvi=current_uvi)
 
     if stations_data:
