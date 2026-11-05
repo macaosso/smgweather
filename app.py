@@ -613,22 +613,22 @@ def render_trend_charts():
 
     METRIC_DEFS = {
         'temp': {
-            'label': '溫度 Temperature(℃)', 'color': '#A23B5A', 'step': 1.0, 'is_bar': False,
+            'label': '溫度 Temperature(°C)', 'color': '#A23B5A', 'step': 1.0, 'is_bar': False,
             'spans': TEMP_SPANS,
             'lines': [(37.5, '極為酷熱 37.5', '#800020'), (35.5, '非常酷熱 35.5', '#D32F2F'), (32.5, '酷熱 32.5', '#F44336'), (7.5, '寒冷 7.5', '#0288D1'), (3.5, '非常寒冷 3.5', '#1565C0')]
         },
         'temp_diff_24h': {
-            'label': '24小時溫差 24H Temp Change(℃)', 'color': '#EF4444', 'step': 1.0, 'is_bar': False,
+            'label': '24小時溫差 24H Temp Change(°C)', 'color': '#EF4444', 'step': 1.0, 'is_bar': False,
             'spans': [],
             'lines': [(0.0, '0℃ 氣溫持平', '#64748B')]
         },
         'apparent': {
-            'label': '體感溫度 Apparent Temp(℃)', 'color': '#EA580C', 'step': 1.0, 'is_bar': False,
+            'label': '體感溫度 Apparent Temp(°C)', 'color': '#EA580C', 'step': 1.0, 'is_bar': False,
             'spans': TEMP_SPANS,
             'lines': [(37.5, '極為酷熱 37.5', '#800020'), (35.5, '非常酷熱 35.5', '#D32F2F'), (32.5, '酷熱 32.5', '#F44336'), (7.5, '寒冷 7.5', '#0288D1'), (3.5, '非常寒冷 3.5', '#1565C0')]
         },
         'wbgt': {
-            'label': '暑熱指數 WBGT(℃)', 'color': '#D97706', 'step': 1.0, 'is_bar': False,
+            'label': '暑熱指數 WBGT', 'color': '#D97706', 'step': 1.0, 'is_bar': False,
             'spans': WBGT_SPANS,
             'lines': [(32.5, '極危 32.5', '#991B1B'), (30.5, '危險 30.5', '#DC2626'), (29.5, '警戒 29.5', '#EA580C')]
         },
@@ -1099,7 +1099,7 @@ def render_wind_index_chart():
 
     latest_val = df['wind_index'].iloc[-1]
     latest_grade = df['grade'].iloc[-1]
-    title_left = f"澳門風力指數趨勢 (最新: {latest_val:.1f} - {latest_grade})"
+    title_left = f"澳門風力指數趨勢"
     header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
 
     ax.text(0.0, 1.02, title_left, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
