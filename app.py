@@ -147,8 +147,8 @@ def draw_base_map(ax, bg_color='#C4E1F5'):
         water.plot(ax=ax, color=bg_color, edgecolor='none', zorder=3)
     if bridges is not None and not bridges.empty:
         bridges.plot(ax=ax, color='#B0B0B0', edgecolor='white', linewidth=1.2, zorder=3.5)
-    ax.set_xlim(113.51, 113.62)
-    ax.set_ylim(22.08, 22.242)
+    ax.set_xlim(113.4, 113.8)
+    ax.set_ylim(22.12, 22.242)
     ax.set_axis_off()
 
 # ==========================================
