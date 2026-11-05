@@ -395,15 +395,15 @@
             <div class="flex items-center gap-2">
               <label class="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">比對要素：</label>
               <select id="compareMetricSelect" onchange="renderMultiStationChart()" class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
-                <option value="temp" selected>氣溫 (Temperature, °C)</option>
-                <option value="apparent">體感溫度 (Apparent Temp, °C)</option>
-                <option value="wbgt">暑熱指數 (WBGT, °C)</option>
-                <option value="wind_speed">風速 (Wind Speed, km/h)</option>
-                <option value="gust_speed">陣風 (Gust Speed, km/h)</option>
-                <option value="humidity">相對濕度 (Humidity, %)</option>
-                <option value="rain">降水量 (Rainfall, mm)</option>
-                <option value="pressure">海平面氣壓 (Pressure, hPa)</option>
-                <option value="uv_index">紫外線指數 (UV Index, TG)</option>
+                <option value="temp" selected>氣溫</option>
+                <option value="apparent">體感溫度</option>
+                <option value="wbgt">暑熱指數</option>
+                <option value="wind_speed">風速</option>
+                <option value="gust_speed">陣風</option>
+                <option value="humidity">相對濕度</option>
+                <option value="rain">降水量</option>
+                <option value="pressure">海平面氣壓</option>
+                <option value="uv_index">紫外線指數</option>
               </select>
             </div>
           </div>
@@ -738,17 +738,6 @@
       return num.toFixed(1);
     }
 
-    // Exact requested Temperature Scale
-    // ≥ 37.5 : 極為酷熱 (#800020)
-    // 35.5 ~ 37.4 : 非常酷熱 (#D32F2F)
-    // 32.5 ~ 35.4 : 酷熱 (#F44336)
-    // 27.5 ~ 32.4 : 炎熱 (#FF9800)
-    // 22.5 ~ 27.4 : 溫暖 (#FFC107)
-    // 17.5 ~ 22.4 : 和暖 (#8BC34A)
-    // 12.5 ~ 17.4 : 清涼 (#00A86B)
-    // 7.5 ~ 12.4 : 寒冷 (#0288D1)
-    // 3.5 ~ 7.4 : 非常寒冷 (#1565C0)
-    // < 3.5 : 極為寒冷 (#4A148C)
     function get_temp_style(temp) {
       if (temp === null || temp === undefined || isNaN(temp) || temp === '') return ['#78797A', '#FFFFFF'];
       const t = parseFloat(temp);
@@ -1963,18 +1952,11 @@
     // =========================================================================
     function getWindGrade(idx) {
       if (idx === null || isNaN(idx)) return ['--', '無數據'];
-      if (idx >= 118) return ['12級+', '颶風'];
-      if (idx >= 103) return ['11級', '暴風'];
-      if (idx >= 89)  return ['10級', '狂風'];
-      if (idx >= 75)  return ['9級', '烈風'];
-      if (idx >= 62)  return ['8級', '烈風'];
-      if (idx >= 50)  return ['7級', '強風'];
-      if (idx >= 40)  return ['6級', '強風'];
-      if (idx >= 30)  return ['5級', '清勁'];
-      if (idx >= 20)  return ['4級', '和緩'];
-      if (idx >= 12)  return ['3級', '微風'];
-      if (idx >= 6)   return ['2級', '輕微'];
-      return ['1級以下', '無風/微弱'];
+      if (idx >= 75) return ['≥75', '極強'];
+      if (idx >= 45) return ['45-74', '強烈'];
+      if (idx >= 25)  return ['25-44', '強勁'];
+      if (idx >= 14)  return ['14-24', '清勁'];
+      return ['≤13', '輕微'];
     }
 
     function compute_wind_index(stationsData) {
