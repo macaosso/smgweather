@@ -1,4 +1,4 @@
-Name: Macau Weather Auto Sync & Render
+name: Macau Weather Auto Sync & Render
 
 on:
   schedule:
