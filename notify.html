@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>澳門氣象 - WBGT 暑熱即時推播監測</title>
+  <title>澳門氣象 - 極端天氣即時推播監測</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -41,25 +41,25 @@
     }
   </style>
 </head>
-<body class="min-h-full bg-slate-900 text-slate-100 flex flex-col antialiased selection:bg-amber-500 selection:text-slate-950">
+<body class="min-h-full bg-slate-900 text-slate-100 flex flex-col antialiased selection:bg-rose-500 selection:text-white">
 
   <!-- Header -->
   <header class="border-b border-slate-800 bg-slate-950/70 backdrop-blur-md sticky top-0 z-20">
-    <div class="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+        <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center border border-rose-500/30">
           <i class="fa-solid fa-triangle-exclamation text-sm"></i>
         </div>
         <div>
           <h1 class="text-sm font-bold text-white flex items-center gap-2">
-            <span>WBGT 暑熱即時推播</span>
-            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 font-mono-num">≥ 28°C ALERT</span>
+            <span>澳門氣象極端推播監測</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-400 border border-rose-500/30 font-mono-num">AUTO-NOTIFY</span>
           </h1>
         </div>
       </div>
 
       <div class="flex items-center gap-2">
-        <button id="btnNotifyPermission" onclick="requestPermission()" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 transition flex items-center gap-1.5 shadow-lg shadow-amber-500/20">
+        <button id="btnNotifyPermission" onclick="requestPermission()" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-500 hover:bg-rose-400 active:scale-95 text-white transition flex items-center gap-1.5 shadow-lg shadow-rose-500/20">
           <i class="fa-solid fa-bell"></i>
           <span id="btnPermissionText">啟用通知權限</span>
         </button>
@@ -68,7 +68,7 @@
   </header>
 
   <!-- Main Monitor Panel -->
-  <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 space-y-5">
+  <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-5">
     
     <!-- Status Overview Card -->
     <div class="bg-slate-850 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
@@ -78,31 +78,45 @@
             <span id="pingPulse" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span id="pingDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
-          <span id="monitorStatusText" class="text-xs font-semibold text-slate-300">監聽輪詢中 (每 60 秒檢查一次)</span>
+          <span id="monitorStatusText" class="text-xs font-semibold text-slate-300">輪詢抓取 weather_data.json 中 (每 60 秒檢查一次)</span>
         </div>
         <div class="text-[11px] text-slate-400 font-mono-num">
-          最後更新：<span id="lastCheckTime" class="text-slate-200">--:--:--</span>
+          資料版本 (SysPubdate)：<span id="lastSysPubdate" class="text-slate-200 font-bold">讀取中</span>
         </div>
       </div>
 
-      <!-- Trigger Rules and Notification Counter -->
+      <!-- Trigger Rules Tags -->
+      <div>
+        <div class="text-[11px] font-sans font-bold text-slate-400 mb-2">極端指標觸發門檻 (任一達標且資料更新即推播)：</div>
+        <div class="flex flex-wrap gap-1.5 font-mono-num text-[11px]">
+          <span class="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300">WBGT ≥ 28.0°C</span>
+          <span class="px-2 py-0.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300">氣溫 ≥ 32.5°C</span>
+          <span class="px-2 py-0.5 rounded-lg bg-sky-500/15 border border-sky-500/30 text-sky-300">氣溫 ≤ 12.5°C</span>
+          <span class="px-2 py-0.5 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-300">平均風速 ≥ 35 km/h</span>
+          <span class="px-2 py-0.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-300">陣風 ≥ 60 km/h</span>
+          <span class="px-2 py-0.5 rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-300">體感 ≥ 35.5°C</span>
+          <span class="px-2 py-0.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300">時雨量 ≥ 10.0 mm</span>
+        </div>
+      </div>
+
+      <!-- Counter Grid -->
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono-num">
         <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl">
-          <div class="text-[10px] font-sans text-slate-400">觸發條件</div>
-          <div class="text-sm font-bold text-amber-400 mt-1">WBGT ≥ 28.0 °C</div>
-          <div class="text-[10px] font-sans text-slate-500 mt-0.5">無去重模式 (更新即彈窗)</div>
+          <div class="text-[10px] font-sans text-slate-400">推播機制模式</div>
+          <div class="text-sm font-bold text-emerald-400 mt-1">無去重即時通知</div>
+          <div class="text-[10px] font-sans text-slate-500 mt-0.5">每次資料更新且有指標超標立即彈出</div>
         </div>
 
         <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl">
           <div class="text-[10px] font-sans text-slate-400">已推播次數</div>
           <div id="notifiedCount" class="text-lg font-extrabold text-white mt-0.5">0</div>
-          <div class="text-[10px] font-sans text-slate-500 mt-0.5">每次資料有新版且達標時發送</div>
+          <div class="text-[10px] font-sans text-slate-500 mt-0.5">本分頁累積彈窗通知數</div>
         </div>
 
         <div class="bg-slate-900/80 border border-slate-800 p-3 rounded-xl">
-          <div class="text-[10px] font-sans text-slate-400">當前達標測站數</div>
-          <div id="triggeredStationsCount" class="text-lg font-extrabold text-slate-400 mt-0.5">0 站</div>
-          <div class="text-[10px] font-sans text-slate-500 mt-0.5">即時統計</div>
+          <div class="text-[10px] font-sans text-slate-400">當前達標項目總數</div>
+          <div id="triggeredTotalCount" class="text-lg font-extrabold text-slate-400 mt-0.5">0 項</div>
+          <div id="triggeredStationsSummary" class="text-[10px] font-sans text-slate-500 mt-0.5 truncate">無測站超標</div>
         </div>
       </div>
 
@@ -110,26 +124,26 @@
       <div class="flex items-center gap-2 pt-1">
         <button onclick="fetchAndCheck(true)" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-bold text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
           <i class="fa-solid fa-rotate" id="refreshIcon"></i>
-          <span>手動即刻檢查</span>
+          <span>手動抓取 weather_data.json</span>
         </button>
         <button onclick="sendTestNotification()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-bold text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
-          <i class="fa-solid fa-paper-plane text-sky-400"></i>
-          <span>測試推播彈窗</span>
+          <i class="fa-solid fa-paper-plane text-rose-400"></i>
+          <span>測試通知彈窗</span>
         </button>
       </div>
     </div>
 
-    <!-- Station WBGT Grid -->
+    <!-- Station Live Extremes Grid -->
     <div class="space-y-2">
       <div class="flex items-center justify-between px-1">
         <h2 class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
           <i class="fa-solid fa-tower-broadcast text-slate-400"></i>
-          各站實時 WBGT 暑熱指數
+          全澳 17 站實時指標監測表
         </h2>
-        <span class="text-[10px] text-slate-500 font-mono-num">≥ 28°C 即時高亮並通知</span>
+        <span class="text-[10px] text-slate-500 font-mono-num">紅框代表有項目觸發通知</span>
       </div>
 
-      <div id="stationGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
+      <div id="stationGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
         <!-- Rendered by JS -->
       </div>
     </div>
@@ -177,7 +191,19 @@
     let notificationCount = 0;
     const POLL_INTERVAL_MS = 60 * 1000; // 每 60 秒輪詢一次
 
-    // WBGT 算法 (當 JSON 未直接提供 WBGT 時估算)
+    // 氣象物理公式計算輔助
+    function calculate_apparent(ta, rh, w) {
+      if (ta === null || rh === null || w === null || isNaN(ta) || isNaN(rh) || isNaN(w)) return null;
+      try {
+        const wind_speed_ms = w / 3.6;
+        const e = (rh / 100.0) * 6.105 * Math.exp((17.27 * ta) / (237.7 + ta));
+        const app = (1.04 * ta) + (0.2 * e) - (0.65 * wind_speed_ms) - 2.7;
+        return parseFloat(app.toFixed(1));
+      } catch (e) {
+        return null;
+      }
+    }
+
     function estimate_wbgt(ta, rh, w, uvi = 0.0) {
       if (ta === null || rh === null || w === null || isNaN(ta) || isNaN(rh) || isNaN(w)) return null;
       try {
@@ -230,27 +256,26 @@
       }
     }
 
-    // 發送通知 (不進行去重：只要資料更新且有站點 >= 28，立刻發送)
+    // 發送通知 (無去重：只要資料更新且有符合任一條件，立刻發送)
     function triggerNotification(triggeredList, updateTime) {
       notificationCount++;
       document.getElementById("notifiedCount").innerText = notificationCount;
 
-      const title = `⚠️ 暑熱警報：全澳 ${triggeredList.length} 站 WBGT ≥ 28°C`;
-      const bodyLines = triggeredList.slice(0, 5).map(s => `• ${s.name}: ${s.wbgt}°C`);
+      const title = `⚠️ 澳門氣象極端預警 (${triggeredList.length} 項指標超標)`;
+      const bodyLines = triggeredList.slice(0, 5).map(item => `• [${item.station}] ${item.type}: ${item.value}`);
       if (triggeredList.length > 5) {
-        bodyLines.push(`...及其他 ${triggeredList.length - 5} 處測站`);
+        bodyLines.push(`...及其他 ${triggeredList.length - 5} 項指標超標`);
       }
       bodyLines.push(`更新時間：${updateTime || new Date().toLocaleTimeString()}`);
 
       const bodyText = bodyLines.join("\n");
 
-      // 檢查是否具有 ServiceWorker
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(title, {
             body: bodyText,
             icon: "https://cdn-icons-png.flaticon.com/512/1146/1146869.png",
-            tag: "wbgt-alert-" + Date.now(), // 每次彈出新通知，不去重覆蓋
+            tag: "extreme-alert-" + Date.now(), // 每次彈出新通知，不去重覆蓋
             renotify: true
           });
         });
@@ -265,21 +290,22 @@
         };
       }
 
-      addLog(`[推播發送] ${title} (${updateTime})`, "text-amber-400");
+      addLog(`[推播發送] ${title} (${updateTime})`, "text-rose-400 font-bold");
     }
 
     function sendTestNotification() {
       if (Notification.permission !== "granted") {
-        alert("請先點擊上方按鈕允許通知權限！");
+        alert("請先點擊右上角按鈕允許通知權限！");
         return;
       }
       triggerNotification([
-        { name: "大潭山", wbgt: 29.4 },
-        { name: "黑沙環", wbgt: 28.5 }
+        { station: "大潭山", type: "暑熱 WBGT", value: "28.6°C" },
+        { station: "西灣大橋", type: "強烈陣風", value: "62.5 km/h" },
+        { station: "紀念孫中山公園", type: "酷熱高溫", value: "33.1°C" }
       ], "手動測試");
     }
 
-    // 核心拉取與檢查流程
+    // 核心抓取 weather_data.json 與全條件檢測流程
     async function fetchAndCheck(isManual = false) {
       const refreshIcon = document.getElementById("refreshIcon");
       if (refreshIcon) refreshIcon.classList.add("fa-spin");
@@ -290,69 +316,104 @@
         const data = await res.json();
 
         const currentUpdateTime = data.update_time || data.syspubdate || null;
-        document.getElementById("lastCheckTime").innerText = new Date().toLocaleTimeString();
+        document.getElementById("lastSysPubdate").innerText = currentUpdateTime || '已讀取';
 
-        // 判斷資料是否有更新 (第一次載入直接比對並記錄)
         const isDataUpdated = (currentUpdateTime !== null && currentUpdateTime !== lastKnownSysPubdate);
 
         const stationsData = data.stations || {};
-        const triggered = [];
+        const allTriggeredItems = [];
+        const stationsTriggeredCount = {};
 
-        // 逐站計算並渲染
+        // 逐站檢驗全部 7 大極端指標：
+        // 1. WBGT >= 28.0
+        // 2. temp >= 32.5
+        // 3. temp <= 12.5
+        // 4. wind_speed >= 35.0
+        // 5. gust_speed >= 60.0
+        // 6. apparent >= 35.5
+        // 7. rain_h >= 10.0
         const gridHtml = STATIONS.map(st => {
-          if (st.isBridge) return ''; // 跨海大橋通常無 WBGT，跳過卡片
           const d = stationsData[st.name] || {};
-          let val = d.wbgt;
-          if (val === undefined || val === null) {
-            val = estimate_wbgt(d.temp_now, d.humidity, d.wind_speed);
+
+          const temp = (d.temp_now !== null && d.temp_now !== undefined && !isNaN(d.temp_now)) ? parseFloat(d.temp_now) : null;
+          const wind = (d.wind_speed !== null && d.wind_speed !== undefined && !isNaN(d.wind_speed)) ? parseFloat(d.wind_speed) : null;
+          const gust = (d.gust_speed !== null && d.gust_speed !== undefined && !isNaN(d.gust_speed)) ? parseFloat(d.gust_speed) : null;
+          const rain = (d.rain_h !== null && d.rain_h !== undefined && !isNaN(d.rain_h)) ? parseFloat(d.rain_h) : null;
+
+          let apparent = d.apparent !== undefined ? d.apparent : calculate_apparent(temp, d.humidity, wind);
+          apparent = (apparent !== null && !isNaN(apparent)) ? parseFloat(apparent) : null;
+
+          let wbgt = d.wbgt !== undefined ? d.wbgt : estimate_wbgt(temp, d.humidity, wind);
+          wbgt = (wbgt !== null && !isNaN(wbgt)) ? parseFloat(wbgt) : null;
+
+          const stAlerts = [];
+
+          if (wbgt !== null && wbgt >= 28.0) stAlerts.push({ station: st.name, type: "暑熱 WBGT", value: `${wbgt}°C`, tag: "wbgt" });
+          if (temp !== null && temp >= 32.5) stAlerts.push({ station: st.name, type: "酷熱高溫", value: `${temp}°C`, tag: "hot" });
+          if (temp !== null && temp <= 12.5) stAlerts.push({ station: st.name, type: "低溫寒冷", value: `${temp}°C`, tag: "cold" });
+          if (wind !== null && wind >= 35.0) stAlerts.push({ station: st.name, type: "強勁風速", value: `${wind} km/h`, tag: "wind" });
+          if (gust !== null && gust >= 60.0) stAlerts.push({ station: st.name, type: "強烈陣風", value: `${gust} km/h`, tag: "gust" });
+          if (apparent !== null && apparent >= 35.5) stAlerts.push({ station: st.name, type: "極熱體感", value: `${apparent}°C`, tag: "app" });
+          if (rain !== null && rain >= 10.0) stAlerts.push({ station: st.name, type: "時雨量強降水", value: `${rain} mm`, tag: "rain" });
+
+          if (stAlerts.length > 0) {
+            allTriggeredItems.push(...stAlerts);
+            stationsTriggeredCount[st.name] = stAlerts.length;
           }
 
-          const hasVal = (val !== null && val !== undefined && !isNaN(val));
-          const numVal = hasVal ? parseFloat(val) : null;
-          const isTriggered = (numVal !== null && numVal >= 28.0);
-
-          if (isTriggered) {
-            triggered.push({ name: st.name, wbgt: numVal });
-          }
-
-          let badgeStyle = "bg-slate-900 border-slate-800 text-slate-300";
-          let numColor = "text-slate-400";
-
-          if (isTriggered) {
-            badgeStyle = "bg-amber-500/10 border-amber-500/40 text-amber-300 shadow-lg shadow-amber-500/10";
-            numColor = "text-amber-400";
-          }
+          const isAlert = stAlerts.length > 0;
+          const borderCls = isAlert ? "border-rose-500/60 bg-rose-950/20 shadow-lg shadow-rose-950/20" : "border-slate-800 bg-slate-900/80";
 
           return `
-            <div class="border rounded-xl p-2.5 transition flex items-center justify-between font-mono-num ${badgeStyle}">
-              <div>
-                <div class="font-sans font-bold text-xs text-white">${st.name}</div>
-                <div class="text-[10px] text-slate-500 font-sans mt-0.5">WBGT</div>
-              </div>
-              <div class="text-right">
-                <div class="text-base font-extrabold ${numColor}">${hasVal ? numVal + '°' : '--'}</div>
-                <div class="text-[9px] ${isTriggered ? 'text-amber-400 font-bold' : 'text-slate-500'} font-sans">
-                  ${isTriggered ? '≥28 達標' : '未達標'}
+            <div class="border rounded-xl p-3 transition flex flex-col justify-between font-mono-num ${borderCls}">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
+                <div class="font-sans font-bold text-xs text-white flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full ${isAlert ? 'bg-rose-500 animate-pulse' : 'bg-slate-500'}"></span>
+                  <span>${st.name}</span>
                 </div>
+                <span class="text-[10px] font-sans ${isAlert ? 'text-rose-400 font-bold' : 'text-slate-500'}">
+                  ${isAlert ? `${stAlerts.length} 項觸發` : '正常'}
+                </span>
+              </div>
+
+              <!-- Station quick indicators -->
+              <div class="grid grid-cols-3 gap-1 py-1.5 text-[10px] text-slate-400">
+                <div>氣溫: <span class="${temp >= 32.5 ? 'text-rose-400 font-bold' : (temp <= 12.5 && temp !== null ? 'text-sky-400 font-bold' : 'text-slate-200')}">${temp !== null ? temp + '°' : '--'}</span></div>
+                <div>體感: <span class="${apparent >= 35.5 ? 'text-orange-400 font-bold' : 'text-slate-200'}">${apparent !== null ? apparent + '°' : '--'}</span></div>
+                <div>WBGT: <span class="${wbgt >= 28.0 ? 'text-amber-400 font-bold' : 'text-slate-200'}">${wbgt !== null ? wbgt + '°' : '--'}</span></div>
+                <div>風速: <span class="${wind >= 35.0 ? 'text-purple-400 font-bold' : 'text-slate-200'}">${wind !== null ? wind : '--'}</span></div>
+                <div>陣風: <span class="${gust >= 60.0 ? 'text-red-400 font-bold' : 'text-slate-200'}">${gust !== null ? gust : '--'}</span></div>
+                <div>1H雨: <span class="${rain >= 10.0 ? 'text-blue-400 font-bold' : 'text-slate-200'}">${rain !== null ? rain : '0'}</span></div>
+              </div>
+
+              <!-- Trigger badges list -->
+              <div class="flex flex-wrap gap-1 pt-1 border-t border-slate-800/60 min-h-[22px]">
+                ${stAlerts.map(a => `<span class="px-1.5 py-0.2 rounded text-[9px] bg-rose-500/20 text-rose-300 border border-rose-500/30">${a.type}: ${a.value}</span>`).join('') || '<span class="text-[9px] text-slate-600 font-sans">無超標</span>'}
               </div>
             </div>
           `;
         }).join('');
 
         document.getElementById("stationGrid").innerHTML = gridHtml;
-        document.getElementById("triggeredStationsCount").innerText = `${triggered.length} 站`;
+        document.getElementById("triggeredTotalCount").innerText = `${allTriggeredItems.length} 項`;
+        
+        const triggeredStNames = Object.keys(stationsTriggeredCount);
+        document.getElementById("triggeredStationsSummary").innerText = triggeredStNames.length > 0 
+          ? `達標測站 (${triggeredStNames.length}): ${triggeredStNames.join(', ')}` 
+          : '全澳無指標超標';
 
-        // 【關鍵條件】：資料有新時間戳 (或手動觸發)，且任一站點 WBGT >= 28
+        // 【關鍵條件】：資料有新時間戳 (或手動請求)，且當前有任一項目達標
         if (isDataUpdated || isManual) {
           if (isDataUpdated) {
             lastKnownSysPubdate = currentUpdateTime;
             addLog(`[資料更新] 偵測到新時間戳：${currentUpdateTime}`);
           }
 
-          if (triggered.length > 0) {
-            triggerNotification(triggered, currentUpdateTime);
+          if (allTriggeredItems.length > 0) {
+            // 無去重 (no deduplicate) -> 只要更新且達標即彈出推播
+            triggerNotification(allTriggeredItems, currentUpdateTime);
           } else {
-            addLog(`[檢查通過] 全澳所有站點 WBGT 皆低於 28°C`);
+            addLog(`[檢查通過] 全澳所有監測指標均處於正常閾值範圍內`);
           }
         }
 
