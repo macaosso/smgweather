@@ -23,11 +23,13 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib.dates as mdates
 from PIL import Image
 import geopandas as gpd
+from shapely.ops import unary_union
+from shapely.geometry import box
 import osmnx as ox
 
 warnings.filterwarnings("ignore")
 
-# 建立輸出與快取目錄
+# 建立輸出目錄
 os.makedirs('static/images', exist_ok=True)
 os.makedirs('cache', exist_ok=True)
 
@@ -52,26 +54,26 @@ plt.rcParams['font.sans-serif'] = [
 plt.rcParams['axes.unicode_minus'] = False
 
 # ==========================================
-# 氣象站點設定 (維持澳門經緯度與代碼)
+# 氣象站點設定 (維持澳門經緯度)
 # ==========================================
 STATION_COORDS = {
-    "紀念孫中山公園": {"lat": 22.216088, "lon": 113.544967, "area": "澳門半島", "code": "DP"},
-    "黑沙環": {"lat": 22.207104, "lon": 113.560261, "area": "澳門半島", "code": "EM"},
-    "大炮台": {"lat": 22.196739, "lon": 113.542226, "area": "澳門半島", "code": "FM"},
-    "外港碼頭": {"lat": 22.196783, "lon": 113.558233, "area": "澳門半島", "code": "PE"},
-    "媽閣": {"lat": 22.185970, "lon": 113.530564, "area": "澳門半島", "code": "MM"},
-    "大潭山": {"lat": 22.158936, "lon": 113.568968, "area": "氹仔", "code": "TG"},
-    "東亞運大馬路": {"lat": 22.155145, "lon": 113.542488, "area": "氹仔", "code": "JA"},
-    "澳門大學": {"lat": 22.131157, "lon": 113.546909, "area": "橫琴澳大校區", "code": "UM"},
-    "九澳": {"lat": 22.134651, "lon": 113.580201, "area": "路環", "code": "KV"},
-    "路環": {"lat": 22.117241, "lon": 113.551101, "area": "路環", "code": "DC"},
-    "友誼大橋北": {"lat": 22.190346, "lon": 113.563335, "area": "跨海大橋", "code": "PN"},
-    "友誼大橋南": {"lat": 22.180513, "lon": 113.563346, "area": "跨海大橋", "code": "PS"},
-    "澳門大橋北": {"lat": 22.188002, "lon": 113.573184, "area": "跨海大橋", "code": "MN"},
-    "澳門大橋南": {"lat": 22.173380, "lon": 113.573100, "area": "跨海大橋", "code": "MS"},
-    "嘉樂庇總督大橋": {"lat": 22.179965, "lon": 113.545396, "area": "跨海大橋", "code": "PG"},
-    "西灣大橋": {"lat": 22.175653, "lon": 113.534625, "area": "跨海大橋", "code": "PV"},
-    "蓮花大橋": {"lat": 22.139996, "lon": 113.549312, "area": "跨海大橋", "code": "PL"}
+    "紀念孫中山公園": {"lat": 22.216088, "lon": 113.544967, "area": "澳門半島", "code": "DP", "disp": "孫中山公園"},
+    "黑沙環": {"lat": 22.207104, "lon": 113.560261, "area": "澳門半島", "code": "EM", "disp": "黑沙環"},
+    "大炮台": {"lat": 22.196739, "lon": 113.542226, "area": "澳門半島", "code": "FM", "disp": "大炮台"},
+    "外港碼頭": {"lat": 22.196783, "lon": 113.558233, "area": "澳門半島", "code": "PE", "disp": "外港碼頭"},
+    "媽閣": {"lat": 22.185970, "lon": 113.530564, "area": "澳門半島", "code": "MM", "disp": "媽閣"},
+    "大潭山": {"lat": 22.158936, "lon": 113.568968, "area": "氹仔", "code": "TG", "disp": "大潭山"},
+    "東亞運大馬路": {"lat": 22.155145, "lon": 113.542488, "area": "氹仔", "code": "JA", "disp": "東亞運"},
+    "澳門大學": {"lat": 22.131157, "lon": 113.546909, "area": "橫琴澳大校區", "code": "UM", "disp": "澳門大學"},
+    "九澳": {"lat": 22.134651, "lon": 113.580201, "area": "路環", "code": "KV", "disp": "九澳"},
+    "路環": {"lat": 22.117241, "lon": 113.551101, "area": "路環", "code": "DC", "disp": "路環"},
+    "友誼大橋北": {"lat": 22.190346, "lon": 113.563335, "area": "跨海大橋", "code": "PN", "disp": "友誼橋北"},
+    "友誼大橋南": {"lat": 22.180513, "lon": 113.563346, "area": "跨海大橋", "code": "PS", "disp": "友誼橋南"},
+    "澳門大橋北": {"lat": 22.188002, "lon": 113.573184, "area": "跨海大橋", "code": "MN", "disp": "澳門橋北"},
+    "澳門大橋南": {"lat": 22.173380, "lon": 113.573100, "area": "跨海大橋", "code": "MS", "disp": "澳門橋南"},
+    "嘉樂庇總督大橋": {"lat": 22.179965, "lon": 113.545396, "area": "跨海大橋", "code": "PG", "disp": "嘉樂庇橋"},
+    "西灣大橋": {"lat": 22.175653, "lon": 113.534625, "area": "跨海大橋", "code": "PV", "disp": "西灣大橋"},
+    "蓮花大橋": {"lat": 22.139996, "lon": 113.549312, "area": "跨海大橋", "code": "PL", "disp": "蓮花大橋"}
 }
 
 BRIDGE_STATIONS = [
@@ -113,63 +115,99 @@ def calculate_apparent_temperature(ta, rh, w):
         return None
 
 # ==========================================
-# 底圖資料下載與繪製 (參考圖灰藍配色風格)
+# 嚴格 16:9 地圖投影範圍計算與底圖幾何整合
 # ==========================================
-print("正在初始化下載地圖底圖與 OSM 大橋...")
-bbox = (113.48, 22.08, 113.62, 22.25)
-zhuhai, macau, water, bridges = None, None, None, None
+# 在緯度 22.16° 下，1度緯度約 111.0km，1度經度約 102.8km (cos(22.16°) = 0.9261)
+# 為了維持真實地理長寬比 (Equal Aspect) 且畫幅精準為 16:9 (1.7778)
+# Lon_span = 1.7778 * Lat_span / 0.9261 ≈ 1.9197 * Lat_span
+LAT_CENTER = 22.168
+LON_CENTER = 113.555
+LAT_SPAN = 0.148
+LON_SPAN = LAT_SPAN * (16.0 / 9.0) / math.cos(math.radians(LAT_CENTER))
+
+MAP_BBOX = {
+    'min_lat': LAT_CENTER - LAT_SPAN / 2,
+    'max_lat': LAT_CENTER + LAT_SPAN / 2,
+    'min_lon': LON_CENTER - LON_SPAN / 2,
+    'max_lon': LON_CENTER + LON_SPAN / 2
+}
+
+print(f"16:9 座標範圍: Lat [{MAP_BBOX['min_lat']:.4f}, {MAP_BBOX['max_lat']:.4f}], Lon [{MAP_BBOX['min_lon']:.4f}, {MAP_BBOX['max_lon']:.4f}]")
+
+unified_land_gdf = None
+bridges_gdf = None
 
 try:
-    zhuhai = ox.geocode_to_gdf("Zhuhai, China")
-    macau = ox.geocode_to_gdf("Macau, China")
-    water = ox.features_from_bbox(bbox=bbox, tags={"natural": ["water", "bay", "strait"], "waterway": ["riverbank", "river", "dock"]})
-    if water is not None and not water.empty:
-        water = water[water.geometry.type.isin(['Polygon', 'MultiPolygon'])]
-        water = water[water.geometry.area > 0.000005]
+    print("正在下載並融合成一體化澳門/鄰近陸地底圖 (Union Polygon)...")
+    clip_box = box(MAP_BBOX['min_lon'] - 0.05, MAP_BBOX['min_lat'] - 0.05, 
+                   MAP_BBOX['max_lon'] + 0.05, MAP_BBOX['max_lat'] + 0.05)
+    
+    # 獲取澳門與珠海邊界並進行 Union 融合
+    macau_raw = ox.geocode_to_gdf("Macau, China")
+    zhuhai_raw = ox.geocode_to_gdf("Zhuhai, China")
+    
+    land_geoms = []
+    if macau_raw is not None and not macau_raw.empty:
+        land_geoms.append(macau_raw.geometry.unary_union)
+    if zhuhai_raw is not None and not zhuhai_raw.empty:
+        land_geoms.append(zhuhai_raw.geometry.unary_union)
+
+    if land_geoms:
+        combined_land = unary_union(land_geoms).intersection(clip_box)
+        
+        # 下載水體進行水道鏤空，確保十字門、濠江、內港水道清晰
+        water_features = ox.features_from_bbox(
+            bbox=(MAP_BBOX['min_lat'] - 0.02, MAP_BBOX['max_lat'] + 0.02, MAP_BBOX['max_lon'] + 0.02, MAP_BBOX['min_lon'] - 0.02),
+            tags={"natural": ["water", "bay", "strait"], "waterway": ["riverbank", "river", "dock"]}
+        )
+        if water_features is not None and not water_features.empty:
+            water_polys = water_features[water_features.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+            if not water_polys.empty:
+                water_union = water_polys.geometry.unary_union
+                combined_land = combined_land.difference(water_union)
+
+        unified_land_gdf = gpd.GeoDataFrame(geometry=[combined_land], crs="EPSG:4326")
+
+    # 下載跨海大橋
     bridge_tags = {"bridge": "yes", "highway": ["motorway", "trunk", "primary", "secondary"]}
-    bridges = ox.features_from_bbox(bbox=bbox, tags=bridge_tags)
+    bridges = ox.features_from_bbox(
+        bbox=(MAP_BBOX['min_lat'], MAP_BBOX['max_lat'], MAP_BBOX['max_lon'], MAP_BBOX['min_lon']),
+        tags=bridge_tags
+    )
     if bridges is not None and not bridges.empty:
         bridges = bridges[bridges.geometry.type.isin(['LineString', 'MultiLineString'])]
-        if macau is not None and not macau.empty:
-            macau_geom = macau.geometry.unary_union
-            bridges = bridges[bridges.intersects(macau_geom)]
+        bridges_gdf = bridges
 except Exception as e:
-    print(f"底圖下載失敗: {e}")
+    print(f"底圖構建異常: {e}")
 
-if bridges is None:
-    bridges = gpd.GeoDataFrame()
-
-def draw_base_map(ax, bg_water='#546E7A', land_color='#DFE5E8'):
-    """參照參考圖配色：深藍灰水體、淡灰白陸地、白色精緻海岸線邊框"""
-    fig = ax.figure
-    fig.patch.set_facecolor(bg_water)
+def draw_base_map(ax):
+    """嚴格依照參考圖：#546E7A 深灰藍水體、#DFE5E8 完整融合陸地、純白清晰海岸輪廓線"""
+    bg_water = '#546E7A'
+    land_color = '#DFE5E8'
+    
     ax.set_facecolor(bg_water)
     
-    if zhuhai is not None:
-        zhuhai.plot(ax=ax, color='#D1D9DE', edgecolor='white', linewidth=0.8, alpha=0.9, zorder=1)
-    if macau is not None:
-        macau.plot(ax=ax, color=land_color, edgecolor='#FFFFFF', linewidth=1.5, zorder=2)
-    if water is not None and not water.empty:
-        water.plot(ax=ax, color=bg_water, edgecolor='none', zorder=3)
-    if bridges is not None and not bridges.empty:
-        bridges.plot(ax=ax, color='#CBD5E1', edgecolor='white', linewidth=1.4, zorder=3.5)
-        
-    # 適應澳門地域焦點縮放
-    ax.set_xlim(113.515, 113.605)
-    ax.set_ylim(22.105, 22.230)
+    if unified_land_gdf is not None and not unified_land_gdf.empty:
+        unified_land_gdf.plot(ax=ax, color=land_color, edgecolor='#FFFFFF', linewidth=1.4, zorder=2)
+    
+    if bridges_gdf is not None and not bridges_gdf.empty:
+        bridges_gdf.plot(ax=ax, color='#BAC7CC', edgecolor='#FFFFFF', linewidth=1.6, zorder=3)
+
+    ax.set_xlim(MAP_BBOX['min_lon'], MAP_BBOX['max_lon'])
+    ax.set_ylim(MAP_BBOX['min_lat'], MAP_BBOX['max_lat'])
+    ax.set_aspect(1.0 / math.cos(math.radians(LAT_CENTER)))
     ax.set_axis_off()
 
 # ==========================================
-# 參考圖配色標準 (MET WARN 樣式)
+# 參考圖標準配色方案 (MET WARN 樣式)
 # ==========================================
 def get_temp_style(temp):
-    """參考圖氣溫漸變階梯"""
     if temp is None or np.isnan(temp): return '#8F9CA3', '#FFFFFF'
     t = float(temp)
     if t >= 35.0: return '#C53030', '#FFFFFF'     # 極端酷熱
     elif t >= 33.0: return '#E53E3E', '#FFFFFF'   # 酷熱
-    elif t >= 28.0: return '#E06D53', '#FFFFFF'   # 炎熱 (參考圖主橙粉)
-    elif t >= 22.1: return '#E5A93C', '#FFFFFF'   # 溫暖 (參考圖主黃)
+    elif t >= 28.0: return '#E06D53', '#FFFFFF'   # 炎熱
+    elif t >= 22.1: return '#E5A93C', '#FFFFFF'   # 溫暖
     elif t >= 17.1: return '#7FB069', '#FFFFFF'   # 和暖
     elif t >= 12.1: return '#48BB78', '#FFFFFF'   # 清涼
     elif t >= 7.1:  return '#319795', '#FFFFFF'   # 寒冷
@@ -178,21 +216,18 @@ def get_temp_style(temp):
 def get_temp_diff_style(diff):
     if diff is None or np.isnan(diff): return '#78909C', '#FFFFFF'
     d = float(diff)
-    if d > 0:
-        return '#E53E3E', '#FFFFFF'   # 紅色升溫
-    elif d < 0:
-        return '#38B2AC', '#FFFFFF'   # 湖青色降溫
-    else:
-        return '#78909C', '#FFFFFF'
+    if d > 0: return '#E53E3E', '#FFFFFF'         # 升溫紅
+    elif d < 0: return '#38B2AC', '#FFFFFF'       # 降溫青
+    return '#78909C', '#FFFFFF'
 
 def get_humidity_style(h):
     if h is None or np.isnan(h): return '#78909C', '#FFFFFF'
     h = float(h)
-    if h >= 95: return '#6B46C1', '#FFFFFF'     # 非常潮濕
-    elif h >= 85: return '#3182CE', '#FFFFFF'   # 潮濕
-    elif h >= 71: return '#48BB78', '#FFFFFF'   # 71-84%
-    elif h >= 40: return '#E5A93C', '#FFFFFF'   # 乾燥
-    else: return '#C53030', '#FFFFFF'           # 非常乾燥
+    if h >= 95: return '#6B46C1', '#FFFFFF'
+    elif h >= 85: return '#3182CE', '#FFFFFF'
+    elif h >= 71: return '#48BB78', '#FFFFFF'
+    elif h >= 40: return '#E5A93C', '#FFFFFF'
+    else: return '#C53030', '#FFFFFF'
 
 def get_wind_style(w):
     if w is None or np.isnan(w): return '#78909C', '#FFFFFF'
@@ -201,7 +236,7 @@ def get_wind_style(w):
     elif w >= 88: return '#DD6B20', '#FFFFFF'
     elif w >= 63: return '#D69E2E', '#FFFFFF'
     elif w >= 41: return '#38A169', '#FFFFFF'
-    else: return '#38B2AC', '#FFFFFF'           # 40以下 清勁或以下
+    return '#38B2AC', '#FFFFFF'
 
 def get_pressure_style(p):
     if p is None or np.isnan(p): return '#78909C', '#FFFFFF'
@@ -225,9 +260,6 @@ def get_rain1h_style(v):
     if v >= 0.1:   return "#3182CE", "#FFFFFF"
     return "#78909C", "#FFFFFF"
 
-def get_raintotal_style(v):
-    return get_rain1h_style(v)
-
 def get_wbgt_style(wbgt):
     if wbgt is None or np.isnan(wbgt): return "#78909C", "#FFFFFF"
     w = float(wbgt)
@@ -236,7 +268,7 @@ def get_wbgt_style(wbgt):
     elif w >= 30: return '#EA580C', '#FFFFFF'
     elif w >= 28: return '#F59E0B', '#FFFFFF'
     elif w >= 25: return '#EAB308', '#FFFFFF'
-    else: return '#10B981', '#FFFFFF'
+    return '#10B981', '#FFFFFF'
 
 # ==========================================
 # 資料庫管理與 CSV 存儲
@@ -258,7 +290,6 @@ def save_to_db(stations, pub_time_str, pub_timestamp):
     c = conn.cursor()
     cutoff_ts = pub_timestamp - 93600
     c.execute("DELETE FROM weather_history WHERE timestamp < ?", (cutoff_ts,))
-    
     for name, data in stations.items():
         row = (pub_time_str, pub_timestamp, name, 
                data.get('temp_now'), data.get('humidity'), 
@@ -342,8 +373,7 @@ def compute_24h_temp_diff(stations, current_timestamp):
             cursor.execute(query, (name, target_ts_24h - 2100, target_ts_24h + 2100, target_ts_24h))
             row = cursor.fetchone()
             if row and row[0] is not None:
-                past_temp = float(row[0])
-                data['temp_diff_24h'] = round(cur_temp - past_temp, 1)
+                data['temp_diff_24h'] = round(cur_temp - float(row[0]), 1)
             else:
                 data['temp_diff_24h'] = None
         conn.close()
@@ -491,7 +521,7 @@ def fetch_smg_uvi():
     return uv_data
 
 # ==========================================
-# 繪製各項分佈底圖 (嚴格匹配參考圖 MET WARN 風格)
+# 繪製各項分佈底圖 (嚴格鎖定 16:9 且美化)
 # ==========================================
 def render_distribution_maps(stations, current_uvi=0.0):
     for st_name, d in stations.items():
@@ -502,98 +532,100 @@ def render_distribution_maps(stations, current_uvi=0.0):
             d['apparent'] = calculate_apparent_temperature(t, h, w) if (t is not None and h is not None) else None
             d['wbgt'] = estimate_wbgt_kmh(t, h, w, current_uvi) if (t is not None and h is not None) else None
 
-    # 圖例標準定義 (參照參考圖)
     temp_legend = [
-        ("極端酷熱(>=35.0℃)\nExtremely Hot", "#C53030"),
-        ("酷熱(33.0-34.9℃)\nVery Hot", "#E53E3E"),
-        ("炎熱(28.0-32.9℃)\nHot", "#E06D53"),
-        ("溫暖(22.1-27.9℃)\nWarm", "#E5A93C"),
-        ("和暖(17.1-22.0℃)\nMild", "#7FB069"),
-        ("清涼(12.1-17.0℃)\nCool", "#48BB78"),
-        ("寒冷(7.1-12.0℃)\nCold", "#319795"),
-        ("嚴寒(<=7.0℃)\nVery Cold", "#6B46C1")
+        ("極端酷熱 (>=35.0℃)", "#C53030"),
+        ("酷熱 (33.0-34.9℃)", "#E53E3E"),
+        ("炎熱 (28.0-32.9℃)", "#E06D53"),
+        ("溫暖 (22.1-27.9℃)", "#E5A93C"),
+        ("和暖 (17.1-22.0℃)", "#7FB069"),
+        ("清涼 (12.1-17.0℃)", "#48BB78"),
+        ("寒冷 (7.1-12.0℃)", "#319795"),
+        ("嚴寒 (<=7.0℃)", "#6B46C1")
     ]
 
     humidity_legend = [
-        ("非常潮濕(95-100%)\nVery Humid", "#6B46C1"),
-        ("潮濕(85-95%)\nHumid", "#3182CE"),
+        ("非常潮濕 (95-100%)", "#6B46C1"),
+        ("潮濕 (85-95%)", "#3182CE"),
         ("71-84%", "#48BB78"),
-        ("乾燥(40-70%)\nDry", "#E5A93C"),
-        ("非常乾燥(0-40%)\nVery Dry", "#C53030")
+        ("乾燥 (40-70%)", "#E5A93C"),
+        ("非常乾燥 (0-40%)", "#C53030")
     ]
 
     wind_legend = [
-        ("颶風(>=118km/h)\nHurricane", "#C53030"),
-        ("暴風(88-117km/h)\nStorm", "#DD6B20"),
-        ("烈風(63-87km/h)\nGale", "#D69E2E"),
-        ("強風(41-62km/h)\nStrong Wind", "#38A169"),
-        ("清勁或以下(0-40km/h)\nFresh or below", "#38B2AC")
+        ("颶風 (>=118 km/h)", "#C53030"),
+        ("暴風 (88-117 km/h)", "#DD6B20"),
+        ("烈風 (63-87 km/h)", "#D69E2E"),
+        ("強風 (41-62 km/h)", "#38A169"),
+        ("清勁或以下 (0-40 km/h)", "#38B2AC")
     ]
 
     pressure_legend = [
-        (">= 1030.0hPa", "#1A365D"),
-        ("1010.0-1029.9hPa", "#4299E1"),
-        ("1000.0-1009.9hPa", "#38A169"),
-        ("990.0-999.9hPa", "#ECC94B"),
-        ("980.0-989.9hPa", "#ED8936"),
-        ("970.0-979.9hPa", "#F56565"),
-        ("950.0-969.9hPa", "#E53E3E"),
-        ("<= 949.9hPa", "#6B46C1")
+        (">= 1030.0 hPa", "#1A365D"),
+        ("1010.0-1029.9 hPa", "#4299E1"),
+        ("1000.0-1009.9 hPa", "#38A169"),
+        ("990.0-999.9 hPa", "#ECC94B"),
+        ("980.0-989.9 hPa", "#ED8936"),
+        ("970.0-979.9 hPa", "#F56565"),
+        ("950.0-969.9 hPa", "#E53E3E"),
+        ("<= 949.9 hPa", "#6B46C1")
     ]
 
     tasks = [
-        ('temp_now', '分區氣溫', '', get_temp_style, temp_legend),
-        ('temp_diff_24h', '過去24小時氣溫差別', '', get_temp_diff_style, None),
-        ('apparent', '體感溫度', '', get_temp_style, temp_legend),
-        ('wbgt', '暑熱指數 WBGT', '', get_wbgt_style, None),
-        ('temp_max', '今日最高氣溫', '', get_temp_style, temp_legend),
-        ('temp_min', '今日最低氣溫', '', get_temp_style, temp_legend),
-        ('humidity', '相對濕度', '%', get_humidity_style, humidity_legend),
-        ('rain_h', '過去一小時降水', 'mm', get_rain1h_style, None),
-        ('rain_d', '今日累積降水', 'mm', get_raintotal_style, None),
-        ('wind_speed', '過去10分鐘平均風速及風向', '', get_wind_style, wind_legend),
-        ('pressure', '平均海平面氣壓', '', get_pressure_style, pressure_legend),
+        ('temp_now', '分區氣溫', get_temp_style, temp_legend),
+        ('temp_diff_24h', '過去24小時氣溫差別', get_temp_diff_style, None),
+        ('apparent', '體感溫度', get_temp_style, temp_legend),
+        ('wbgt', '暑熱指數 WBGT', get_wbgt_style, None),
+        ('temp_max', '今日最高氣溫', get_temp_style, temp_legend),
+        ('temp_min', '今日最低氣溫', get_temp_style, temp_legend),
+        ('humidity', '相對濕度', get_humidity_style, humidity_legend),
+        ('rain_h', '過去一小時降水', get_rain1h_style, None),
+        ('rain_d', '今日累積降水', get_rain1h_style, None),
+        ('wind_speed', '過去10分鐘平均風速及風向', get_wind_style, wind_legend),
+        ('pressure', '平均海平面氣壓', get_pressure_style, pressure_legend),
     ]
 
-    # 檢查右下角 Logo 檔案
     logo_path = 'MSSO(H).png' if os.path.exists('MSSO(H).png') else ('static/images/MSSO(H).png' if os.path.exists('static/images/MSSO(H).png') else None)
 
-    for key, title_text, unit, style_fn, legend_items in tasks:
-        fig, ax = plt.subplots(figsize=(16, 9), dpi=140)
-        draw_base_map(ax, bg_water='#546E7A', land_color='#DFE5E8')
+    for key, title_text, style_fn, legend_items in tasks:
+        # 建立精確 16:9 畫布 (1920x1080)
+        fig = plt.figure(figsize=(19.2, 10.8), dpi=100)
+        ax = fig.add_axes([0, 0, 1, 1])
+        draw_base_map(ax)
 
         # ----------------------------------------------------
-        # 1. 左上角標題區域 (完全復刻參考圖左上角黃白雙層風格)
+        # 1. 左上角標題與時間標籤 (嚴格防止字體重疊)
         # ----------------------------------------------------
-        # 標題外框 (白底圓角卡片 + 橙黃左飾條)
-        rect_title = FancyBboxPatch((0.04, 0.88), 0.16, 0.065, transform=ax.transAxes,
+        # 標題白底卡片
+        rect_title = FancyBboxPatch((0.045, 0.885), 0.175, 0.065, transform=ax.transAxes,
                                     boxstyle="round,pad=0.005,rounding_size=0.015",
                                     facecolor="#FFFFFF", edgecolor="none", zorder=15)
         ax.add_patch(rect_title)
-        # 左側黃色直條
-        rect_bar = FancyBboxPatch((0.04, 0.88), 0.008, 0.065, transform=ax.transAxes,
+        # 橙黃直飾條
+        rect_bar = FancyBboxPatch((0.045, 0.885), 0.008, 0.065, transform=ax.transAxes,
                                   boxstyle="round,pad=0,rounding_size=0.005",
                                   facecolor="#E5A93C", edgecolor="none", zorder=16)
         ax.add_patch(rect_bar)
-        ax.text(0.055, 0.912, title_text, transform=ax.transAxes,
-                fontsize=20, fontweight='bold', color='#1A202C', va='center', zorder=17)
+        ax.text(0.062, 0.917, title_text, transform=ax.transAxes,
+                fontsize=22, fontweight='bold', color='#1A202C', va='center', zorder=17)
 
-        # 時間外框 (左邊橙黃標記月日，右邊白底標記時分)
-        rect_time_bg = FancyBboxPatch((0.04, 0.805), 0.155, 0.055, transform=ax.transAxes,
-                                      boxstyle="round,pad=0.005,rounding_size=0.015",
+        # 時間外框：左側橙黃日期、右側白底時間
+        t_box_y = 0.805
+        t_box_h = 0.058
+        rect_time_bg = FancyBboxPatch((0.045, t_box_y), 0.170, t_box_h, transform=ax.transAxes,
+                                      boxstyle="round,pad=0.005,rounding_size=0.014",
                                       facecolor="#FFFFFF", edgecolor="none", zorder=15)
         ax.add_patch(rect_time_bg)
-        rect_date_bg = FancyBboxPatch((0.04, 0.805), 0.075, 0.055, transform=ax.transAxes,
+        rect_date_bg = FancyBboxPatch((0.045, t_box_y), 0.075, t_box_h, transform=ax.transAxes,
                                       boxstyle="round,pad=0.005,rounding_size=0.012",
                                       facecolor="#E5A93C", edgecolor="none", zorder=16)
         ax.add_patch(rect_date_bg)
-        ax.text(0.077, 0.832, date_part, transform=ax.transAxes,
-                fontsize=16, fontweight='bold', color='#FFFFFF', va='center', ha='center', zorder=17)
-        ax.text(0.153, 0.832, time_part, transform=ax.transAxes,
-                fontsize=16, fontweight='bold', color='#1A202C', va='center', ha='center', zorder=17)
+        ax.text(0.0825, t_box_y + t_box_h / 2, date_part, transform=ax.transAxes,
+                fontsize=18, fontweight='bold', color='#FFFFFF', va='center', ha='center', zorder=17)
+        ax.text(0.162, t_box_y + t_box_h / 2, time_part, transform=ax.transAxes,
+                fontsize=18, fontweight='bold', color='#1A202C', va='center', ha='center', zorder=17)
 
         # ----------------------------------------------------
-        # 2. 測站氣象標記 (復刻圓形數值膠囊 + 深藍色地名小方塊)
+        # 2. 測站標籤 (膠囊圓球數值 + 深藍方塊地名)
         # ----------------------------------------------------
         for name, data in stations.items():
             val = data.get(key)
@@ -607,15 +639,9 @@ def render_distribution_maps(stations, current_uvi=0.0):
             if val is None:
                 continue
 
-            # 簡化站名
-            disp_name = (name.replace("紀念孫中山公園", "孫中山公園")
-                             .replace("東亞運大馬路", "東亞運")
-                             .replace("大橋", "")
-                             .replace("友誼", "友誼橋")
-                             .replace("澳門", "澳門橋"))
+            disp_name = data.get('disp', name)
 
             if key == 'wind_speed':
-                # 風向風速：青色旋轉三角箭頭 + 深藍色站名方塊
                 dir_map = {'N':0, 'NNE':22.5, 'NE':45, 'ENE':67.5, 'E':90, 'ESE':112.5, 'SE':135, 'SSE':157.5,
                            'S':180, 'SSW':202.5, 'SW':225, 'WSW':247.5, 'W':270, 'WNW':292.5, 'NW':315, 'NNW':337.5}
                 try: deg = float(data.get('wind_dir', 0))
@@ -624,101 +650,95 @@ def render_distribution_maps(stations, current_uvi=0.0):
                 bg_c, _ = get_wind_style(val)
                 val_int = int(round(val))
 
-                # 繪製三角形箭頭指引
                 arrow_poly = np.array([[0, 2.0], [-1.0, -1.2], [0, -0.4], [1.0, -1.2]])
-                t = transforms.Affine2D().rotate_deg(deg).scale(0.0030).translate(lon, lat) + ax.transData
+                t = transforms.Affine2D().rotate_deg(deg).scale(0.0028).translate(lon, lat) + ax.transData
                 ax.add_patch(Polygon(arrow_poly, closed=True, facecolor=bg_c, edgecolor='#FFFFFF', linewidth=1.5, transform=t, zorder=10))
 
-                # 數值文字
-                ax.text(lon, lat, f"{val_int}", fontsize=11, fontweight='bold', color='#FFFFFF',
+                ax.text(lon, lat, f"{val_int}", fontsize=11.5, fontweight='bold', color='#FFFFFF',
                         ha='center', va='center', zorder=12)
 
-                # 深藍色站名底塊
-                ax.text(lon + 0.0075, lat, disp_name, fontsize=10.5, fontweight='bold', color='#FFFFFF',
+                ax.text(lon + 0.0065, lat, disp_name, fontsize=11, fontweight='bold', color='#FFFFFF',
                         ha='left', va='center',
-                        bbox=dict(boxstyle="square,pad=0.22", facecolor='#0E3A53', edgecolor='none'),
+                        bbox=dict(boxstyle="square,pad=0.25", facecolor='#0E3A53', edgecolor='none'),
                         zorder=11)
 
             elif key == 'temp_diff_24h':
-                # 24H 溫差：升溫為紅色 ▲ 標記，降溫為湖青色 ▼ 標記
                 d_val = float(val)
                 symbol = "▲" if d_val >= 0 else "▼"
                 bg_color = "#E53E3E" if d_val >= 0 else "#38B2AC"
                 val_text = f"{symbol}{abs(d_val):.1f}"
 
-                # 圓角膠囊數值 (參考圖左圓角標籤)
-                ax.text(lon - 0.0035, lat, val_text, fontsize=11, fontweight='bold', color='#FFFFFF',
+                ax.text(lon - 0.0030, lat, val_text, fontsize=12, fontweight='bold', color='#FFFFFF',
                         ha='right', va='center',
-                        bbox=dict(boxstyle="round,pad=0.32,rounding_size=0.6", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=1.5),
+                        bbox=dict(boxstyle="round,pad=0.35,rounding_size=0.6", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=1.5),
                         zorder=12)
 
-                # 深藍色站名方塊
-                ax.text(lon - 0.0015, lat, disp_name, fontsize=10.5, fontweight='bold', color='#FFFFFF',
+                ax.text(lon - 0.0012, lat, disp_name, fontsize=11, fontweight='bold', color='#FFFFFF',
                         ha='left', va='center',
-                        bbox=dict(boxstyle="square,pad=0.22", facecolor='#0E3A53', edgecolor='none'),
+                        bbox=dict(boxstyle="square,pad=0.25", facecolor='#0E3A53', edgecolor='none'),
                         zorder=11)
 
             else:
-                # 標準氣溫/濕度/氣壓：圓角彩色數值膠囊 + 深藍色地名方塊
                 bg_color, font_color = style_fn(val)
-                val_str = f"{val:.1f}" if key in ['temp_now', 'apparent', 'wbgt', 'temp_max', 'temp_min', 'pressure'] else f"{int(round(val))}"
+                if key in ['temp_now', 'apparent', 'wbgt', 'temp_max', 'temp_min', 'pressure']:
+                    val_str = f"{val:.1f}"
+                else:
+                    val_str = f"{int(round(val))}"
 
-                # 圓形膠囊數值
-                ax.text(lon - 0.0035, lat, val_str, fontsize=12, fontweight='bold', color=font_color,
+                ax.text(lon - 0.0030, lat, val_str, fontsize=12.5, fontweight='bold', color=font_color,
                         ha='right', va='center',
-                        bbox=dict(boxstyle="round,pad=0.35,rounding_size=0.7", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=1.5),
+                        bbox=dict(boxstyle="round,pad=0.38,rounding_size=0.7", facecolor=bg_color, edgecolor='#FFFFFF', linewidth=1.5),
                         zorder=12)
 
-                # 深藍色站名方塊
-                ax.text(lon - 0.0015, lat, disp_name, fontsize=10.5, fontweight='bold', color='#FFFFFF',
+                ax.text(lon - 0.0012, lat, disp_name, fontsize=11, fontweight='bold', color='#FFFFFF',
                         ha='left', va='center',
-                        bbox=dict(boxstyle="square,pad=0.22", facecolor='#0E3A53', edgecolor='none'),
+                        bbox=dict(boxstyle="square,pad=0.25", facecolor='#0E3A53', edgecolor='none'),
                         zorder=11)
 
         # ----------------------------------------------------
-        # 3. 右側圖例面板 (深藍半透明背景 + 圓形色彩點)
+        # 3. 右側圖例面板 (深藍灰微透面板)
         # ----------------------------------------------------
         if legend_items:
             n_items = len(legend_items)
-            leg_height = 0.046 * n_items + 0.04
-            leg_bg = FancyBboxPatch((0.835, 0.47 - leg_height / 2), 0.145, leg_height,
+            leg_h = 0.048 * n_items + 0.04
+            leg_y = 0.48 - leg_h / 2
+            leg_bg = FancyBboxPatch((0.840, leg_y), 0.142, leg_h,
                                     transform=ax.transAxes,
                                     boxstyle="round,pad=0.008,rounding_size=0.015",
-                                    facecolor="#1A2D37", edgecolor="none", alpha=0.75, zorder=14)
+                                    facecolor="#1A2D37", edgecolor="none", alpha=0.82, zorder=14)
             ax.add_patch(leg_bg)
 
-            start_y = 0.47 + leg_height / 2 - 0.035
+            start_y = leg_y + leg_h - 0.038
             for i, (label, col) in enumerate(legend_items):
-                curr_y = start_y - i * 0.045
-                circle = Circle((0.85, curr_y), 0.0075, transform=ax.transAxes,
+                curr_y = start_y - i * 0.048
+                circle = Circle((0.854, curr_y), 0.0075, transform=ax.transAxes,
                                 facecolor=col, edgecolor='none', zorder=16)
                 ax.add_patch(circle)
-                ax.text(0.865, curr_y, label, transform=ax.transAxes,
-                        fontsize=9.2, color='#E2E8F0', va='center', ha='left', zorder=16, linespacing=1.05)
+                ax.text(0.869, curr_y, label, transform=ax.transAxes,
+                        fontsize=10.5, color='#F1F5F9', va='center', ha='left', zorder=16)
 
         # ----------------------------------------------------
-        # 4. 右下角自定義 Logo (MSSO(H).png)
+        # 4. 右下角 MSSO Logo
         # ----------------------------------------------------
         if logo_path and os.path.exists(logo_path):
             try:
                 logo_img = Image.open(logo_path)
-                imagebox = OffsetImage(logo_img, zoom=0.15)
-                ab = AnnotationBbox(imagebox, (0.915, 0.08), frameon=False, xycoords='axes fraction', zorder=18)
+                imagebox = OffsetImage(logo_img, zoom=0.18)
+                ab = AnnotationBbox(imagebox, (0.915, 0.095), frameon=False, xycoords='axes fraction', zorder=18)
                 ax.add_artist(ab)
             except Exception as e:
-                print(f"載入 Logo 失敗: {e}")
+                print(f"Logo 載入失敗: {e}")
         else:
-            # 備用參考風格標章
-            ax.text(0.915, 0.065, "MSSO", transform=ax.transAxes,
-                    fontsize=20, fontweight='heavy', color='#FFFFFF', ha='center', va='center', zorder=18)
-            ax.text(0.915, 0.035, "WEATHER MACAU", transform=ax.transAxes,
-                    fontsize=9, fontweight='bold', color='#94A3B8', ha='center', va='center', zorder=18)
+            ax.text(0.915, 0.080, "MSSO", transform=ax.transAxes,
+                    fontsize=26, fontweight='heavy', color='#FFFFFF', ha='center', va='center', zorder=18)
+            ax.text(0.915, 0.045, "WEATHER MACAU", transform=ax.transAxes,
+                    fontsize=11, fontweight='bold', color='#94A3B8', ha='center', va='center', zorder=18)
 
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        plt.savefig(f"static/images/{key}.png", dpi=140, bbox_inches='tight', facecolor='#546E7A')
+        # 嚴格輸出 16:9，不可使用 bbox_inches='tight' 以免外圍被裁剪變形
+        plt.savefig(f"static/images/{key}.png", dpi=100, facecolor='#546E7A')
         plt.close(fig)
 
-    print("✅ 全要素精美地圖渲染完成！")
+    print("✅ 16:9 全要素高清晰地圖渲染完畢！")
 
 # ==========================================
 # 輔助函數：智能插入 NaN 實現中斷斷線
@@ -890,7 +910,7 @@ def render_trend_charts():
 
         is_bridge = station_name in BRIDGE_STATIONS
         code = STATION_COORDS[station_name].get("code", "")
-        disp_name = station_name.replace("大炮台", "大炮台").replace("外港碼頭", "外港")
+        disp_name = STATION_COORDS[station_name].get("disp", station_name)
         header_station_text = f"{disp_name}({code})" if code else disp_name
 
         if is_bridge:
@@ -1176,7 +1196,7 @@ def render_uv_trend_chart():
     print("✅ 紫外線折線圖生成完成！")
 
 # ==========================================
-# 24 小時降雨量統計表 (保證永久輸出 JSON 文件)
+# 24 小時降雨量統計表
 # ==========================================
 def generate_24h_rainfall_summary(stations_data=None):
     output_path = "static/images/rainfall_24h_summary.json"
