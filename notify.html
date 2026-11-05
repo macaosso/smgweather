@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>澳門氣象 - 極端天氣即時推播監測系統 (WBGT & Extreme Weather)</title>
+  <title>澳門氣象 - 極端天氣即時推播監測系統 (Extreme Weather Monitor)</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -18,10 +18,6 @@
               900: '#0b1120',
               950: '#050811'
             }
-          },
-          boxShadow: {
-            'glow-rose': '0 0 25px -4px rgba(244, 63, 94, 0.35)',
-            'glow-amber': '0 0 25px -4px rgba(245, 158, 11, 0.35)'
           }
         }
       }
@@ -44,21 +40,19 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Glass surface design */
     .glass-surface {
-      background: rgba(15, 23, 42, 0.82);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .glass-card {
-      background: rgba(15, 23, 42, 0.88);
+      background: rgba(15, 23, 42, 0.90);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* Custom scrollbars */
     ::-webkit-scrollbar {
       width: 5px;
       height: 5px;
@@ -69,9 +63,6 @@
     ::-webkit-scrollbar-thumb {
       background: rgba(100, 116, 139, 0.4);
       border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(148, 163, 184, 0.6);
     }
   </style>
 </head>
@@ -90,12 +81,13 @@
           <h1 class="text-xs sm:text-base font-extrabold text-white tracking-tight flex items-center gap-2 truncate">
             <span>澳門氣象極端預警推播</span>
             <span class="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 font-mono-num flex-shrink-0">
-              LIVE PUSH
+              LIVE MONITOR
             </span>
           </h1>
           <div class="text-[10px] sm:text-[11px] text-slate-400 flex items-center gap-1.5 truncate">
-            <span>氣象資料版本：<strong id="headerSysDate" class="font-mono-num text-slate-200">讀取中...</strong></span>
-            <span id="sourceBadge" class="hidden sm:inline-block text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">REMOTE</span>
+            <span>更新時間：<strong id="headerUpdateTime" class="font-mono-num text-slate-200">讀取中...</strong></span>
+            <span class="text-slate-600">|</span>
+            <span>全網紫外線指數：<strong id="headerUvIndex" class="font-mono-num text-amber-400">--</strong></span>
           </div>
         </div>
       </div>
@@ -117,7 +109,7 @@
   <!-- ================= MAIN DASHBOARD ================= -->
   <main class="flex-1 max-w-6xl w-full mx-auto p-3.5 sm:p-6 space-y-4 sm:space-y-6">
     
-    <!-- Top System Telemetry & Rules Card -->
+    <!-- Top Telemetry & Thresholds Card -->
     <div class="glass-card rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
       
       <!-- Status & Heartbeat -->
@@ -127,11 +119,11 @@
             <span id="pingPulse" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span id="pingDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
-          <span id="monitorStatusText" class="text-xs font-semibold text-slate-300">輪詢抓取中 (每 60 秒比對新時間戳)</span>
+          <span id="monitorStatusText" class="text-xs font-semibold text-slate-300">監控輪詢中 (每 60 秒檢查 weather_data.json)</span>
         </div>
 
         <div class="flex items-center gap-2 text-[11px] text-slate-400 font-mono-num">
-          <span>檢查計時器：<span id="nextCheckTimer" class="text-slate-200 font-bold">60s</span></span>
+          <span>下次檢查：<span id="nextCheckTimer" class="text-slate-200 font-bold">60s</span></span>
           <span class="text-slate-700">|</span>
           <span>最後檢查：<span id="lastCheckTime" class="text-slate-300">--:--:--</span></span>
         </div>
@@ -141,7 +133,7 @@
       <div class="space-y-1.5">
         <div class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5">
           <i class="fa-solid fa-sliders text-rose-400"></i>
-          <span>已啟動之極端觸發條件（任一達標且資料時間戳更新即刻推播）：</span>
+          <span>極端指標觸發門檻（任一達標且資料時間戳更新即刻推播）：</span>
         </div>
         <div class="flex flex-wrap gap-1.5 font-mono-num text-[11px]">
           <span class="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 font-bold flex items-center gap-1">
@@ -170,7 +162,7 @@
           </span>
           <span class="px-2 py-0.5 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300 font-bold flex items-center gap-1">
             <i class="fa-solid fa-cloud-showers-heavy text-[10px]"></i>
-            <span>1H 時雨量 ≥ 10.0 mm</span>
+            <span>時雨量 ≥ 10.0 mm</span>
           </span>
         </div>
       </div>
@@ -179,12 +171,12 @@
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 font-mono-num">
         <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
           <div>
-            <div class="text-[10px] font-sans text-slate-400">觸發策略模式</div>
+            <div class="text-[10px] font-sans text-slate-400">推播機制模式</div>
             <div class="text-sm font-bold text-emerald-400 mt-0.5">無去重模式 (NO DEDUP)</div>
             <div class="text-[10px] font-sans text-slate-500">更新即通知，不設冷卻防抖</div>
           </div>
           <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-            <i class="fa-solid fa-forward-step text-sm"></i>
+            <i class="fa-solid fa-bolt text-sm"></i>
           </div>
         </div>
 
@@ -201,7 +193,7 @@
 
         <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
           <div>
-            <div class="text-[10px] font-sans text-slate-400">當前達標項目總數</div>
+            <div class="text-[10px] font-sans text-slate-400">當前超標項目總數</div>
             <div id="triggeredTotalCount" class="text-lg font-extrabold text-slate-400 mt-0.5">0 項</div>
             <div id="triggeredStationsSummary" class="text-[10px] font-sans text-slate-500 truncate max-w-[180px]">全澳無指標超標</div>
           </div>
@@ -211,40 +203,24 @@
         </div>
       </div>
 
-      <!-- Action Utilities -->
-      <div class="flex flex-wrap items-center gap-2 pt-1">
-        <button onclick="sendTestNotification()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-bold text-slate-200 border border-slate-700 transition flex items-center gap-1.5 shadow-sm">
-          <i class="fa-solid fa-paper-plane text-rose-400"></i>
-          <span>發送模擬測試彈窗</span>
-        </button>
-
-        <button onclick="injectSimulatedExtremeData()" class="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 text-xs font-bold text-amber-300 border border-amber-500/30 transition flex items-center gap-1.5">
-          <i class="fa-solid fa-flask-vial"></i>
-          <span>注入極端測試數據 (驗證推播)</span>
-        </button>
-
-        <button onclick="resetToNormalData()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-bold text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
-          <i class="fa-solid fa-rotate-left"></i>
-          <span>還原一般數據</span>
-        </button>
-      </div>
-
     </div>
 
-    <!-- ================= STATIONS GRID (17 STATIONS) ================= -->
+    <!-- ================= STATIONS GRID ================= -->
     <div class="space-y-2.5">
       <div class="flex items-center justify-between px-1">
         <h2 class="text-xs sm:text-sm font-bold text-slate-200 flex items-center gap-2">
           <i class="fa-solid fa-tower-broadcast text-rose-400"></i>
-          <span>澳門 17 處氣象站 即時指標精算與監測</span>
+          <span>全澳測站實時氣象指標監測表</span>
         </h2>
         <span class="text-[10px] text-slate-500 font-mono-num">
-          紅框為超標站點 (WBGT & 體感採公式動態計算)
+          紅框為超標站點 (直接依據 weather_data.json 欄位)
         </span>
       </div>
 
       <div id="stationGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-        <!-- Rendered dynamically -->
+        <div class="col-span-full py-12 text-center text-slate-500 text-xs font-mono">
+          <i class="fa-solid fa-circle-notch fa-spin mr-2"></i>載入 weather_data.json 中...
+        </div>
       </div>
     </div>
 
@@ -267,85 +243,13 @@
 
   <!-- ================= INLINE SCRIPT ENGINE ================= -->
   <script>
-    // 澳門 17 處監測測站全清單
-    const STATIONS = [
-      { name: "紀念孫中山公園", code: "DP", area: "澳門半島", isBridge: false },
-      { name: "黑沙環",         code: "EM", area: "澳門半島", isBridge: false },
-      { name: "大炮台",         code: "FM", area: "澳門半島", isBridge: false },
-      { name: "外港碼頭",       code: "PE", area: "澳門半島", isBridge: false },
-      { name: "媽閣",           code: "MM", area: "澳門半島", isBridge: false },
-      { name: "大潭山",         code: "TG", area: "氹仔",     isBridge: false },
-      { name: "東亞運大馬路",   code: "JA", area: "氹仔",     isBridge: false },
-      { name: "澳門大學",       code: "UM", area: "橫琴校區", isBridge: false },
-      { name: "九澳",           code: "KV", area: "路環",     isBridge: false },
-      { name: "路環",           code: "DC", area: "路環",     isBridge: false },
-      { name: "友誼大橋北",     code: "PN", area: "跨海大橋", isBridge: true  },
-      { name: "友誼大橋南",     code: "PS", area: "跨海大橋", isBridge: true  },
-      { name: "澳門大橋北",     code: "MN", area: "跨海大橋", isBridge: true  },
-      { name: "澳門大橋南",     code: "MS", area: "跨海大橋", isBridge: true  },
-      { name: "嘉樂庇總督大橋", code: "PG", area: "跨海大橋", isBridge: true  },
-      { name: "西灣大橋",       code: "PV", area: "跨海大橋", isBridge: true  },
-      { name: "蓮花大橋",       code: "PL", area: "跨海大橋", isBridge: true  }
-    ];
-
-    // 全域變數
     let lastKnownSysPubdate = null;
     let notificationCount = 0;
     let timerCountdown = 60;
     const POLL_INTERVAL_SECONDS = 60;
-    let isMockMode = false;
 
     // =========================================================================
-    // 1. 嚴格對應 Python 演算規格之 WBGT & 體感溫度函式
-    // =========================================================================
-    
-    /**
-     * WBGT (濕球黑球溫度) 估算函式
-     * twb = (ta * atan(0.151977 * sqrt(rh + 8.313659)) + atan(ta + rh) - atan(rh - 1.676331) + 0.00391838 * (rh ** 1.5) * atan(0.023101 * rh) - 4.686035)
-     * tg = ta + (1.404 * uvi_val) - (0.111 * w)
-     * wbgt = 0.7 * twb + 0.2 * tg + 0.1 * ta
-     */
-    function estimate_wbgt_kmh(ta, rh, w, uvi = 0.0) {
-      if ([ta, rh, w].some(v => v === null || v === undefined || isNaN(v))) {
-        return null;
-      }
-      try {
-        const uvi_val = (uvi === null || uvi === undefined || isNaN(uvi)) ? 0.0 : parseFloat(uvi);
-        const rh_sqrt = Math.sqrt(rh + 8.313659);
-        const twb = (ta * Math.atan(0.151977 * rh_sqrt)
-               + Math.atan(ta + rh)
-               - Math.atan(rh - 1.676331)
-               + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh)
-               - 4.686035);
-        const tg = ta + (1.404 * uvi_val) - (0.111 * w);
-        const wbgt = 0.7 * twb + 0.2 * tg + 0.1 * ta;
-        return parseFloat(wbgt.toFixed(1));
-      } catch (e) {
-        return null;
-      }
-    }
-
-    /**
-     * 體感溫度 (Apparent Temperature) 估算函式
-     * e = (rh / 100.0) * 6.105 * exp((17.27 * ta) / (237.7 + ta))
-     * apparent_temp = (1.04 * ta) + (0.2 * e) - (0.65 * wind_speed_ms) - 2.7
-     */
-    function calculate_apparent_temperature(ta, rh, w) {
-      if ([ta, rh, w].some(v => v === null || v === undefined || isNaN(v))) {
-        return null;
-      }
-      try {
-        const wind_speed_ms = w / 3.6;
-        const e = (rh / 100.0) * 6.105 * Math.exp((17.27 * ta) / (237.7 + ta));
-        const apparent_temp = (1.04 * ta) + (0.2 * e) - (0.65 * wind_speed_ms) - 2.7;
-        return parseFloat(apparent_temp.toFixed(1));
-      } catch (e) {
-        return null;
-      }
-    }
-
-    // =========================================================================
-    // 2. 瀏覽器通知權限管理
+    // 1. 瀏覽器通知權限管理
     // =========================================================================
     async function requestPermission() {
       if (!("Notification" in window)) {
@@ -356,7 +260,6 @@
       updatePermissionUi();
       if (res === "granted") {
         addLog("已成功取得瀏覽器推播通知權限", "text-emerald-400 font-bold");
-        sendTestNotification();
       } else {
         addLog("使用者未允許或封鎖了推播通知", "text-amber-400");
       }
@@ -383,7 +286,7 @@
     }
 
     // =========================================================================
-    // 3. 推播觸發核心 (NO DEDUPLICATION: 更新即彈窗)
+    // 2. 推播觸發核心 (NO DEDUPLICATION: 更新即彈窗)
     // =========================================================================
     function triggerNotification(triggeredList, updateTime) {
       notificationCount++;
@@ -396,15 +299,14 @@
       }
       bodyLines.push(`數據時間：${updateTime || new Date().toLocaleTimeString()}`);
 
-      const bodyText = bodyLines.join("\n");
+      const bodyText = bodyLines.join("\\n");
 
-      // ServiceWorker 支援優先 (PWA / 背景推播)
       if (navigator.serviceWorker && navigator.serviceWorker.controller) {
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification(title, {
             body: bodyText,
             icon: "https://cdn-icons-png.flaticon.com/512/1146/1146869.png",
-            tag: "extreme-alert-" + Date.now(), // 動態 tag 保證每次必彈窗不合併
+            tag: "extreme-alert-" + Date.now(),
             renotify: true,
             vibrate: [200, 100, 200]
           });
@@ -424,117 +326,57 @@
       addLog(`[推播發送] ${title} (${updateTime})`, "text-rose-400 font-bold");
     }
 
-    function sendTestNotification() {
-      if (!("Notification" in window) || Notification.permission !== "granted") {
-        alert("請先點選右上角『啟用通知權限』允許瀏覽器推播！");
-        return;
-      }
-      triggerNotification([
-        { station: "大潭山", type: "暑熱 WBGT", value: "28.6°C" },
-        { station: "西灣大橋", type: "最高陣風", value: "64.0 km/h" },
-        { station: "紀念孫中山公園", type: "實時氣溫", value: "33.2°C" }
-      ], "手動測試模擬");
-    }
-
     // =========================================================================
-    // 4. 內建回退資料生成器 (確保無本機 JSON 時預覽功能 100% 完整運作)
-    // =========================================================================
-    function generateFallbackWeatherData(isExtreme = false) {
-      const now = new Date();
-      const timeStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:00`;
-
-      const stations = {};
-      STATIONS.forEach(st => {
-        if (st.isBridge) {
-          stations[st.name] = {
-            wind_speed: isExtreme ? 42.5 : 22.0,
-            gust_speed: isExtreme ? 68.0 : 34.0,
-            wind_dir: "NE"
-          };
-        } else {
-          stations[st.name] = {
-            temp_now: isExtreme ? (st.name === "大潭山" ? 33.1 : 32.7) : 26.5,
-            humidity: isExtreme ? 78.0 : 65.0,
-            wind_speed: isExtreme ? 36.2 : 14.5,
-            gust_speed: isExtreme ? 61.5 : 28.0,
-            rain_h: isExtreme ? (st.name === "黑沙環" ? 14.5 : 3.0) : 0.0,
-            rain_d: isExtreme ? 22.0 : 0.0,
-            wind_dir: "E"
-          };
-        }
-      });
-
-      return {
-        update_time: timeStr,
-        syspubdate: timeStr,
-        uv_index: isExtreme ? 8.5 : 4.0,
-        stations: stations
-      };
-    }
-
-    function injectSimulatedExtremeData() {
-      isMockMode = true;
-      const fakeData = generateFallbackWeatherData(true);
-      document.getElementById("sourceBadge").innerText = "SIMULATED EXTREME";
-      document.getElementById("sourceBadge").className = "inline-block text-[9px] px-1 py-0.2 rounded bg-rose-500/20 text-rose-400 font-mono font-bold";
-      addLog("[測試模式] 注入極端天氣資料 (暑熱、高溫、強陣風、大雨達標)", "text-amber-400 font-bold");
-      processWeatherData(fakeData, true);
-    }
-
-    function resetToNormalData() {
-      isMockMode = false;
-      document.getElementById("sourceBadge").innerText = "REMOTE";
-      document.getElementById("sourceBadge").className = "inline-block text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-mono";
-      addLog("[測試模式] 還原輪詢遠端 weather_data.json", "text-slate-400");
-      fetchAndCheck(true);
-    }
-
-    // =========================================================================
-    // 5. 資料處理與 7 大極端條件檢測
+    // 3. 資料處理與 7 大極端條件檢測 (直接解析 JSON 產出結構)
     // =========================================================================
     function processWeatherData(data, isManual = false) {
-      const currentUpdateTime = data.update_time || data.syspubdate || null;
-      document.getElementById("headerSysDate").innerText = currentUpdateTime || '已連線';
+      const currentUpdateTime = data.update_time || null;
+      document.getElementById("headerUpdateTime").innerText = currentUpdateTime || '已連線';
+      document.getElementById("headerUvIndex").innerText = (data.uv_index !== null && data.uv_index !== undefined) ? data.uv_index : '--';
       document.getElementById("lastCheckTime").innerText = new Date().toLocaleTimeString();
 
       const isDataUpdated = (currentUpdateTime !== null && currentUpdateTime !== lastKnownSysPubdate);
 
       const stationsData = data.stations || {};
+      const stationNames = Object.keys(stationsData);
+
+      if (stationNames.length === 0) {
+        document.getElementById("stationGrid").innerHTML = `
+          <div class="col-span-full py-12 text-center text-slate-500 text-xs font-mono">
+            未在 weather_data.json 中檢測到測站數據
+          </div>
+        `;
+        return;
+      }
+
       const allTriggeredItems = [];
       const stationsTriggeredCount = {};
 
-      const globalUvi = (stationsData["大潭山"] && stationsData["大潭山"].uv_index !== undefined)
-                        ? parseFloat(stationsData["大潭山"].uv_index)
-                        : (data.uv_index !== undefined ? parseFloat(data.uv_index) : 0.0);
-
-      // 逐站執行計算與規則檢查
-      const gridHtml = STATIONS.map(st => {
-        const d = stationsData[st.name] || {};
+      const gridHtml = stationNames.map(stName => {
+        const d = stationsData[stName] || {};
+        const isBridge = d.area === "跨海大橋";
 
         const temp = (d.temp_now !== null && d.temp_now !== undefined && !isNaN(d.temp_now)) ? parseFloat(d.temp_now) : null;
-        const humidity = (d.humidity !== null && d.humidity !== undefined && !isNaN(d.humidity)) ? parseFloat(d.humidity) : null;
+        const apparent = (d.apparent !== null && d.apparent !== undefined && !isNaN(d.apparent)) ? parseFloat(d.apparent) : null;
+        const wbgt = (d.wbgt !== null && d.wbgt !== undefined && !isNaN(d.wbgt)) ? parseFloat(d.wbgt) : null;
         const wind = (d.wind_speed !== null && d.wind_speed !== undefined && !isNaN(d.wind_speed)) ? parseFloat(d.wind_speed) : null;
         const gust = (d.gust_speed !== null && d.gust_speed !== undefined && !isNaN(d.gust_speed)) ? parseFloat(d.gust_speed) : null;
         const rain = (d.rain_h !== null && d.rain_h !== undefined && !isNaN(d.rain_h)) ? parseFloat(d.rain_h) : null;
 
-        // 計算 WBGT & 體感溫度
-        const apparent = calculate_apparent_temperature(temp, humidity, wind);
-        const wbgt = estimate_wbgt_kmh(temp, humidity, wind, globalUvi);
-
         const stAlerts = [];
 
-        // 7 大觸發條件
-        if (wbgt !== null && wbgt >= 28.0) stAlerts.push({ station: st.name, type: "暑熱 WBGT", value: `${wbgt}°C`, tag: "wbgt" });
-        if (temp !== null && temp >= 32.5) stAlerts.push({ station: st.name, type: "酷熱高溫", value: `${temp}°C`, tag: "hot" });
-        if (temp !== null && temp <= 12.5) stAlerts.push({ station: st.name, type: "低溫寒冷", value: `${temp}°C`, tag: "cold" });
-        if (wind !== null && wind >= 35.0) stAlerts.push({ station: st.name, type: "平均強風", value: `${wind} km/h`, tag: "wind" });
-        if (gust !== null && gust >= 60.0) stAlerts.push({ station: st.name, type: "最高陣風", value: `${gust} km/h`, tag: "gust" });
-        if (apparent !== null && apparent >= 35.5) stAlerts.push({ station: st.name, type: "極熱體感", value: `${apparent}°C`, tag: "app" });
-        if (rain !== null && rain >= 10.0) stAlerts.push({ station: st.name, type: "時雨量大雨", value: `${rain} mm`, tag: "rain" });
+        // 7 大觸發條件檢驗
+        if (wbgt !== null && wbgt >= 28.0) stAlerts.push({ station: stName, type: "暑熱 WBGT", value: `${wbgt}°C`, tag: "wbgt" });
+        if (temp !== null && temp >= 32.5) stAlerts.push({ station: stName, type: "酷熱高溫", value: `${temp}°C`, tag: "hot" });
+        if (temp !== null && temp <= 12.5) stAlerts.push({ station: stName, type: "低溫寒冷", value: `${temp}°C`, tag: "cold" });
+        if (wind !== null && wind >= 35.0) stAlerts.push({ station: stName, type: "平均強風", value: `${wind} km/h`, tag: "wind" });
+        if (gust !== null && gust >= 60.0) stAlerts.push({ station: stName, type: "最高陣風", value: `${gust} km/h`, tag: "gust" });
+        if (apparent !== null && apparent >= 35.5) stAlerts.push({ station: stName, type: "極熱體感", value: `${apparent}°C`, tag: "app" });
+        if (rain !== null && rain >= 10.0) stAlerts.push({ station: stName, type: "時雨量大雨", value: `${rain} mm`, tag: "rain" });
 
         if (stAlerts.length > 0) {
           allTriggeredItems.push(...stAlerts);
-          stationsTriggeredCount[st.name] = stAlerts.length;
+          stationsTriggeredCount[stName] = stAlerts.length;
         }
 
         const isAlert = stAlerts.length > 0;
@@ -546,9 +388,9 @@
           <div class="border rounded-2xl p-3 sm:p-3.5 transition flex flex-col justify-between font-mono-num ${borderCls}">
             <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
               <div class="font-sans font-bold text-xs sm:text-sm text-white flex items-center gap-1.5 truncate">
-                <span class="w-2 h-2 rounded-full ${isAlert ? 'bg-rose-500 animate-pulse' : (st.isBridge ? 'bg-sky-400' : 'bg-emerald-400')}"></span>
-                <span>${st.name}</span>
-                <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">${st.code}</span>
+                <span class="w-2 h-2 rounded-full ${isAlert ? 'bg-rose-500 animate-pulse' : (isBridge ? 'bg-sky-400' : 'bg-emerald-400')}"></span>
+                <span>${stName}</span>
+                <span class="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">${d.code || ''}</span>
               </div>
               <span class="text-[10px] font-sans ${isAlert ? 'text-rose-400 font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30' : 'text-slate-500'}">
                 ${isAlert ? `${stAlerts.length} 項超標` : '正常'}
@@ -593,9 +435,9 @@
               </div>
 
               <div>
-                <span class="block text-[9px] text-slate-500 font-sans">1H雨量</span>
+                <span class="block text-[9px] text-slate-500 font-sans">時雨量</span>
                 <span class="${rain >= 10.0 ? 'text-blue-400 font-extrabold' : 'text-slate-200'}">
-                  ${rain !== null ? rain + ' mm' : '0.0 mm'}
+                  ${rain !== null ? rain + ' mm' : '--'}
                 </span>
               </div>
             </div>
@@ -620,9 +462,7 @@
         ? `達標測站 (${triggeredStNames.length}): ${triggeredStNames.join(', ')}` 
         : '全澳無指標超標';
 
-      // =========================================================================
       // 關鍵推播動作：時間戳有變動 (或手動檢驗)，且存在達標項目 -> 無去重立即推播
-      // =========================================================================
       if (isDataUpdated || isManual) {
         if (isDataUpdated) {
           lastKnownSysPubdate = currentUpdateTime;
@@ -632,17 +472,15 @@
         if (allTriggeredItems.length > 0) {
           triggerNotification(allTriggeredItems, currentUpdateTime);
         } else {
-          addLog(`[檢查完成] 全澳 17 處測站指標皆處於正常標準內`, "text-emerald-400");
+          addLog(`[檢查完成] 全澳各測站指標皆處於正常標準內`, "text-emerald-400");
         }
       }
     }
 
     // =========================================================================
-    // 6. 輪詢拉取 weather_data.json
+    // 4. 輪詢拉取 weather_data.json
     // =========================================================================
     async function fetchAndCheck(isManual = false) {
-      if (isMockMode && !isManual) return; // 模擬模式下暫停覆蓋
-
       const refreshIcon = document.getElementById("refreshIcon");
       if (refreshIcon) refreshIcon.classList.add("fa-spin");
 
@@ -652,16 +490,14 @@
         const data = await res.json();
         processWeatherData(data, isManual);
       } catch (err) {
-        addLog(`[連線備援] 未取得本地 weather_data.json (${err.message})，自動啟用常態備援資料庫`, "text-amber-400");
-        const fallbackData = generateFallbackWeatherData(false);
-        processWeatherData(fallbackData, isManual);
+        addLog(`[連線錯誤] 無法讀取 weather_data.json: ${err.message}`, "text-rose-400");
       } finally {
         if (refreshIcon) refreshIcon.classList.remove("fa-spin");
       }
     }
 
     // =========================================================================
-    // 7. 日誌紀錄工具
+    // 5. 日誌紀錄工具
     // =========================================================================
     function addLog(msg, colorClass = "text-slate-400") {
       const container = document.getElementById("logContainer");
@@ -677,13 +513,12 @@
     }
 
     // =========================================================================
-    // 8. 倒數計時與生命週期啟動
+    // 6. 倒數計時與生命週期啟動
     // =========================================================================
     window.addEventListener("load", () => {
       updatePermissionUi();
       fetchAndCheck(true);
 
-      // 每秒更新倒數計時器
       setInterval(() => {
         timerCountdown--;
         if (timerCountdown <= 0) {
