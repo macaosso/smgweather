@@ -17,6 +17,10 @@
               850: '#0f172a',
               900: '#0b1120',
               950: '#050811'
+            },
+            pickle: {
+              DEFAULT: '#597d35',
+              dark: '#456228'
             }
           }
         }
@@ -134,6 +138,16 @@
     /* Dark Mode Map Inversion Filter */
     .dark #weatherMap .leaflet-tile-pane {
       filter: brightness(0.82) invert(1) contrast(1.1) hue-rotate(185deg) saturate(0.85);
+    }
+
+    /* Clickable Image Styles */
+    .expandable-image {
+      cursor: zoom-in;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+    }
+    .expandable-image:hover {
+      transform: scale(1.015);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
     }
 
     .no-scrollbar::-webkit-scrollbar {
@@ -302,7 +316,7 @@
           </span>
         </div>
 
-        <!-- Legend Ribbon with requested Temperature Color Scale -->
+        <!-- Legend Ribbon -->
         <div class="absolute bottom-3 left-3 z-[400] glass-surface-elevated px-3 py-2.5 rounded-2xl shadow-xl pointer-events-auto w-fit max-w-xs transition-all max-h-[68vh] overflow-y-auto no-scrollbar">
           <div class="flex items-center justify-between gap-3 text-[11px] mb-1.5 pb-1 border-b border-slate-200/70 dark:border-slate-800">
             <span class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 whitespace-nowrap">
@@ -331,12 +345,12 @@
                 氣象時序折線圖庫
               </h2>
               <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                各單站歷史時序圖檢視（包含氣溫、體感、暑熱指數、風速、濕度、氣壓及紫外線）。
+                點擊任意折線圖可直接全屏放大檢視。包含氣溫、24小時溫差、體感、暑熱指數、風速、濕度、氣壓及紫外線。
               </p>
             </div>
           </div>
 
-          <!-- Station & Metric Selectors (No Official Map options) -->
+          <!-- Station & Metric Selectors -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
               <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
@@ -345,6 +359,7 @@
               <select id="galleryLineMetricSelect" onchange="renderGalleryContent()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="__ALL__">【不限要素】顯示所選站點的所有要素</option>
                 <option value="temp" selected>氣溫 (Temperature)</option>
+                <option value="temp_diff_24h">24小時溫差 (24H Temp Diff)</option>
                 <option value="apparent">體感溫度 (Apparent Temp)</option>
                 <option value="wbgt">暑熱指數 (WBGT)</option>
                 <option value="humidity">相對濕度 (Humidity)</option>
@@ -387,7 +402,7 @@
                 多測站歷史時序直線比對
               </h2>
               <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
-                直觀比對全澳各站 24 小時連續時序，內建參考閾值警戒線與統計矩陣。
+                直觀比對全澳各站連續時序，內建參考閾值警戒線與統計矩陣。
               </p>
             </div>
 
@@ -483,7 +498,7 @@
         
         <!-- Summary Cards: Computed Current Wind Index & Bridge / Land Telemetry -->
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <!-- Current Wind Index Main Card (Direct Calculated) -->
+          <!-- Current Wind Index Main Card -->
           <div class="col-span-2 lg:col-span-1 glass-surface-elevated p-4 rounded-2xl flex flex-col justify-between border-l-4 border-teal-500 shadow-sm">
             <div>
               <div class="flex items-center justify-between">
@@ -608,22 +623,78 @@
           </div>
         </div>
 
-        <!-- Wind Index Trend Graph (line_wind_index.png) -->
-        <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-3">
-          <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
-              <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-base">
-                澳門風力指數 24 小時時序趨勢圖 (line_wind_index.png)
-              </h3>
+        <!-- Wind Index Trend & Wind Direction Graphs (Both line_wind_index and line_wind_direction) -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- 1. line_wind_index.png -->
+          <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
+                <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-base">
+                  澳門風力指數 24 小時時序圖 (line_wind_index.png)
+                </h3>
+              </div>
+              <span class="text-[11px] text-slate-400 flex items-center gap-1">
+                <i class="fa-solid fa-hand-pointer text-[10px]"></i> 點擊放大
+              </span>
             </div>
-            <a href="static/images/line_wind_index.png" target="_blank" class="text-xs text-indigo-500 hover:underline flex items-center gap-1 font-semibold">
-              <span>放大原圖</span>
-              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-            </a>
+            <div class="flex justify-center bg-white dark:bg-slate-900/90 p-2 sm:p-4 rounded-xl min-h-[260px] sm:min-h-[340px] items-center">
+              <img src="static/images/line_wind_index.png" alt="澳門風力指數趨勢圖" class="expandable-image max-h-[380px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '澳門風力指數 24 小時趨勢圖')" onerror="handleImageError(this)">
+            </div>
           </div>
-          <div class="flex justify-center bg-white dark:bg-slate-900/90 p-2 sm:p-4 rounded-xl min-h-[260px] sm:min-h-[380px] items-center">
-            <img src="static/images/line_wind_index.png" alt="澳門風力指數趨勢圖" class="max-h-[460px] w-auto max-w-full object-contain rounded-lg shadow-sm" onerror="handleImageError(this)">
+
+          <!-- 2. line_wind_direction.png -->
+          <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-base">
+                  澳門風向時序分佈圖 (line_wind_direction.png)
+                </h3>
+              </div>
+              <span class="text-[11px] text-slate-400 flex items-center gap-1">
+                <i class="fa-solid fa-hand-pointer text-[10px]"></i> 點擊放大
+              </span>
+            </div>
+            <div class="flex justify-center bg-white dark:bg-slate-900/90 p-2 sm:p-4 rounded-xl min-h-[260px] sm:min-h-[340px] items-center">
+              <img src="static/images/line_wind_direction.png" alt="澳門風向趨勢圖" class="expandable-image max-h-[380px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '澳門風向 24 小時時序分佈圖')" onerror="handleImageError(this)">
+            </div>
+          </div>
+
+          <!-- 3. line_bridges_wind_speed.png -->
+          <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
+                <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-base">
+                  跨海大橋平均風速時序圖 (line_bridges_wind_speed.png)
+                </h3>
+              </div>
+              <span class="text-[11px] text-slate-400 flex items-center gap-1">
+                <i class="fa-solid fa-hand-pointer text-[10px]"></i> 點擊放大
+              </span>
+            </div>
+            <div class="flex justify-center bg-white dark:bg-slate-900/90 p-2 sm:p-4 rounded-xl min-h-[260px] sm:min-h-[340px] items-center">
+              <img src="static/images/line_bridges_wind_speed.png" alt="跨海大橋平均風速時序圖" class="expandable-image max-h-[380px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '跨海大橋平均風速 24 小時時序圖')" onerror="handleImageError(this)">
+            </div>
+          </div>
+
+          <!-- 4. line_bridges_gust_speed.png -->
+          <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-base">
+                  跨海大橋最高陣風時序圖 (line_bridges_gust_speed.png)
+                </h3>
+              </div>
+              <span class="text-[11px] text-slate-400 flex items-center gap-1">
+                <i class="fa-solid fa-hand-pointer text-[10px]"></i> 點擊放大
+              </span>
+            </div>
+            <div class="flex justify-center bg-white dark:bg-slate-900/90 p-2 sm:p-4 rounded-xl min-h-[260px] sm:min-h-[340px] items-center">
+              <img src="static/images/line_bridges_gust_speed.png" alt="跨海大橋最高陣風時序圖" class="expandable-image max-h-[380px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '跨海大橋最高陣風 24 小時時序圖')" onerror="handleImageError(this)">
+            </div>
           </div>
         </div>
 
@@ -665,7 +736,7 @@
         <!-- Dynamically rendered -->
       </div>
 
-      <!-- Direct Static Graph Display -->
+      <!-- Direct Static Graph Display (Direct Click on Image to Expand) -->
       <div class="bg-slate-100/80 dark:bg-slate-900/80 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
         <div class="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
           <div class="flex items-center gap-1.5">
@@ -680,15 +751,14 @@
         </div>
 
         <div class="relative bg-white dark:bg-slate-950 rounded-xl p-2 border border-slate-200 dark:border-slate-800 min-h-[260px] flex items-center justify-center overflow-hidden">
-          <img id="drawerDirectStaticImg" src="" alt="官方折線圖" class="w-full h-auto max-h-[340px] object-contain rounded-lg shadow-sm" onerror="handleImageError(this)">
+          <img id="drawerDirectStaticImg" src="" alt="官方折線圖" class="expandable-image w-full h-auto max-h-[340px] object-contain rounded-lg shadow-sm" onclick="expandDrawerImage()" onerror="handleImageError(this)">
         </div>
 
         <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono-num pt-1">
           <span id="drawerDirectImgPath">static/images/line_xxxx.png</span>
-          <a id="drawerDirectImgLink" href="#" target="_blank" class="text-indigo-500 hover:underline flex items-center gap-1 font-semibold">
-            <span>另開原圖</span>
-            <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-          </a>
+          <span class="text-slate-400 text-[10px] flex items-center gap-1">
+            <i class="fa-solid fa-magnifying-glass-plus"></i> 直接點擊圖片全屏展開
+          </span>
         </div>
       </div>
 
@@ -712,10 +782,36 @@
   <!-- Modal Backdrop for Drawer -->
   <div id="drawerBackdrop" onclick="closeStationDrawer()" class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-40 hidden"></div>
 
+  <!-- ================= IMAGE LIGHTBOX MODAL (DIRECT EXPAND) ================= -->
+  <div id="imageLightboxModal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-2 sm:p-6 transition-opacity duration-200" onclick="handleLightboxBackdropClick(event)">
+    <div class="relative w-full max-w-5xl h-full max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-100/70 dark:bg-slate-850/70">
+        <div class="flex items-center gap-2 truncate">
+          <i class="fa-solid fa-image text-indigo-500 text-sm"></i>
+          <span id="lightboxModalTitle" class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">圖片檢視</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <a id="lightboxOpenNewTabBtn" href="#" target="_blank" class="px-2.5 py-1 text-xs rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition flex items-center gap-1">
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+            <span class="hidden sm:inline">新標籤開啟</span>
+          </a>
+          <button onclick="closeImageModal()" class="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition">
+            <i class="fa-solid fa-xmark text-sm"></i>
+          </button>
+        </div>
+      </div>
+      <!-- Modal Image Container -->
+      <div class="flex-1 overflow-auto p-2 sm:p-4 flex items-center justify-center bg-slate-950/20 dark:bg-black/40">
+        <img id="lightboxModalImg" src="" alt="放大預覽" class="max-w-full max-h-full object-contain rounded-lg shadow-lg" onerror="handleImageError(this, '無法載入此圖片')">
+      </div>
+    </div>
+  </div>
+
   <!-- ================= APPLICATION LOGIC SCRIPT ================= -->
   <script>
     // =========================================================================
-    // 1. EXACT TEMPERATURE COLOR SCALE & COLOR UTILITIES
+    // 1. EXACT TEMPERATURE & WBGT COLOR SCALE DEFINITION
     // =========================================================================
     function get_contrast_text_color(hex_color) {
       if (!hex_color) return '#FFFFFF';
@@ -763,15 +859,21 @@
       return ['#64748B', '#FFFFFF'];
     }
 
+    // REQUIREMENT 3: 暑熱指數 (WBGT) Color Definition
+    // 極危 >= 31.5 dark red (#800020)
+    // 危險 30.5 - 31.4 red (#D32F2F)
+    // 警戒 29.5 - 30.4 vivid deep orange (#F57C00)
+    // 注意 27.5 - 29.4 distinct golden amber (#FFB300)
+    // 正常 <= 27.4 pickle green (#556B2F)
     function get_wbgt_style(wbgt) {
       if (wbgt === null || wbgt === undefined || isNaN(wbgt) || wbgt === '') return ['#78797A', '#FFFFFF'];
       const w = parseFloat(wbgt);
       let c;
       if (w >= 31.5) c = '#800020';
       else if (w >= 30.5) c = '#D32F2F';
-      else if (w >= 29.5) c = '#FF9800';
-      else if (w >= 27.5) c = '#8BC34A';
-      else c = '#0288D1';
+      else if (w >= 29.5) c = '#F57C00'; // Vivid deep orange for 警戒
+      else if (w >= 27.5) c = '#FFB300'; // Distinct golden amber for 注意
+      else c = '#556B2F'; // Pickle green for 正常
       return [c, get_contrast_text_color(c)];
     }
 
@@ -916,7 +1018,7 @@
       { id: 'temp_now',      label: '實時氣溫',   unit: '°C',   icon: 'fa-temperature-half',     styleFn: get_temp_style,      chartMetric: 'temp' },
       { id: 'temp_max',      label: '日高溫',     unit: '°C',   icon: 'fa-arrow-trend-up',       styleFn: get_temp_style,      chartMetric: 'temp' },
       { id: 'temp_min',      label: '日低溫',     unit: '°C',   icon: 'fa-arrow-trend-down',     styleFn: get_temp_style,      chartMetric: 'temp' },
-      { id: 'temp_diff_24h', label: '24小時溫差', unit: '°C',   icon: 'fa-clock-rotate-left',    styleFn: get_temp_diff_style, chartMetric: 'temp' },
+      { id: 'temp_diff_24h', label: '24小時溫差', unit: '°C',   icon: 'fa-clock-rotate-left',    styleFn: get_temp_diff_style, chartMetric: 'temp_diff_24h' },
       { id: 'apparent',      label: '實時體感',   unit: '°C',   icon: 'fa-person-rays',          styleFn: get_temp_style,      chartMetric: 'apparent' },
       { id: 'wbgt',          label: '暑熱指數',   unit: '°C',   icon: 'fa-triangle-exclamation', styleFn: get_wbgt_style,      chartMetric: 'wbgt' },
       { id: 'humidity',      label: '相對濕度',   unit: '%',    icon: 'fa-droplet',              styleFn: get_humidity_style,  chartMetric: 'humidity' },
@@ -943,6 +1045,41 @@
 
     let dbInstance = null;
     let isDbReady = false;
+
+    // =========================================================================
+    // LIGHTBOX EXPAND MODAL UTILITIES (REQUIREMENT 1)
+    // =========================================================================
+    function openImageModal(imgSrc, title = '時序圖放大檢視') {
+      const modal = document.getElementById('imageLightboxModal');
+      const img = document.getElementById('lightboxModalImg');
+      const titleEl = document.getElementById('lightboxModalTitle');
+      const openBtn = document.getElementById('lightboxOpenNewTabBtn');
+
+      img.src = imgSrc;
+      titleEl.innerText = title;
+      openBtn.href = imgSrc;
+      modal.classList.remove('hidden');
+    }
+
+    function closeImageModal() {
+      const modal = document.getElementById('imageLightboxModal');
+      modal.classList.add('hidden');
+      document.getElementById('lightboxModalImg').src = '';
+    }
+
+    function handleLightboxBackdropClick(event) {
+      if (event.target.id === 'imageLightboxModal') {
+        closeImageModal();
+      }
+    }
+
+    function expandDrawerImage() {
+      const imgEl = document.getElementById('drawerDirectStaticImg');
+      if (imgEl && imgEl.src) {
+        const title = `${selectedStationForDrawer} • ${document.getElementById('drawerGraphSectionTitle').innerText}`;
+        openImageModal(imgEl.src, title);
+      }
+    }
 
     function toggleTheme() {
       const isDark = document.documentElement.classList.toggle('dark');
@@ -1098,7 +1235,7 @@
     }
 
     // =========================================================================
-    // 5. REQUIREMENT: LEGEND WITH EXACT TEMPERATURE COLOR PALETTE
+    // 5. REQUIREMENT 3: 暑熱指數 (WBGT) LEGEND & PALETTE
     // =========================================================================
     function updateLegendRibbon(config) {
       document.getElementById('legendMetricTitle').innerText = config.label;
@@ -1130,9 +1267,9 @@
         colorBar.innerHTML = `
           <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#800020"></span><span>≥ 31.5°C 極危</span></div>
           <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#D32F2F"></span><span>30.5 - 31.4°C 危險</span></div>
-          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#FF9800"></span><span>29.5 - 30.4°C 警戒</span></div>
-          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#8BC34A"></span><span>27.5 - 29.4°C 注意</span></div>
-          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#0288D1"></span><span>≤ 27.4°C 正常</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#F57C00"></span><span>29.5 - 30.4°C 警戒</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#FFB300"></span><span>27.5 - 29.4°C 注意</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#556B2F"></span><span>≤ 27.4°C 正常</span></div>
         `;
       } else if (['wind_speed', 'gust_speed', 'wind_dir'].includes(config.id)) {
         colorBar.innerHTML = `
@@ -1215,7 +1352,7 @@
     }
 
     // =========================================================================
-    // 6. SQLITE ENGINE
+    // 6. SQLITE ENGINE & UV INDEX BUG FIX (REQUIREMENT 4)
     // =========================================================================
     async function initSqliteEngine() {
       const statusEl = document.getElementById('dbStatusBadge');
@@ -1264,9 +1401,34 @@
       }
     }
 
+    // Query station history with proper historical UV index lookup
     function queryStationHistory(stationName) {
       if (!dbInstance || !isDbReady) {
         return [];
+      }
+
+      // Check if uv_history table exists
+      let hasUvTable = false;
+      try {
+        const testUv = dbInstance.exec("SELECT 1 FROM sqlite_master WHERE type='table' AND name='uv_history'");
+        if (testUv.length && testUv[0].values.length) hasUvTable = true;
+      } catch (e) {
+        hasUvTable = false;
+      }
+
+      // Pre-fetch UV map if TG
+      const uvTimeMap = {};
+      if (hasUvTable && stationName === '大潭山') {
+        try {
+          const uvStmt = dbInstance.prepare("SELECT timestamp, uvi FROM uv_history ORDER BY timestamp ASC");
+          while (uvStmt.step()) {
+            const row = uvStmt.getAsObject();
+            if (row.timestamp !== undefined && row.uvi !== undefined && row.uvi !== null) {
+              uvTimeMap[row.timestamp] = parseFloat(row.uvi);
+            }
+          }
+          uvStmt.free();
+        } catch (e) {}
       }
 
       try {
@@ -1278,11 +1440,41 @@
         `);
         stmt.bind({ ':st': stationName });
         const rows = [];
+        
         while (stmt.step()) {
           const r = stmt.getAsObject();
+          
+          // REQUIREMENT 4 FIX: Accurately match historical UV index instead of hardcoding latestUvi
+          let historicalUv = null;
+          if (stationName === '大潭山') {
+            if (uvTimeMap[r.timestamp] !== undefined) {
+              historicalUv = uvTimeMap[r.timestamp];
+            } else if (r.uv_index !== undefined && r.uv_index !== null) {
+              historicalUv = parseFloat(r.uv_index);
+            } else {
+              // Find closest timestamp in uvTimeMap if direct match fails
+              const tsKeys = Object.keys(uvTimeMap);
+              if (tsKeys.length) {
+                let closestKey = tsKeys[0];
+                let minDiff = Math.abs(r.timestamp - closestKey);
+                for (let i = 1; i < tsKeys.length; i++) {
+                  const d = Math.abs(r.timestamp - tsKeys[i]);
+                  if (d < minDiff) {
+                    minDiff = d;
+                    closestKey = tsKeys[i];
+                  }
+                }
+                // Allow within 3600 seconds (1 hour) matching
+                if (minDiff <= 3600) {
+                  historicalUv = uvTimeMap[closestKey];
+                }
+              }
+            }
+          }
+
+          r.uv_index = historicalUv !== null ? Math.round(historicalUv) : null;
           r.apparent = calculate_apparent_temperature(r.temp, r.humidity, r.wind_speed);
-          r.wbgt = estimate_wbgt_kmh(r.temp, r.humidity, r.wind_speed, latestUvi || 0.0);
-          r.uv_index = (stationName === '大潭山') ? latestUvi : null;
+          r.wbgt = estimate_wbgt_kmh(r.temp, r.humidity, r.wind_speed, historicalUv || 0.0);
           rows.push(r);
         }
         stmt.free();
@@ -1419,7 +1611,7 @@
     }
 
     // =========================================================================
-    // 9. STATION DETAIL DRAWER
+    // 9. STATION DETAIL DRAWER (WITH 24H TEMP DIFF PNG TAB)
     // =========================================================================
     function openStationDrawer(stName) {
       selectedStationForDrawer = stName;
@@ -1455,6 +1647,12 @@
         const diff = data.temp_diff_24h !== undefined ? data.temp_diff_24h : null;
         const diffText = diff !== null ? (diff > 0 ? `+${formatValue(diff, 'temp_diff_24h')}°` : `${formatValue(diff, 'temp_diff_24h')}°`) : '--';
         const diffColor = (diff || 0) > 0 ? 'text-[#D32F2F]' : ((diff || 0) < 0 ? 'text-[#1565C0]' : 'text-slate-400');
+
+        let wbgtColorClass = 'text-[#556B2F]';
+        if (wbgt >= 31.5) wbgtColorClass = 'text-[#800020]';
+        else if (wbgt >= 30.5) wbgtColorClass = 'text-[#D32F2F]';
+        else if (wbgt >= 29.5) wbgtColorClass = 'text-[#F57C00]';
+        else if (wbgt >= 27.5) wbgtColorClass = 'text-[#FFB300]';
 
         let pressureHtml = '';
         if (coords.hasPressure) {
@@ -1493,7 +1691,7 @@
           </div>
           <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
             <span class="text-slate-400 font-sans block text-[10px]">暑熱 WBGT</span>
-            <span class="text-base font-bold text-amber-500">${wbgt !== null ? formatValue(wbgt, 'wbgt') + '°C' : '--'}</span>
+            <span class="text-base font-bold ${wbgtColorClass}">${wbgt !== null ? formatValue(wbgt, 'wbgt') + '°C' : '--'}</span>
           </div>
           <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
             <span class="text-slate-400 font-sans block text-[10px]">相對濕度</span>
@@ -1524,6 +1722,7 @@
       document.getElementById('drawerBackdrop').classList.remove('hidden');
     }
 
+    // REQUIREMENT 2: Add line_xx_temp_diff_24H.png on the map drawer tabs
     function setupDrawerDirectStaticGraph(stName, coords) {
       const tabsContainer = document.getElementById('drawerGraphTabs');
       let availableTabs = [];
@@ -1534,6 +1733,7 @@
       } else {
         availableTabs = [
           { key: 'temp', label: '氣溫' },
+          { key: 'temp_diff_24h', label: '24H溫差' },
           { key: 'apparent', label: '體感' },
           { key: 'wbgt', label: 'WBGT' },
           { key: 'wind_speed', label: '風速' },
@@ -1564,7 +1764,7 @@
       selectedDrawerMetric = metricKey;
       const coords = STATION_COORDS[selectedStationForDrawer];
       setupDrawerDirectStaticGraph(selectedStationForDrawer, coords);
-      renderDrawerInteractiveChart(selectedStationForDrawer, metricKey);
+      renderDrawerInteractiveChart(selectedStationForDrawer, metricKey === 'temp_diff_24h' ? 'temp' : metricKey);
     }
 
     function loadDrawerDirectStaticImage(stName, metricKey) {
@@ -1575,10 +1775,17 @@
       const imgEl = document.getElementById('drawerDirectStaticImg');
       imgEl.style.display = 'block';
 
-      const imgPath = metricKey === 'uv_index' ? 'static/images/line_uv_index.png' : `static/images/line_${stName}_${metricKey}.png`;
+      let imgPath = '';
+      if (metricKey === 'uv_index') {
+        imgPath = 'static/images/line_uv_index.png';
+      } else if (metricKey === 'temp_diff_24h') {
+        imgPath = `static/images/line_${stName}_temp_diff_24H.png`;
+      } else {
+        imgPath = `static/images/line_${stName}_${metricKey}.png`;
+      }
+
       imgEl.src = imgPath + `?t=${Date.now()}`;
       document.getElementById('drawerDirectImgPath').innerText = imgPath;
-      document.getElementById('drawerDirectImgLink').href = imgPath;
     }
 
     function closeStationDrawer() {
@@ -1596,8 +1803,9 @@
       const rows = queryStationHistory(stName);
       if (!rows.length) return;
 
+      const queryKey = metricKey === 'temp_diff_24h' ? 'temp' : metricKey;
       const labels = rows.map(r => r.time_str ? r.time_str.split(' ')[1] || r.time_str : '');
-      const values = rows.map(r => r[metricKey] !== undefined ? r[metricKey] : null);
+      const values = rows.map(r => r[queryKey] !== undefined ? r[queryKey] : null);
 
       let strokeColor = '#3B82F6';
       if (metricKey === 'apparent') strokeColor = '#F97316';
@@ -1607,6 +1815,7 @@
       else if (metricKey === 'rain') strokeColor = '#10B981';
       else if (metricKey === 'pressure') strokeColor = '#1E3A8A';
       else if (metricKey === 'uv_index') strokeColor = '#EAB308';
+      else if (metricKey === 'temp_diff_24h') strokeColor = '#EC4899';
 
       drawerInteractiveChart = new Chart(canvas, {
         type: 'line',
@@ -1642,7 +1851,7 @@
     }
 
     // =========================================================================
-    // 10. GALLERY VIEW (時序折線圖庫 ONLY - 移除全澳分布圖)
+    // 10. GALLERY VIEW (WITH line_xx_temp_diff_24H.png & DIRECT EXPAND)
     // =========================================================================
     function initGalleryOptions() {
       const stSelect = document.getElementById('galleryLineStationSelect');
@@ -1680,34 +1889,50 @@
         cardsHtml = `
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${targetStations.map(st => {
-              const p = `static/images/line_${st}_${selMetric}.png`;
-              return createGalleryCardHtml(`${st} • ${selMetric.toUpperCase()}`, p);
+              const p = selMetric === 'temp_diff_24h' 
+                ? `static/images/line_${st}_temp_diff_24H.png` 
+                : `static/images/line_${st}_${selMetric}.png`;
+              const label = selMetric === 'temp_diff_24h' ? '24H 溫差' : selMetric.toUpperCase();
+              return createGalleryCardHtml(`${st} • ${label}`, p);
             }).join('')}
           </div>
         `;
       } 
       else if (selStation !== '__ALL__' && selMetric === '__ALL__') {
         const isBridge = STATION_COORDS[selStation].isBridge;
-        let metrics = isBridge ? ['wind_speed'] : ['temp', 'apparent', 'wbgt', 'humidity', 'wind_speed', 'rain'];
+        let metrics = isBridge ? ['wind_speed'] : ['temp', 'temp_diff_24h', 'apparent', 'wbgt', 'humidity', 'wind_speed', 'rain'];
         if (PRESSURE_STATIONS.includes(selStation)) metrics.push('pressure');
         if (selStation === '大潭山') metrics.push('uv_index');
 
         cardsHtml = `
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${metrics.map(m => {
-              const p = m === 'uv_index' ? 'static/images/line_uv_index.png' : `static/images/line_${selStation}_${m}.png`;
-              return createGalleryCardHtml(`${selStation} • ${m.toUpperCase()}`, p);
+              let p = '';
+              let label = m.toUpperCase();
+              if (m === 'uv_index') {
+                p = 'static/images/line_uv_index.png';
+              } else if (m === 'temp_diff_24h') {
+                p = `static/images/line_${selStation}_temp_diff_24H.png`;
+                label = '24H 溫差';
+              } else {
+                p = `static/images/line_${selStation}_${m}.png`;
+              }
+              return createGalleryCardHtml(`${selStation} • ${label}`, p);
             }).join('')}
           </div>
         `;
       }
       else if (selStation !== '__ALL__' && selMetric !== '__ALL__') {
-        const p = `static/images/line_${selStation}_${selMetric}.png`;
-        cardsHtml = createGalleryCardHtml(`${selStation} • ${selMetric.toUpperCase()}`, p);
+        const p = selMetric === 'temp_diff_24h' 
+          ? `static/images/line_${selStation}_temp_diff_24H.png` 
+          : `static/images/line_${selStation}_${selMetric}.png`;
+        const label = selMetric === 'temp_diff_24h' ? '24H 溫差' : selMetric.toUpperCase();
+        cardsHtml = createGalleryCardHtml(`${selStation} • ${label}`, p);
       } else {
         cardsHtml = `
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${createGalleryCardHtml('大潭山 • 氣溫時序', 'static/images/line_大潭山_temp.png')}
+            ${createGalleryCardHtml('大潭山 • 24小時溫差', 'static/images/line_大潭山_temp_diff_24H.png')}
             ${createGalleryCardHtml('大潭山 • 紫外線指數', 'static/images/line_uv_index.png')}
             ${createGalleryCardHtml('紀念孫中山公園 • 氣溫時序', 'static/images/line_紀念孫中山公園_temp.png')}
             ${createGalleryCardHtml('外港碼頭 • 風速時序', 'static/images/line_外港碼頭_wind_speed.png')}
@@ -1718,18 +1943,18 @@
       container.innerHTML = cardsHtml;
     }
 
+    // REQUIREMENT 1: Direct click on image opens lightbox, no separate expand button
     function createGalleryCardHtml(title, imgPath) {
       return `
         <div class="glass-surface-elevated p-3.5 sm:p-4 rounded-2xl space-y-2.5 transition hover:shadow-lg">
           <div class="flex items-center justify-between pb-1.5 border-b border-slate-200/60 dark:border-slate-800">
             <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200 truncate">${title}</span>
-            <a href="${imgPath}" target="_blank" class="text-xs text-indigo-500 hover:underline flex items-center gap-1 font-semibold">
-              <span>放大</span>
-              <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-            </a>
+            <span class="text-[10px] text-slate-400 font-mono-num flex items-center gap-1">
+              <i class="fa-solid fa-hand-pointer text-[9px]"></i> 點擊圖片展開
+            </span>
           </div>
           <div class="flex justify-center bg-slate-200/40 dark:bg-slate-900/90 p-2 rounded-xl min-h-[220px] items-center">
-            <img src="${imgPath}?t=${Date.now()}" alt="${title}" class="max-h-[380px] w-auto max-w-full object-contain rounded-lg shadow-sm" onerror="handleImageError(this)">
+            <img src="${imgPath}?t=${Date.now()}" alt="${title}" class="expandable-image max-h-[380px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '${title}')" onerror="handleImageError(this)">
           </div>
         </div>
       `;
@@ -1797,7 +2022,7 @@
       if (metric === 'temp' || metric === 'apparent') {
         thresholdLabel.innerText = "參考標準：極熱 37.5°C | 酷熱 32.5°C | 炎熱 27.5°C | 清涼 12.5°C | 寒冷 7.5°C";
       } else if (metric === 'wbgt') {
-        thresholdLabel.innerText = "參考標準：極危 31.5°C | 危險 30.5°C | 警戒 29.5°C | 注意 27.5°C";
+        thresholdLabel.innerText = "參考標準：極危 31.5°C | 危險 30.5°C | 警戒 29.5°C | 注意 27.5°C | 正常 ≤27.4°C";
       } else if (metric === 'wind_speed' || metric === 'gust_speed') {
         thresholdLabel.innerText = "參考標準：清勁 30.5 km/h | 強風 40.5 km/h | 烈風 62.5 km/h";
       } else if (metric === 'rain') {
@@ -1948,7 +2173,7 @@
     }
 
     // =========================================================================
-    // 12. REQUIREMENT 3: DIRECT CLIENT-SIDE WIND INDEX CALCULATION
+    // 12. WIND INDEX & WIND MONITORING (DIRECT CLIENT-SIDE CALCULATION)
     // =========================================================================
     function getWindGrade(idx) {
       if (idx === null || isNaN(idx)) return ['--', '無數據'];
