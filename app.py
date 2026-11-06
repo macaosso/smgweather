@@ -1341,30 +1341,28 @@ def process_pipeline(root):
         print("❌ 解析 SMG XML 數據失敗。")
 
 # ==========================================
-# 程式進入點 (每 60 秒高頻輪詢)
+# 程式進入點 (單次執行模式，由外部 CI 循環排程)
 # ==========================================
 if __name__ == '__main__':
     init_db()
     init_wind_index_db()
     
     last_pubdate = get_last_pubdate_from_db()
-    print(f"🚀 SMG 輪詢服務已啟動，前次發布時間：'{last_pubdate}'")
+    print(f"🚀 執行 SMG 同步任務，資料庫前次發布時間：'{last_pubdate}'")
 
-    while True:
-        try:
-            root = fetch_smg_weather_xml()
-            if root is not None:
-                pub_time_str, _ = parse_xml_timestamp(root)
+    try:
+        root = fetch_smg_weather_xml()
+        if root is not None:
+            pub_time_str, _ = parse_xml_timestamp(root)
 
-                # XML 時間未更新則跳過
-                if pub_time_str == last_pubdate:
-                    print(f"ℹ️ SMG XML 尚未更新 (當前發布時間: {pub_time_str})，跳過。")
-                else:
-                    print(f"🔔 檢測到新發布數據: {pub_time_str}")
-                    process_pipeline(root)
-                    last_pubdate = pub_time_str
-        except Exception as e:
-            print(f"⚠️ 輪詢過程異常: {e}")
-
-        # 每 60 秒檢測一次 XML 更新
-        time.sleep(60)
+            # XML 時間未更新
+            if pub_time_str == last_pubdate:
+                print(f"ℹ️ SMG XML 尚未更新 (當前發布時間: {pub_time_str})，跳過繪圖。")
+            else:
+                print(f"🔔 檢測到新發布數據: {pub_time_str}，開始管線處理...")
+                process_pipeline(root)
+        else:
+            print("❌ 無法獲取 SMG XML 內容。")
+    except Exception as e:
+        print(f"⚠️ 處理過程異常: {e}")
+        sys.exit(1)
