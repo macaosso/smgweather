@@ -1,4 +1,4 @@
-name: Macau Weather Auto Sync & Render 
+name: Macau Weather Auto Sync & Render
 
 on:
   schedule:
@@ -11,14 +11,14 @@ env:
 
 concurrency:
   group: weather-render-sync
-  cancel-in-progress: false   # 確保交接時不會中途取消正在進行中的任務
+  cancel-in-progress: false   # 改為 false，確保交接時不會中途取消正在清理的任務
 
 jobs:
   weather-loop:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write           # 具備 actions: write 才能調用 API 觸發新 workflow
+      actions: write           # 必須具備 actions: write 才能調用 API 觸發新 workflow
 
     steps:
       - name: 檢出主分支代碼
@@ -43,21 +43,21 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: 安裝 Python 核心庫
+      - name: 安裝 Python 核心庫 (移除地圖重型依賴)
         run: |
           uv pip install --system requests pandas numpy matplotlib pillow
 
-      - name: 執行 4.5 小時常駐輪詢 (每 60 秒檢測一次 XML 更新)
+      - name: 執行 4.5 小時常駐循環 (每 5 分鐘抓取更新一次)
         run: |
           END_TIME=$(($(date +%s) + 16200))
-          INTERVAL=60
+          INTERVAL=300
 
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           while [ $(date +%s) -lt $END_TIME ]; do
             echo "=========================================================="
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] 執行澳門氣象輪詢檢測..."
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] 開始執行澳門氣象同步輪詢..."
             echo "=========================================================="
 
             cd "$GITHUB_WORKSPACE"
@@ -66,74 +66,67 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # 2. 拉取 gh-pages 分支歷史資料庫，維持時序連續性 (同步 history.db 與 wind_index.db)
+            # 2. 拉取 gh-pages 分支歷史資料庫，維持時序連續性 (確保拉取 windindex.db)
             rm -rf /tmp/gh-pages-fetch
             if git clone --depth 1 --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/gh-pages-fetch 2>/dev/null; then
               cp -f /tmp/gh-pages-fetch/history.db ./history.db 2>/dev/null || true
-              cp -f /tmp/gh-pages-fetch/wind_index.db ./wind_index.db 2>/dev/null || true
-              # 相容舊版名稱
-              cp -f /tmp/gh-pages-fetch/windindex.db ./wind_index.db 2>/dev/null || true
+              cp -f /tmp/gh-pages-fetch/windindex.db ./windindex.db 2>/dev/null || true
               rm -rf /tmp/gh-pages-fetch
             fi
 
-            # 3. 確保靜態圖片目錄存在
+            # 3. 確保目錄結構齊全
             mkdir -p static/images
 
-            # 4. 執行核心 Python 腳本 (若 XML 未發布新數據將直接退出)
+            # 4. 執行核心 Python 腳本
             python app.py
 
-            # 5. 檢測工作區檔案是否有任何新增或變更，若無變更則略過推送
-            if [ -z "$(git status --porcelain static/ history.db wind_index.db weather_data.json windindexdata.json 2>/dev/null)" ]; then
-              echo "ℹ️ 無新數據產生，略過 gh-pages 發布。"
-            else
-              echo "🔔 檢測到新圖表或數據更新，準備同步發布至 gh-pages..."
-              rm -rf /tmp/gh-pages-deploy
-              mkdir -p /tmp/gh-pages-deploy/static/images
+            # 5. 準備發布到 gh-pages 目錄
+            echo "準備同步發布至 gh-pages..."
+            rm -rf /tmp/gh-pages-deploy
+            mkdir -p /tmp/gh-pages-deploy/static/images
 
-              # 拷貝網頁與靜態資源
-              cp -f index.html /tmp/gh-pages-deploy/ 2>/dev/null || true
-              cp -f notify.html /tmp/gh-pages-deploy/ 2>/dev/null || true
-              cp -f sw.js /tmp/gh-pages-deploy/ 2>/dev/null || true
-              cp -rf static /tmp/gh-pages-deploy/ 2>/dev/null || true
+            # 拷貝最新檔案 (確保網頁靜態檔、數據庫與 JSON 齊全)
+            cp -f index.html /tmp/gh-pages-deploy/ 2>/dev/null || true
+            cp -f notify.html /tmp/gh-pages-deploy/ 2>/dev/null || true
+            cp -f sw.js /tmp/gh-pages-deploy/ 2>/dev/null || true
+            cp -rf static /tmp/gh-pages-deploy/ 2>/dev/null || true
 
-              # 同步 SQLite 資料庫與 JSON (包含 wind_index.db, windindexdata.json)
-              cp -f weather_data.json /tmp/gh-pages-deploy/ 2>/dev/null || true
-              cp -f history.db /tmp/gh-pages-deploy/ 2>/dev/null || true
-              cp -f wind_index.db /tmp/gh-pages-deploy/ 2>/dev/null || true
-              cp -f wind_index.db /tmp/gh-pages-deploy/windindex.db 2>/dev/null || true  # 兼顧舊路徑存取
-              cp -f windindexdata.json /tmp/gh-pages-deploy/ 2>/dev/null || true
+            # 同步所有 JSON 與 SQLite 資料庫 (包含 windindex.db 與 windindexdata.json)
+            cp -f weather_data.json /tmp/gh-pages-deploy/ 2>/dev/null || true
+            cp -f history.db /tmp/gh-pages-deploy/ 2>/dev/null || true
+            cp -f windindex.db /tmp/gh-pages-deploy/ 2>/dev/null || true
+            cp -f windindexdata.json /tmp/gh-pages-deploy/ 2>/dev/null || true
 
-              # 同步雷達/衛星等參考底圖
-              cp -f "MSSO(H).png" /tmp/gh-pages-deploy/ 2>/dev/null || true
-              cp -f "MSSO(H).png" /tmp/gh-pages-deploy/static/images/ 2>/dev/null || true
-              cp -f static/images/"MSSO(H).png" /tmp/gh-pages-deploy/ 2>/dev/null || true
+            # 同步 MSSO(H).png 到根目錄與 static/images 目錄
+            cp -f "MSSO(H).png" /tmp/gh-pages-deploy/ 2>/dev/null || true
+            cp -f "MSSO(H).png" /tmp/gh-pages-deploy/static/images/ 2>/dev/null || true
+            cp -f static/images/"MSSO(H).png" /tmp/gh-pages-deploy/ 2>/dev/null || true
 
-              # 降雨統計摘要 JSON
-              if [ -f static/images/rainfall_24h_summary.json ]; then
-                cp -f static/images/rainfall_24h_summary.json /tmp/gh-pages-deploy/rainfall_24h_summary.json 2>/dev/null || true
-              elif [ -f rainfall_24h_summary.json ]; then
-                cp -f rainfall_24h_summary.json /tmp/gh-pages-deploy/static/images/rainfall_24h_summary.json 2>/dev/null || true
-              fi
-
-              cd /tmp/gh-pages-deploy
-              git init
-              git config user.name "github-actions[bot]"
-              git config user.email "github-actions[bot]@users.noreply.github.com"
-              git checkout -b gh-pages
-              git add -A
-
-              echo "--- gh-pages 發布檔案列表 ---"
-              git status --short
-              echo "----------------------------"
-
-              git commit -m "Auto Update: $(date '+%Y-%m-%d %H:%M:%S') [Macau SMG Sync]"
-              git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages || echo "推送失敗，等待下輪重試..."
-
-              cd "$GITHUB_WORKSPACE"
-              rm -rf /tmp/gh-pages-deploy
+            # 額外防禦：降雨總結 JSON 雙向容錯拷貝
+            if [ -f static/images/rainfall_24h_summary.json ]; then
+              cp -f static/images/rainfall_24h_summary.json /tmp/gh-pages-deploy/rainfall_24h_summary.json 2>/dev/null || true
+            elif [ -f rainfall_24h_summary.json ]; then
+              cp -f rainfall_24h_summary.json /tmp/gh-pages-deploy/static/images/rainfall_24h_summary.json 2>/dev/null || true
             fi
 
-            echo "等待 ${INTERVAL} 秒進行下一輪檢測..."
+            cd /tmp/gh-pages-deploy
+            git init
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git checkout -b gh-pages
+            git add -A
+
+            echo "--- gh-pages 發布檔案列表 ---"
+            git status --short
+            echo "----------------------------"
+
+            git commit -m "Auto Update: $(date '+%Y-%m-%d %H:%M:%S') [Macau SMG Sync]"
+            git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages || echo "推送失敗，等待下輪重試..."
+
+            cd "$GITHUB_WORKSPACE"
+            rm -rf /tmp/gh-pages-deploy
+
+            echo "等待 5 分鐘進行下一輪監控..."
             sleep $INTERVAL
           done
 
