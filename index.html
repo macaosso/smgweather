@@ -273,13 +273,13 @@
   <!-- ================= REQUIREMENT 5: 極端氣象預警 (EXTREME WEATHER ALERTS) ================= -->
   <aside id="alertRibbon" class="bg-slate-100 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 py-2 flex-shrink-0 text-xs transition-colors">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-start justify-between gap-2">
-      <div class="flex items-center justify-between md:justify-start gap-2 flex-shrink-0 w-full md:w-auto">
+      <div class="flex items-center justify-between gap-2 flex-shrink-0 w-full md:w-auto">
         <span class="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold font-mono-num text-[11px] flex items-center gap-1.5" id="alertRibbonBadge">
           <i class="fa-solid fa-shield-halved text-xs"></i>
           <span id="alertRibbonBadgeText">氣象正常</span>
         </span>
-        <!-- Contract / Expand toggle button -->
-        <button id="alertToggleBtn" onclick="toggleAlertRibbonExpansion()" class="hidden md:inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-lg bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition">
+        <!-- Single unified toggle button (Desktop & Mobile) -->
+        <button id="alertToggleBtn" onclick="toggleAlertRibbonExpansion()" class="hidden items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-lg bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition">
           <i id="alertToggleIcon" class="fa-solid fa-chevron-down text-[9px]"></i>
           <span id="alertToggleText">展開詳情</span>
         </button>
@@ -288,14 +288,6 @@
       <!-- Main Container: Supports Contracted summary view and Expanded detailed view -->
       <div class="flex flex-col gap-1.5 text-xs font-mono-num w-full" id="alertRibbonContainer">
         <!-- Rendered dynamically -->
-      </div>
-      
-      <!-- Mobile-only collapse button -->
-      <div class="md:hidden flex justify-end w-full">
-        <button id="alertToggleBtnMobile" onclick="toggleAlertRibbonExpansion()" class="hidden items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-lg bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition">
-          <i id="alertToggleIconMobile" class="fa-solid fa-chevron-down text-[9px]"></i>
-          <span id="alertToggleTextMobile">展開詳情</span>
-        </button>
       </div>
     </div>
   </aside>
@@ -724,50 +716,50 @@
         <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono-num pt-1">
           <span id="drawerDirectImgPath">static/images/line_xxxx.png</span>
           <span class="text-slate-400 text-[10px] flex items-center gap-1">
-            <i class="fa-solid fa-magnifying-glass-plus"></i> 點擊圖片全屏展開
-          </span>
-        </div>
-      </div>
-
-      <!-- Interactive SQLite Chart (Strict 24 Hours) -->
-      <div class="bg-slate-100/80 dark:bg-slate-900/80 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
-        <div class="flex items-center justify-between">
-          <span class="font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-chart-area text-sky-500"></i>
-            SQLite 互動時序折線
-          </span>
-          <span class="text-[10px] text-slate-400 font-mono-num">最近 24 小時連續採樣</span>
-        </div>
-        <div class="h-48 sm:h-52 relative bg-white dark:bg-slate-950 rounded-xl p-1 border border-slate-200 dark:border-slate-800">
-          <canvas id="drawerInteractiveCanvas"></canvas>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <div id="drawerBackdrop" onclick="closeStationDrawer()" class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-40 hidden"></div>
-
-  <!-- ================= IMAGE LIGHTBOX MODAL ================= -->
-  <div id="imageLightboxModal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-2 sm:p-6 transition-opacity duration-200" onclick="handleLightboxBackdropClick(event)">
-    <div class="relative w-full max-w-5xl h-full max-h-[92vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onclick="event.stopPropagation()">
-      <div class="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-100/70 dark:bg-slate-850/70">
+  <!-- ================= IMAGE LIGHTBOX MODAL WITH ZOOM & PAN ================= -->
+  <div id="imageLightboxModal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-2 sm:p-4 transition-opacity duration-200" onclick="handleLightboxBackdropClick(event)">
+    <div class="relative w-full max-w-6xl h-full max-h-[94vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-100/80 dark:bg-slate-850/80 flex-shrink-0 z-20">
         <div class="flex items-center gap-2 truncate">
           <i class="fa-solid fa-image text-indigo-500 text-sm"></i>
           <span id="lightboxModalTitle" class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">圖片檢視</span>
         </div>
-        <div class="flex items-center gap-2">
-          <a id="lightboxOpenNewTabBtn" href="#" target="_blank" class="px-2.5 py-1 text-xs rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition flex items-center gap-1">
+        
+        <!-- Zoom & Action Toolbar -->
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <div class="flex items-center bg-slate-200 dark:bg-slate-800 rounded-xl p-0.5 border border-slate-300 dark:border-slate-700 text-xs">
+            <button onclick="zoomLightboxImage(-0.25)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition" title="縮小 (Zoom Out)">
+              <i class="fa-solid fa-minus text-xs"></i>
+            </button>
+            <span id="lightboxZoomLevelLabel" class="px-2 font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300 select-none">100%</span>
+            <button onclick="zoomLightboxImage(0.25)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition" title="放大 (Zoom In)">
+              <i class="fa-solid fa-plus text-xs"></i>
+            </button>
+            <button onclick="resetLightboxZoom()" class="px-2 h-7 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-[11px] transition ml-0.5" title="還原比例">
+              重設
+            </button>
+          </div>
+
+          <a id="lightboxOpenNewTabBtn" href="#" target="_blank" class="h-8 px-2.5 text-xs rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition inline-flex items-center gap-1" title="在新分頁開啟原始圖片">
             <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-            <span class="hidden sm:inline">新標籤開啟</span>
+            <span class="hidden sm:inline">新分頁</span>
           </a>
-          <button onclick="closeImageModal()" class="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition">
+
+          <button onclick="closeImageModal()" class="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition" title="關閉">
             <i class="fa-solid fa-xmark text-sm"></i>
           </button>
         </div>
       </div>
-      <div class="flex-1 overflow-auto p-2 sm:p-4 flex items-center justify-center bg-slate-950/20 dark:bg-black/40">
-        <img id="lightboxModalImg" src="" alt="放大預覽" class="max-w-full max-h-full object-contain rounded-lg shadow-lg" onerror="handleImageError(this, '無法載入此圖片')">
+
+      <!-- Modal Image Viewport Container with Drag-to-Pan support -->
+      <div id="lightboxViewport" class="flex-1 relative overflow-hidden flex items-center justify-center bg-slate-950/20 dark:bg-black/50 cursor-grab active:cursor-grabbing select-none" onwheel="handleLightboxWheel(event)">
+        <img id="lightboxModalImg" src="" alt="放大預覽" class="max-w-full max-h-full object-contain rounded-lg shadow-lg pointer-events-none transition-transform duration-75 ease-out select-none" onerror="handleImageError(this, '無法載入此圖片')">
+        
+        <!-- Quick Usage Hint -->
+        <div class="absolute bottom-3 right-3 px-2 py-1 rounded-lg bg-black/60 text-white/80 text-[10px] font-mono pointer-events-none backdrop-blur-xs">
+          滾輪縮放 / 拖拽平移
+        </div>
       </div>
     </div>
   </div>
@@ -999,36 +991,146 @@
     let isDbReady = false;
     let dbLatestTimestamp = 0;
     let isAlertRibbonExpanded = false;
-    let activeAlertFilter = null; // Store highlight filter { metricId, stationCodes }
+
+    // Interactive Lightbox State
+    let lightboxScale = 1.0;
+    let lightboxTranslateX = 0;
+    let lightboxTranslateY = 0;
+    let isLightboxDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    function openImageModal(imgSrc, title = '時序圖放大檢視') {
+      const modal = document.getElementById('imageLightboxModal');
+      const img = document.getElementById('lightboxModalImg');
+      const titleEl = document.getElementById('lightboxModalTitle');
+      const openBtn = document.getElementById('lightboxOpenNewTabBtn');
+
+      img.src = imgSrc;
+      titleEl.innerText = title;
+      openBtn.href = imgSrc;
+      
+      resetLightboxZoom();
+      modal.classList.remove('hidden');
+      initLightboxInteractions();
+    }
+
+    function closeImageModal() {
+      const modal = document.getElementById('imageLightboxModal');
+      modal.classList.add('hidden');
+      document.getElementById('lightboxModalImg').src = '';
+      resetLightboxZoom();
+    }
+
+    function handleLightboxBackdropClick(event) {
+      if (event.target.id === 'imageLightboxModal') {
+        closeImageModal();
+      }
+    }
+
+    function updateLightboxTransform() {
+      const img = document.getElementById('lightboxModalImg');
+      const label = document.getElementById('lightboxZoomLevelLabel');
+      if (!img) return;
+
+      img.style.transform = `translate(${lightboxTranslateX}px, ${lightboxTranslateY}px) scale(${lightboxScale})`;
+      if (label) {
+        label.innerText = `${Math.round(lightboxScale * 100)}%`;
+      }
+    }
+
+    function zoomLightboxImage(delta) {
+      const newScale = Math.min(Math.max(0.5, lightboxScale + delta), 4.0);
+      lightboxScale = parseFloat(newScale.toFixed(2));
+      if (lightboxScale <= 1.0) {
+        lightboxTranslateX = 0;
+        lightboxTranslateY = 0;
+      }
+      updateLightboxTransform();
+    }
+
+    function resetLightboxZoom() {
+      lightboxScale = 1.0;
+      lightboxTranslateX = 0;
+      lightboxTranslateY = 0;
+      updateLightboxTransform();
+    }
+
+    function handleLightboxWheel(e) {
+      e.preventDefault();
+      const zoomStep = e.deltaY < 0 ? 0.2 : -0.2;
+      zoomLightboxImage(zoomStep);
+    }
+
+    function initLightboxInteractions() {
+      const viewport = document.getElementById('lightboxViewport');
+      if (!viewport || viewport.dataset.initialized) return;
+      viewport.dataset.initialized = "true";
+
+      viewport.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // Primary click only
+        isLightboxDragging = true;
+        dragStartX = e.clientX - lightboxTranslateX;
+        dragStartY = e.clientY - lightboxTranslateY;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isLightboxDragging) return;
+        lightboxTranslateX = e.clientX - dragStartX;
+        lightboxTranslateY = e.clientY - dragStartY;
+        updateLightboxTransform();
+      });
+
+      window.addEventListener('mouseup', () => {
+        isLightboxDragging = false;
+      });
+
+      // Touch drag support for mobile screens
+      let touchStartX = 0;
+      let touchStartY = 0;
+      viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          isLightboxDragging = true;
+          touchStartX = e.touches[0].clientX - lightboxTranslateX;
+          touchStartY = e.touches[0].clientY - lightboxTranslateY;
+        }
+      }, { passive: true });
+
+      viewport.addEventListener('touchmove', (e) => {
+        if (!isLightboxDragging || e.touches.length !== 1) return;
+        lightboxTranslateX = e.touches[0].clientX - touchStartX;
+        lightboxTranslateY = e.touches[0].clientY - touchStartY;
+        updateLightboxTransform();
+      }, { passive: true });
+
+      viewport.addEventListener('touchend', () => {
+        isLightboxDragging = false;
+      });
+    }
+
+    function expandDrawerImage() {
+      const imgEl = document.getElementById('drawerDirectStaticImg');
+      if (imgEl && imgEl.src && imgEl.style.display !== 'none') {
+        const title = `${selectedStationForDrawer} • ${document.getElementById('drawerGraphSectionTitle').innerText}`;
+        openImageModal(imgEl.src, title);
+      }
+    }
 
     function toggleAlertRibbonExpansion() {
       isAlertRibbonExpanded = !isAlertRibbonExpanded;
       const icon = document.getElementById('alertToggleIcon');
       const text = document.getElementById('alertToggleText');
-      const iconM = document.getElementById('alertToggleIconMobile');
-      const textM = document.getElementById('alertToggleTextMobile');
 
       if (icon) icon.className = isAlertRibbonExpanded ? "fa-solid fa-chevron-up text-[9px]" : "fa-solid fa-chevron-down text-[9px]";
       if (text) text.innerText = isAlertRibbonExpanded ? "收合簡述" : "展開詳情";
-      if (iconM) iconM.className = isAlertRibbonExpanded ? "fa-solid fa-chevron-up text-[9px]" : "fa-solid fa-chevron-down text-[9px]";
-      if (textM) textM.innerText = isAlertRibbonExpanded ? "收合簡述" : "展開詳情";
 
       evaluateAlertRibbon();
     }
 
-    // Triggered when clicking an alert pill: switches the map to that metric and highlights matching stations
-    function handleAlertPillClick(metricId, stationCodesJson) {
-      try {
-        const stationCodes = JSON.parse(decodeURIComponent(stationCodesJson));
-        activeAlertFilter = { metricId, stationCodes };
-      } catch (e) {
-        activeAlertFilter = { metricId, stationCodes: [] };
-      }
-
-      // Ensure we are viewing the map
+    // REQUIREMENT 1: Switches the map active metric cleanly WITHOUT any station highlighting, ringing, or bouncing
+    function handleAlertPillClick(metricId) {
+      if (!metricId) return;
       switchView('map');
-
-      // Change metric tab to the clicked metric
       changeActiveMetric(metricId);
     }
 
@@ -1176,14 +1278,8 @@
           }
         }
 
-        const isHighlighted = activeAlertFilter && 
-                              activeAlertFilter.metricId === currentMetric && 
-                              activeAlertFilter.stationCodes.includes(coords.code);
-
-        const highlightBorder = isHighlighted ? 'ring-4 ring-rose-500 ring-offset-2 animate-bounce' : '';
-
         iconHtml = `
-          <div class="weather-pill ${highlightBorder}" onclick="handleMapStationClick('${name}')">
+          <div class="weather-pill" onclick="handleMapStationClick('${name}')">
             <div class="weather-pill-badge" style="background-color: ${bgColor}; color: ${fontColor};">
               <span>${displayVal}</span>
             </div>
@@ -1479,7 +1575,6 @@
       const ribbonBadge = document.getElementById('alertRibbonBadge');
       const ribbonBadgeText = document.getElementById('alertRibbonBadgeText');
       const toggleBtn = document.getElementById('alertToggleBtn');
-      const toggleBtnM = document.getElementById('alertToggleBtnMobile');
       if (!ribbonContainer) return;
 
       const stations = (weatherData && weatherData.stations) ? weatherData.stations : {};
@@ -1536,7 +1631,6 @@
         const rows = [];
         rules.forEach(rule => {
           const matched = [];
-          const matchedCodes = [];
           Object.keys(STATION_COORDS).forEach(stName => {
             const d = stations[stName] || {};
             const val = extractor(d, stName);
@@ -1544,7 +1638,6 @@
               const code = STATION_COORDS[stName]?.code || stName;
               const formattedVal = formatValue(val, '');
               matched.push(`${code} (${formattedVal}${rule.unit})`);
-              matchedCodes.push(code);
             }
           });
 
@@ -1554,8 +1647,7 @@
               label: rule.label,
               count: matched.length,
               stationsText: matched.join(', '),
-              mapMetric: rule.mapMetric,
-              stationCodes: matchedCodes
+              mapMetric: rule.mapMetric
             });
           }
         });
@@ -1581,7 +1673,6 @@
         ribbonBadge.className = "px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold font-mono-num text-[11px] flex items-center gap-1.5";
         ribbonBadgeText.innerText = "氣象正常";
         if (toggleBtn) toggleBtn.classList.add('hidden');
-        if (toggleBtnM) toggleBtnM.classList.add('hidden');
         ribbonContainer.innerHTML = `
           <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium py-1">
             <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1591,17 +1682,16 @@
         return;
       }
 
-      // REQUIREMENT 1: Show list of variables meeting criteria (e.g. 氣溫、體感、暑熱、風速、陣風、降雨) instead of "x項觸發"
+      // Variable name display without 'x項觸發'
       const triggeredVariables = alertSections.map(s => s.title).join('、');
       ribbonBadge.className = "px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold font-mono-num text-[11px] flex items-center gap-1.5 animate-pulse";
       ribbonBadgeText.innerText = triggeredVariables;
 
       if (toggleBtn) toggleBtn.classList.remove('hidden');
-      if (toggleBtnM) toggleBtnM.classList.remove('hidden');
 
-      // REQUIREMENT 3: Contracted vs Expanded View
+      // Requirement 1 & 3: Pill click switches the map metric cleanly
       if (!isAlertRibbonExpanded) {
-        // Contracted (Collapsed) View: show only the variable pills with counts
+        // Contracted (Collapsed) View
         ribbonContainer.innerHTML = `
           <div class="flex items-center gap-2 flex-wrap py-0.5">
             ${alertSections.map(sec => `
@@ -1610,10 +1700,10 @@
                 <div class="flex items-center gap-1">
                   ${sec.rows.map(r => `
                     <button 
-                      onclick="handleAlertPillClick('${r.mapMetric}', '${encodeURIComponent(JSON.stringify(r.stationCodes))}')" 
+                      onclick="handleAlertPillClick('${r.mapMetric}')" 
                       class="px-2 py-0.5 rounded text-slate-900 font-semibold font-sans border border-black/10 hover:opacity-80 active:scale-95 transition shadow-xs cursor-pointer text-[10px]" 
                       style="background-color: ${r.bg};"
-                      title="點擊切換至此要素地圖分佈">
+                      title="點擊切換地圖至此要素">
                       ${r.label}(${r.count})
                     </button>
                   `).join('')}
@@ -1623,7 +1713,7 @@
           </div>
         `;
       } else {
-        // Expanded View: full breakdown with station lists (NOT bolded as requested)
+        // Expanded View
         ribbonContainer.innerHTML = alertSections.map(sec => `
           <div class="w-full flex flex-col gap-1 py-1 border-b border-slate-200/50 dark:border-slate-800/80 last:border-b-0">
             <div class="text-[11px] font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -1634,13 +1724,12 @@
               ${sec.rows.map(r => `
                 <div class="flex items-center gap-2 text-xs flex-wrap">
                   <button 
-                    onclick="handleAlertPillClick('${r.mapMetric}', '${encodeURIComponent(JSON.stringify(r.stationCodes))}')" 
+                    onclick="handleAlertPillClick('${r.mapMetric}')" 
                     class="px-2 py-0.5 rounded-md text-slate-900 font-semibold font-sans border border-black/10 shadow-xs hover:opacity-80 active:scale-95 transition cursor-pointer" 
                     style="background-color: ${r.bg};"
-                    title="點擊切換至此要素地圖分佈">
+                    title="點擊切換地圖至此要素">
                     ${r.label} (${r.count})
                   </button>
-                  <!-- REQUIREMENT 1: Station list is NOT bold (normal weight) -->
                   <span class="font-mono text-slate-700 dark:text-slate-300 font-normal">${r.stationsText}</span>
                 </div>
               `).join('')}
