@@ -39,8 +39,8 @@ time_part = ""
 pub_timestamp = 0.0
 
 plt.rcParams['font.sans-serif'] = [
-    'Noto Sans CJK TC', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei',
-    'PingFang SC', 'Microsoft YaHei', 'SimHei', 'sans-serif'
+    'WenQuanYi Micro Hei', 'WenQuanYi Zen Hei', 'Noto Sans CJK TC', 
+    'Noto Sans CJK SC', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'
 ]
 plt.rcParams['axes.unicode_minus'] = False
 
@@ -153,6 +153,17 @@ def init_wind_index_db():
                   bridge_v REAL, bridge_vg REAL,
                   wind_index REAL, grade TEXT,
                   wind_dirs_json TEXT)''')
+    
+    # 針對 gh-pages 拉取的舊版資料表進行向下相容檢查與欄位熱遷移
+    c.execute("PRAGMA table_info(wind_index_history)")
+    columns = [row[1] for row in c.fetchall()]
+    if 'wind_dirs_json' not in columns:
+        try:
+            c.execute("ALTER TABLE wind_index_history ADD COLUMN wind_dirs_json TEXT")
+            print("🔧 已自動為舊版 wind_index_history 資料庫補充缺失欄位：wind_dirs_json")
+        except Exception as e:
+            print(f"⚠️ 自動補充欄位失敗: {e}")
+
     conn.commit()
     conn.close()
 
@@ -1034,7 +1045,7 @@ def render_wind_index_chart():
     conn.close()
 
     if df.empty:
-        print("⚠️ wind_index.db 為空，略過風力指數折線圖繪製。")
+        print("⚠️ windindex.db 為空，略過風力指數折線圖繪製。")
         return
 
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau').dt.tz_localize(None)
@@ -1130,7 +1141,7 @@ def render_wind_index_chart():
     print(f"✅ 風力指數折線圖渲染完成：{output_img}")
 
 # ==========================================
-# 繪製風向散點/趨勢圖 (Y 軸從 N 到 NW, N)
+# 繪製風向散點/全站平均趨勢圖 (Y 軸從 N 到 NW, N)
 # ==========================================
 def render_wind_direction_chart():
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -1147,7 +1158,6 @@ def render_wind_direction_chart():
 
     w_df['datetime'] = pd.to_datetime(w_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau').dt.tz_localize(None)
 
-    # 取得或映射風力指數以計算點的顏色
     idx_map = dict(zip(idx_df['timestamp'], idx_df['wind_index'])) if not idx_df.empty else {}
 
     def get_deg(dir_val):
@@ -1164,6 +1174,25 @@ def render_wind_direction_chart():
     if w_df.empty:
         return
 
+    # 計算每個時間戳的全站向量平均風向 (Vector Mean)
+    avg_records = []
+    for ts, group in w_df.groupby('timestamp'):
+        degs = group['deg'].values
+        rads = np.radians(degs)
+        sin_sum = np.sum(np.sin(rads))
+        cos_sum = np.sum(np.cos(rads))
+        if len(degs) > 0 and not (sin_sum == 0 and cos_sum == 0):
+            avg_rad = np.arctan2(sin_sum, cos_sum)
+            avg_deg = (np.degrees(avg_rad) + 360.0) % 360.0
+            avg_records.append({
+                'timestamp': ts,
+                'datetime': group['datetime'].iloc[0],
+                'avg_deg': avg_deg,
+                'wind_index': idx_map.get(ts)
+            })
+
+    avg_df = pd.DataFrame(avg_records).sort_values('datetime').reset_index(drop=True)
+
     fig, ax = plt.subplots(figsize=(16, 7.5), dpi=120)
     fig.patch.set_facecolor('white')
     ax.set_facecolor('white')
@@ -1172,22 +1201,36 @@ def render_wind_direction_chart():
     x_start = x_end - timedelta(hours=24)
     ax.set_xlim(x_start, x_end)
 
-    # Y 軸 0° 到 360° 對應 16 方位 + 頂端 N
     y_ticks = np.linspace(0, 360, len(COMPASS_DIRS))
     ax.set_ylim(-10, 370)
     ax.set_yticks(y_ticks)
     ax.set_yticklabels(COMPASS_DIRS, fontsize=12, fontweight='bold', color='#1E293B', family='monospace')
 
-    # 依風力指數為每個散點著色
-    point_colors = []
-    for ts in w_df['timestamp']:
-        c_idx = idx_map.get(ts)
-        point_colors.append(get_wind_index_color(c_idx))
+    # 背景畫出各站離散點 (淡灰色)
+    ax.scatter(w_df['datetime'], w_df['deg'], color='#94A3B8', s=16, alpha=0.35, edgecolors='none', label='各站觀測點', zorder=3)
 
-    # 繪製各測站散點
-    ax.scatter(w_df['datetime'], w_df['deg'], c=point_colors, s=28, alpha=0.75, edgecolors='white', linewidths=0.5, zorder=4)
+    # 繪製全站平均風向折線 (避免 0°/360° 跨界飛線與斷線)
+    if not avg_df.empty:
+        line_segments = []
+        for i in range(len(avg_df) - 1):
+            row1 = avg_df.iloc[i]
+            row2 = avg_df.iloc[i + 1]
+            diff_min = (row2['datetime'] - row1['datetime']).total_seconds() / 60.0
+            
+            # 若時間間隔超過 25 分鐘或跨越 0°/360° (角度突變 > 180°)，不相連
+            if diff_min <= 25 and abs(row2['avg_deg'] - row1['avg_deg']) <= 180:
+                x1 = mdates.date2num(row1['datetime'])
+                x2 = mdates.date2num(row2['datetime'])
+                line_segments.append([(x1, row1['avg_deg']), (x2, row2['avg_deg'])])
 
-    # 繪製各主方位參考虛線
+        if line_segments:
+            lc = LineCollection(line_segments, colors='#475569', linewidths=2.2, zorder=4)
+            ax.add_collection(lc)
+
+        # 依照風力指數著色平均風向點
+        point_colors = [get_wind_index_color(wi) for wi in avg_df['wind_index']]
+        ax.scatter(avg_df['datetime'], avg_df['avg_deg'], c=point_colors, s=42, alpha=0.95, edgecolors='white', linewidths=1.0, label='全站平均風向', zorder=5)
+
     for y_val in y_ticks:
         ax.axhline(y_val, color='#CBD5E1', linestyle=':', linewidth=0.9, alpha=0.6, zorder=2)
 
@@ -1214,12 +1257,11 @@ def render_wind_direction_chart():
     ax.set_ylabel('風向 Wind Direction', fontsize=15, color='#1E293B', labelpad=12)
     ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
 
-    title_left = "澳門各站風向趨勢 (風力指數著色)"
+    title_left = "澳門各站平均風向趨勢 (風力指數著色)"
     header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
     ax.text(0.0, 1.02, title_left, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
     ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
 
-    # 圖例：風力指數分級顏色
     legend_handles = [
         plt.Line2D([0], [0], marker='o', color='w', label='輕微 (≤13)', markerfacecolor='#227722', markersize=8),
         plt.Line2D([0], [0], marker='o', color='w', label='清勁 (14-24)', markerfacecolor='#2255BB', markersize=8),
