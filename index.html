@@ -716,6 +716,31 @@
         <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono-num pt-1">
           <span id="drawerDirectImgPath">static/images/line_xxxx.png</span>
           <span class="text-slate-400 text-[10px] flex items-center gap-1">
+            <i class="fa-solid fa-magnifying-glass-plus"></i> 點擊圖片全屏展開
+          </span>
+        </div>
+      </div>
+
+      <!-- Interactive SQLite Chart (Strict 24 Hours) -->
+      <div class="bg-slate-100/80 dark:bg-slate-900/80 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-area text-sky-500"></i>
+            SQLite 互動時序折線
+          </span>
+          <span class="text-[10px] text-slate-400 font-mono-num">最近 24 小時連續採樣</span>
+        </div>
+        <div class="h-48 sm:h-52 relative bg-white dark:bg-slate-950 rounded-xl p-1 border border-slate-200 dark:border-slate-800">
+          <canvas id="drawerInteractiveCanvas"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Drawer Backdrop (Fixed: prevents null classList errors) -->
+  <div id="drawerBackdrop" onclick="closeStationDrawer()" class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-40 hidden"></div>
+
   <!-- ================= IMAGE LIGHTBOX MODAL WITH ZOOM & PAN ================= -->
   <div id="imageLightboxModal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-2 sm:p-4 transition-opacity duration-200" onclick="handleLightboxBackdropClick(event)">
     <div class="relative w-full max-w-6xl h-full max-h-[94vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onclick="event.stopPropagation()">
@@ -1965,8 +1990,13 @@
 
     function closeStationDrawer() {
       const drawer = document.getElementById('stationDrawer');
-      drawer.classList.add('translate-y-full', 'sm:translate-x-full');
-      document.getElementById('drawerBackdrop').classList.add('hidden');
+      if (drawer) {
+        drawer.classList.add('translate-y-full', 'sm:translate-x-full');
+      }
+      const backdrop = document.getElementById('drawerBackdrop');
+      if (backdrop) {
+        backdrop.classList.add('hidden');
+      }
     }
 
     // REQUIREMENT 3: SQLite Interactive Chart strictly plots recent 24 hours
