@@ -1890,7 +1890,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${targetStations.map(st => {
               const p = selMetric === 'temp_diff_24h' 
-                ? `static/images/line_${st}_temp_diff_24H.png` 
+                ? `static/images/line_${st}_temp_diff_24h.png` 
                 : `static/images/line_${st}_${selMetric}.png`;
               const label = selMetric === 'temp_diff_24h' ? '24H 溫差' : selMetric.toUpperCase();
               return createGalleryCardHtml(`${st} • ${label}`, p);
