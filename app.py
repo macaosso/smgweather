@@ -27,7 +27,7 @@ os.makedirs('static/images', exist_ok=True)
 DB_PATH = 'history.db'
 JSON_PATH = 'weather_data.json'
 CSV_PATH = 'static/weather_data.csv'
-WIND_INDEX_DB = 'windindex.db'
+WIND_INDEX_DB = 'wind_index.db'
 WIND_INDEX_JSON = 'windindexdata.json'
 
 MACAU_TZ = ZoneInfo('Asia/Macau')
@@ -73,6 +73,28 @@ BRIDGE_STATIONS = [
 ]
 
 PRESSURE_STATIONS = ["外港碼頭", "媽閣", "大潭山", "澳門大學", "九澳", "東亞運大馬路"]
+
+COMPASS_DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW', 'N']
+DIR_DEG_MAP = {
+    'N': 0.0, 'NNE': 22.5, 'NE': 45.0, 'ENE': 67.5,
+    'E': 90.0, 'ESE': 112.5, 'SE': 135.0, 'SSE': 157.5,
+    'S': 180.0, 'SSW': 202.5, 'SW': 225.0, 'WSW': 247.5,
+    'W': 270.0, 'WNW': 292.5, 'NW': 315.0, 'NNW': 337.5
+}
+
+def get_wind_index_color(wind_idx):
+    if wind_idx is None or np.isnan(wind_idx):
+        return "#64748B"
+    if wind_idx <= 13:
+        return "#227722"
+    elif wind_idx <= 24:
+        return "#2255BB"
+    elif wind_idx <= 44:
+        return "#DD2222"
+    elif wind_idx <= 74:
+        return "#8822BB"
+    else:
+        return "#774422"
 
 # ==========================================
 # 氣象指數數學公式
@@ -129,14 +151,26 @@ def init_wind_index_db():
                  (time_str TEXT PRIMARY KEY, timestamp REAL,
                   land_u REAL, land_ug REAL,
                   bridge_v REAL, bridge_vg REAL,
-                  wind_index REAL, grade TEXT)''')
+                  wind_index REAL, grade TEXT,
+                  wind_dirs_json TEXT)''')
     conn.commit()
     conn.close()
+
+def get_last_pubdate_from_db():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    c = conn.cursor()
+    try:
+        c.execute("SELECT time_str FROM weather_history ORDER BY timestamp DESC LIMIT 1")
+        row = c.fetchone()
+        return row[0] if row else ""
+    except Exception:
+        return ""
+    finally:
+        conn.close()
 
 def save_to_db(stations, pub_time_str, pub_timestamp_val):
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
-    # 保留 7 天歷史紀錄
     cutoff_ts = pub_timestamp_val - (7 * 86400)
     c.execute("DELETE FROM weather_history WHERE timestamp < ?", (cutoff_ts,))
     for name, data in stations.items():
@@ -189,16 +223,20 @@ def save_uv_to_db(uv_data, pub_time_str, pub_timestamp_val):
     conn.close()
 
 # ==========================================
-# 風力指數計算與儲存 (解決歷史紀錄遺失問題)
+# 風力指數與風向計算與儲存
 # ==========================================
 def compute_and_save_wind_index(stations_data, pub_time_str, pub_timestamp_val):
     land_ws, land_gust = [], []
     bridge_ws, bridge_gust = [], []
+    station_wind_dirs = {}
 
     for name, d in stations_data.items():
         ws = d.get('wind_speed')
         g = d.get('gust_speed')
+        wdir = d.get('wind_dir')
         is_bridge = name in BRIDGE_STATIONS
+
+        station_wind_dirs[name] = wdir
 
         if ws is not None and not np.isnan(ws):
             (bridge_ws if is_bridge else land_ws).append(float(ws))
@@ -225,14 +263,15 @@ def compute_and_save_wind_index(stations_data, pub_time_str, pub_timestamp_val):
     elif idx_rounded <= 74: grade = "強烈"
     else: grade = "極強"
 
+    dirs_json_str = json.dumps(station_wind_dirs, ensure_ascii=False)
+
     conn = sqlite3.connect(WIND_INDEX_DB, timeout=10)
     c = conn.cursor()
-    # 保留 7 天資料，避免過度清理
     c.execute("DELETE FROM wind_index_history WHERE timestamp < ?", (pub_timestamp_val - 7 * 86400,))
     c.execute('''INSERT OR REPLACE INTO wind_index_history 
-                 (time_str, timestamp, land_u, land_ug, bridge_v, bridge_vg, wind_index, grade)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-              (pub_time_str, pub_timestamp_val, round(U, 2), round(Ug, 2), round(V, 2), round(Vg, 2), idx_rounded, grade))
+                 (time_str, timestamp, land_u, land_ug, bridge_v, bridge_vg, wind_index, grade, wind_dirs_json)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+              (pub_time_str, pub_timestamp_val, round(U, 2), round(Ug, 2), round(V, 2), round(Vg, 2), idx_rounded, grade, dirs_json_str))
     conn.commit()
     conn.close()
 
@@ -241,6 +280,7 @@ def compute_and_save_wind_index(stations_data, pub_time_str, pub_timestamp_val):
         json_stations[name] = {
             "wind_speed": d.get('wind_speed'),
             "gust_speed": d.get('gust_speed'),
+            "wind_dir": d.get('wind_dir'),
             "is_bridge": name in BRIDGE_STATIONS,
             "code": d.get('code', '')
         }
@@ -260,10 +300,9 @@ def compute_and_save_wind_index(stations_data, pub_time_str, pub_timestamp_val):
     return idx_rounded, grade
 
 # ==========================================
-# 數據獲取與時間同步 (嚴格鎖定 XML SysPubdate)
+# 數據獲取與時間同步
 # ==========================================
 def parse_xml_timestamp(root):
-    # 精確搜尋 System 底下的 SysPubdate
     pub_node = root.find('.//System/SysPubdate')
     if pub_node is None:
         pub_node = root.find('.//SysPubdate') or root.find('.//SysPubDate')
@@ -277,7 +316,6 @@ def parse_xml_timestamp(root):
                 return clean_str, dt.timestamp()
             except ValueError:
                 continue
-    # 當 XML 無法讀取時作為防呆回退
     fallback_dt = datetime.now(MACAU_TZ)
     return fallback_dt.strftime("%Y-%m-%d %H:%M"), fallback_dt.timestamp()
 
@@ -315,26 +353,26 @@ def compute_24h_temp_diff(stations, current_timestamp):
     except Exception as e:
         print(f"⚠️ 計算 24 小時溫差異常: {e}")
 
-def fetch_smg_weather(current_uvi=0.0):
-    global update_time_str, date_part, time_part, pub_timestamp
+def fetch_smg_weather_xml():
     url = "https://xml.smg.gov.mo/c_actualweather.xml"
     headers = {'User-Agent': 'Mozilla/5.0'}
-    
     try:
         res = requests.get(url, headers=headers, timeout=12)
         res.encoding = 'utf-8'
-        root = ET.fromstring(res.content)
+        return ET.fromstring(res.content)
     except Exception as e:
         print(f"❌ 請求 SMG XML 失敗: {e}")
         return None
 
-    # 嚴格使用主 XML <SysPubdate> 作為全局時間基準
+def parse_smg_weather(root, current_uvi=0.0):
+    global update_time_str, date_part, time_part, pub_timestamp
+    if root is None:
+        return None
+
     update_time_str, pub_timestamp = parse_xml_timestamp(root)
     dt_obj = datetime.strptime(update_time_str, '%Y-%m-%d %H:%M')
     date_part = dt_obj.strftime('%m/%d')
     time_part = dt_obj.strftime('%H:%M')
-
-    print(f"[{time_part}] 成功解析 SMG 氣象數據，SysPubdate 發布時間：{update_time_str}")
 
     stations = {name: dict(info) for name, info in STATION_COORDS.items()}
 
@@ -484,9 +522,7 @@ def plot_two_color_diff_line(ax, dts, values):
     x_nums = mdates.date2num(dts)
     y_vals = np.array(values, dtype=float)
 
-    segments = []
-    colors = []
-
+    segments, colors = [], []
     for i in range(len(x_nums) - 1):
         x1, x2 = x_nums[i], x_nums[i + 1]
         y1, y2 = y_vals[i], y_vals[i + 1]
@@ -565,45 +601,34 @@ def render_trend_charts():
     TEXT_COLOR = '#334155'
     header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
 
-    dir_deg_map = {
-        'N': 0, 'NNE': 22.5, 'NE': 45, 'ENE': 67.5, 'E': 90, 'ESE': 112.5, 'SE': 135, 'SSE': 157.5,
-        'S': 180, 'SSW': 202.5, 'SW': 225, 'WSW': 247.5, 'W': 270, 'WNW': 292.5, 'NW': 315, 'NNW': 337.5
-    }
-
-    # 1. 溫度僅保留 6 個極端階層，並採用極淡柔和背景色 (alpha 設為 0.15)
     TEMP_SPANS = [
-        (37.5, 60.0, "#FEE2E2", "極為酷熱 (≥37.5)"),    # Lighter soft red
-        (35.5, 37.5, "#FFEDD5", "非常酷熱 (35.5-37.4)"),# Lighter peach/orange
-        (32.5, 35.5, "#FEF3C7", "酷熱 (32.5-35.4)"),    # Lighter soft amber
-        (7.5,  12.5, "#E0F2FE", "寒冷 (7.5-12.4)"),     # Lighter soft sky blue
-        (3.5,   7.5, "#DBEAFE", "非常寒冷 (3.5-7.4)"),  # Lighter blue
-        (-20.0, 3.5, "#EDE9FE", "極為寒冷 (<3.5)")      # Lighter soft purple
+        (37.5, 60.0, "#FEE2E2", "極為酷熱 (≥37.5)"),
+        (35.5, 37.5, "#FFEDD5", "非常酷熱 (35.5-37.4)"),
+        (32.5, 35.5, "#FEF3C7", "酷熱 (32.5-35.4)"),
+        (7.5,  12.5, "#E0F2FE", "寒冷 (7.5-12.4)"),
+        (3.5,   7.5, "#DBEAFE", "非常寒冷 (3.5-7.4)"),
+        (-20.0, 3.5, "#EDE9FE", "極為寒冷 (<3.5)")
     ]
-
     WBGT_SPANS = [
         (32.5, 50.0, "#FEE2E2", "極危 (≥32.5)"),     
         (30.5, 32.5, "#FFEDD5", "危險 (30.5-32.4)"), 
         (29.5, 30.5, "#FEF3C7", "警戒 (29.5-30.4)")  
     ]
-
     WIND_SPANS = [
         (117.5, 250.0, "#FEE2E2", "颶風 (≥117.5)"),     
         (87.5,  117.5, "#FFEDD5", "暴風 (87.5-117.4)"), 
         (62.5,   87.5, "#FEF3C7", "烈風 (62.5-87.4)"),  
         (40.5,   62.5, "#E0F2FE", "強風 (40.5-62.4)")   
     ]
-
     RAIN_SPANS = [
         (100.0, 300.0, "#EDE9FE", "大暴雨 (≥100)"),    
         (50.0,  100.0, "#FEE2E2", "暴雨 (50-99.9)"),   
         (20.0,   50.0, "#DBEAFE", "大雨 (20-49.9)")    
     ]
-
     PRESSURE_SPANS = [
         (1025.0, 1080.0, "#FEE2E2", "高壓脊 (≥1025)"), 
         (800.0,  1000.0, "#E0F2FE", "低壓 (≤1000)")    
     ]
-
     HUMIDITY_SPANS = [
         (95.0, 100.0, "#BFDBFE", "極潮濕 (95-100%)"), 
         (85.0,  95.0, "#E0F2FE", "潮濕 (85-94%)"),    
@@ -654,7 +679,6 @@ def render_trend_charts():
         }
     }
 
-    # 確保以 XML 的 pub_timestamp 往前推算 24 小時視窗
     x_end = datetime.fromtimestamp(pub_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
     x_start = x_end - timedelta(hours=24)
 
@@ -735,7 +759,6 @@ def render_trend_charts():
                 plt.close(fig)
                 continue
 
-            # 繪製各項之 axhspan (採用極淡柔和背景色 alpha=0.15)
             for low, high, span_color, span_lbl in cfg.get('spans', []):
                 if low < plot_ymax and high > plot_ymin:
                     eff_low = max(low, plot_ymin)
@@ -765,7 +788,6 @@ def render_trend_charts():
                 leg.get_frame().set_linewidth(1.0)
 
             ax.set_xlim(x_start, x_end)
-
             y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
             ax.set_ylim(plot_ymin, plot_ymax)
             ax.set_yticks(y_ticks)
@@ -804,7 +826,7 @@ def render_trend_charts():
                         w_dir = r.get('wind_dir')
                         w_spd = r.get('wind_speed', 0.0) or 0.0
                         try: deg = float(w_dir)
-                        except: deg = dir_deg_map.get(str(w_dir).upper(), None)
+                        except: deg = DIR_DEG_MAP.get(str(w_dir).upper(), None)
 
                         if deg is not None:
                             spd_kt = max(2.0, float(w_spd) / 1.852)
@@ -1004,7 +1026,7 @@ def render_uv_trend_chart():
     print("✅ 紫外線折線圖生成完成！")
 
 # ==========================================
-# 繪製風力指數歷史折線圖 (修正歷史消失問題)
+# 繪製風力指數歷史折線圖
 # ==========================================
 def render_wind_index_chart():
     conn = sqlite3.connect(WIND_INDEX_DB, timeout=10)
@@ -1012,10 +1034,9 @@ def render_wind_index_chart():
     conn.close()
 
     if df.empty:
-        print("⚠️ windindex.db 為空，略過風力指數折線圖繪製。")
+        print("⚠️ wind_index.db 為空，略過風力指數折線圖繪製。")
         return
 
-    # 依 timestamp 轉成澳門時間
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau').dt.tz_localize(None)
 
     fig, ax = plt.subplots(figsize=(15, 6.5), dpi=120)
@@ -1024,12 +1045,10 @@ def render_wind_index_chart():
 
     plot_df = insert_nans_on_gap(df, 'wind_index', max_gap_minutes=25)
 
-    # 確保以主 XML 的 SysPubdate 時間為右邊界，呈現完整 24 小時歷史走勢
     x_end = datetime.fromtimestamp(pub_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
     x_start = x_end - timedelta(hours=24)
     ax.set_xlim(x_start, x_end)
 
-    # 篩選過去 24 小時內的數值來動態決定 Y 軸，避免被更早前的數值影響過度拉高
     df_24h = df[df['datetime'] >= x_start]
     valid_vals = df_24h['wind_index'].dropna() if not df_24h.empty else df['wind_index'].dropna()
     max_val = valid_vals.max() if not valid_vals.empty else 10.0
@@ -1097,14 +1116,11 @@ def render_wind_index_chart():
     ax.set_ylabel('風力指數 Wind Index', fontsize=15, color='#0F172A', labelpad=12)
     ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
 
-    latest_val = df['wind_index'].iloc[-1]
-    latest_grade = df['grade'].iloc[-1]
-    title_left = f"澳門風力指數趨勢"
+    title_left = "澳門風力指數趨勢"
     header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
 
     ax.text(0.0, 1.02, title_left, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
     ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
-
     ax.legend(loc='upper right', frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=11)
 
     plt.tight_layout()
@@ -1112,6 +1128,112 @@ def render_wind_index_chart():
     plt.savefig(output_img, dpi=120, bbox_inches='tight')
     plt.close(fig)
     print(f"✅ 風力指數折線圖渲染完成：{output_img}")
+
+# ==========================================
+# 繪製風向散點/趨勢圖 (Y 軸從 N 到 NW, N)
+# ==========================================
+def render_wind_direction_chart():
+    conn = sqlite3.connect(DB_PATH, timeout=10)
+    w_df = pd.read_sql_query("SELECT timestamp, station, wind_dir FROM weather_history WHERE wind_dir IS NOT NULL ORDER BY timestamp ASC", conn)
+    conn.close()
+
+    conn_idx = sqlite3.connect(WIND_INDEX_DB, timeout=10)
+    idx_df = pd.read_sql_query("SELECT timestamp, wind_index FROM wind_index_history ORDER BY timestamp ASC", conn_idx)
+    conn_idx.close()
+
+    if w_df.empty:
+        print("⚠️ 暫無風向歷史紀錄，跳過風向圖繪製。")
+        return
+
+    w_df['datetime'] = pd.to_datetime(w_df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau').dt.tz_localize(None)
+
+    # 取得或映射風力指數以計算點的顏色
+    idx_map = dict(zip(idx_df['timestamp'], idx_df['wind_index'])) if not idx_df.empty else {}
+
+    def get_deg(dir_val):
+        if pd.isna(dir_val): return np.nan
+        val_str = str(dir_val).strip().upper()
+        try:
+            return float(val_str)
+        except ValueError:
+            return DIR_DEG_MAP.get(val_str, np.nan)
+
+    w_df['deg'] = w_df['wind_dir'].apply(get_deg)
+    w_df = w_df.dropna(subset=['deg'])
+
+    if w_df.empty:
+        return
+
+    fig, ax = plt.subplots(figsize=(16, 7.5), dpi=120)
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
+
+    x_end = datetime.fromtimestamp(pub_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
+    x_start = x_end - timedelta(hours=24)
+    ax.set_xlim(x_start, x_end)
+
+    # Y 軸 0° 到 360° 對應 16 方位 + 頂端 N
+    y_ticks = np.linspace(0, 360, len(COMPASS_DIRS))
+    ax.set_ylim(-10, 370)
+    ax.set_yticks(y_ticks)
+    ax.set_yticklabels(COMPASS_DIRS, fontsize=12, fontweight='bold', color='#1E293B', family='monospace')
+
+    # 依風力指數為每個散點著色
+    point_colors = []
+    for ts in w_df['timestamp']:
+        c_idx = idx_map.get(ts)
+        point_colors.append(get_wind_index_color(c_idx))
+
+    # 繪製各測站散點
+    ax.scatter(w_df['datetime'], w_df['deg'], c=point_colors, s=28, alpha=0.75, edgecolors='white', linewidths=0.5, zorder=4)
+
+    # 繪製各主方位參考虛線
+    for y_val in y_ticks:
+        ax.axhline(y_val, color='#CBD5E1', linestyle=':', linewidth=0.9, alpha=0.6, zorder=2)
+
+    ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
+
+    def format_hour_ticks(x, pos=None):
+        dt = mdates.num2date(x)
+        hour_str = f"{dt.strftime('%H')}H"
+        return f"{hour_str}\n{dt.strftime('%d %b')}" if dt.hour == 0 else hour_str
+
+    ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
+    plt.setp(ax.get_xticklabels(), fontsize=13, color='#334155', family='monospace')
+
+    GRID_BORDER_COLOR = '#8DA59A'
+    TEXT_COLOR = '#334155'
+    ax.grid(True, which='major', linestyle=':', linewidth=1.4, color=GRID_BORDER_COLOR, alpha=0.8)
+    ax.tick_params(axis='both', which='major', length=6, width=1.1, color=GRID_BORDER_COLOR, direction='out')
+
+    for spine in ax.spines.values():
+        spine.set_color(GRID_BORDER_COLOR)
+        spine.set_linewidth(1.3)
+
+    ax.set_ylabel('風向 Wind Direction', fontsize=15, color='#1E293B', labelpad=12)
+    ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
+
+    title_left = "澳門各站風向趨勢 (風力指數著色)"
+    header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
+    ax.text(0.0, 1.02, title_left, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
+    ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
+
+    # 圖例：風力指數分級顏色
+    legend_handles = [
+        plt.Line2D([0], [0], marker='o', color='w', label='輕微 (≤13)', markerfacecolor='#227722', markersize=8),
+        plt.Line2D([0], [0], marker='o', color='w', label='清勁 (14-24)', markerfacecolor='#2255BB', markersize=8),
+        plt.Line2D([0], [0], marker='o', color='w', label='強勁 (25-44)', markerfacecolor='#DD2222', markersize=8),
+        plt.Line2D([0], [0], marker='o', color='w', label='強烈 (45-74)', markerfacecolor='#8822BB', markersize=8),
+        plt.Line2D([0], [0], marker='o', color='w', label='極強 (≥75)', markerfacecolor='#774422', markersize=8),
+    ]
+    ax.legend(handles=legend_handles, loc='upper right', frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=10, ncol=5)
+
+    plt.tight_layout()
+    output_img = "static/images/line_wind_direction.png"
+    plt.savefig(output_img, dpi=120, bbox_inches='tight')
+    plt.close(fig)
+    print(f"✅ 風向圖渲染完成：{output_img}")
 
 # ==========================================
 # 24 小時降雨量統計表
@@ -1193,32 +1315,56 @@ def generate_24h_rainfall_summary(stations_data=None):
     print(f"✅ 成功生成並輸出 {output_path}")
 
 # ==========================================
-# 程式進入點
+# 完整處理管線
 # ==========================================
-if __name__ == '__main__':
-    init_db()
-    init_wind_index_db()
-    
-    # 1. 獲取 UVI 數值
+def process_pipeline(root):
     uv_data = fetch_smg_uvi()
     current_uvi = uv_data.get('uvi', 0.0) if uv_data else 0.0
 
-    # 2. 獲取氣象數據 (嚴格以 c_actualweather.xml 中的 <SysPubdate> 作為全局唯一時間基準)
-    stations_data = fetch_smg_weather(current_uvi=current_uvi)
+    stations_data = parse_smg_weather(root, current_uvi=current_uvi)
 
     if stations_data:
-        # 將 UVI 同步到 db
         if uv_data:
             save_uv_to_db(uv_data, update_time_str, pub_timestamp)
 
         compute_and_save_wind_index(stations_data, update_time_str, pub_timestamp)
         generate_24h_rainfall_summary(stations_data)
         
-        # 3. 專注渲染時序折線圖
+        # 繪製各項趨勢圖表
         render_trend_charts()
         render_uv_trend_chart()
         render_wind_index_chart()
-        print(f"🎉 全部折線圖生成完成！已嚴格採用 SMG SysPubdate 發布時間：{update_time_str}")
+        render_wind_direction_chart()
+        print(f"🎉 全部圖表生成完成！發布時間：{update_time_str}")
     else:
         generate_24h_rainfall_summary(None)
-        print("❌ 無法獲取 SMG XML 數據。")
+        print("❌ 解析 SMG XML 數據失敗。")
+
+# ==========================================
+# 程式進入點 (每 60 秒高頻輪詢)
+# ==========================================
+if __name__ == '__main__':
+    init_db()
+    init_wind_index_db()
+    
+    last_pubdate = get_last_pubdate_from_db()
+    print(f"🚀 SMG 輪詢服務已啟動，前次發布時間：'{last_pubdate}'")
+
+    while True:
+        try:
+            root = fetch_smg_weather_xml()
+            if root is not None:
+                pub_time_str, _ = parse_xml_timestamp(root)
+
+                # XML 時間未更新則跳過
+                if pub_time_str == last_pubdate:
+                    print(f"ℹ️ SMG XML 尚未更新 (當前發布時間: {pub_time_str})，跳過。")
+                else:
+                    print(f"🔔 檢測到新發布數據: {pub_time_str}")
+                    process_pipeline(root)
+                    last_pubdate = pub_time_str
+        except Exception as e:
+            print(f"⚠️ 輪詢過程異常: {e}")
+
+        # 每 60 秒檢測一次 XML 更新
+        time.sleep(60)
