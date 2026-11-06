@@ -2,6 +2,7 @@ name: Macau Weather Auto Sync & Render
 
 on:
   schedule:
+    # 兜底保險：若自我喚醒偶發失敗，每 5 小時依然會強制啟動一次
     - cron: '0 */5 * * *'
   workflow_dispatch:
 
@@ -10,14 +11,14 @@ env:
 
 concurrency:
   group: weather-render-sync
-  cancel-in-progress: true
+  cancel-in-progress: false   # 改為 false，確保交接時不會中途取消正在清理的任務
 
 jobs:
   weather-loop:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
+      actions: write           # 必須具備 actions: write 才能調用 API 觸發新 workflow
 
     steps:
       - name: 檢出主分支代碼
@@ -128,3 +129,11 @@ jobs:
             echo "等待 5 分鐘進行下一輪監控..."
             sleep $INTERVAL
           done
+
+      - name: 4.5 小時結束，無縫喚醒下一個任務
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "4.5 小時輪詢週期結束，正在無縫觸發新一輪同步與繪圖任務..."
+          gh workflow run "Macau Weather Auto Sync & Render" --ref main || echo "觸發失敗，將由定時 cron 兜底喚醒。"
