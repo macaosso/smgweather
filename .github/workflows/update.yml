@@ -47,10 +47,10 @@ jobs:
         run: |
           uv pip install --system requests pandas numpy matplotlib pillow
 
-      - name: 執行 4.5 小時常駐循環 (每 5 分鐘抓取更新一次)
+      - name: 執行 4.5 小時常駐循環 (每 1 分鐘抓取更新一次)
         run: |
           END_TIME=$(($(date +%s) + 16200))
-          INTERVAL=300
+          INTERVAL=60
 
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -66,7 +66,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # 2. 拉取 gh-pages 分支歷史資料庫，維持時序連續性 (確保拉取 windindex.db)
+            # 2. 拉取 gh-pages 分支歷史資料庫，維持時序連續性
             rm -rf /tmp/gh-pages-fetch
             if git clone --depth 1 --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/gh-pages-fetch 2>/dev/null; then
               cp -f /tmp/gh-pages-fetch/history.db ./history.db 2>/dev/null || true
@@ -77,32 +77,42 @@ jobs:
             # 3. 確保目錄結構齊全
             mkdir -p static/images
 
-            # 4. 執行核心 Python 腳本
+            # 4. 執行核心 Python 腳本並攔截狀態碼
+            set +e
             python app.py
+            APP_STATUS=$?
+            set -e
 
-            # 5. 準備發布到 gh-pages 目錄
+            # 若狀態碼為 2 (資料未更新)，跳過推送，直接等待下個 1 分鐘
+            if [ $APP_STATUS -eq 2 ]; then
+              echo "⏭️ 氣象數據未更新，跳過 gh-pages 發布，等待 1 分鐘..."
+              sleep $INTERVAL
+              continue
+            elif [ $APP_STATUS -ne 0 ]; then
+              echo "⚠️ 執行出現異常 (Exit Code: $APP_STATUS)，等待 1 分鐘後重試..."
+              sleep $INTERVAL
+              continue
+            fi
+
+            # 5. 檢測到新資料且繪圖成功，發布到 gh-pages
             echo "準備同步發布至 gh-pages..."
             rm -rf /tmp/gh-pages-deploy
             mkdir -p /tmp/gh-pages-deploy/static/images
 
-            # 拷貝最新檔案 (確保網頁靜態檔、數據庫與 JSON 齊全)
             cp -f index.html /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f notify.html /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f sw.js /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -rf static /tmp/gh-pages-deploy/ 2>/dev/null || true
 
-            # 同步所有 JSON 與 SQLite 資料庫 (包含 windindex.db 與 windindexdata.json)
             cp -f weather_data.json /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f history.db /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f windindex.db /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f windindexdata.json /tmp/gh-pages-deploy/ 2>/dev/null || true
 
-            # 同步 MSSO(H).png 到根目錄與 static/images 目錄
             cp -f "MSSO(H).png" /tmp/gh-pages-deploy/ 2>/dev/null || true
             cp -f "MSSO(H).png" /tmp/gh-pages-deploy/static/images/ 2>/dev/null || true
             cp -f static/images/"MSSO(H).png" /tmp/gh-pages-deploy/ 2>/dev/null || true
 
-            # 額外防禦：降雨總結 JSON 雙向容錯拷貝
             if [ -f static/images/rainfall_24h_summary.json ]; then
               cp -f static/images/rainfall_24h_summary.json /tmp/gh-pages-deploy/rainfall_24h_summary.json 2>/dev/null || true
             elif [ -f rainfall_24h_summary.json ]; then
@@ -126,7 +136,7 @@ jobs:
             cd "$GITHUB_WORKSPACE"
             rm -rf /tmp/gh-pages-deploy
 
-            echo "等待 5 分鐘進行下一輪監控..."
+            echo "更新成功，等待 1 分鐘進行下一輪監控..."
             sleep $INTERVAL
           done
 
