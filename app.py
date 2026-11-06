@@ -1397,14 +1397,17 @@ if __name__ == '__main__':
         if root is not None:
             pub_time_str, _ = parse_xml_timestamp(root)
 
-            # XML 時間未更新
+            # XML 時間未更新：返回狀態碼 2，通知 GitHub Actions 跳過後續 Git push
             if pub_time_str == last_pubdate:
-                print(f"ℹ️ SMG XML 尚未更新 (當前發布時間: {pub_time_str})，跳過繪圖。")
+                print(f"ℹ️ SMG XML 尚未更新 (當前發布時間: {pub_time_str})，跳過繪圖與發布。")
+                sys.exit(2)
             else:
                 print(f"🔔 檢測到新發布數據: {pub_time_str}，開始管線處理...")
                 process_pipeline(root)
+                sys.exit(0)
         else:
             print("❌ 無法獲取 SMG XML 內容。")
+            sys.exit(1)
     except Exception as e:
         print(f"⚠️ 處理過程異常: {e}")
         sys.exit(1)
