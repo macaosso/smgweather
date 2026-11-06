@@ -27,7 +27,7 @@ os.makedirs('static/images', exist_ok=True)
 DB_PATH = 'history.db'
 JSON_PATH = 'weather_data.json'
 CSV_PATH = 'static/weather_data.csv'
-WIND_INDEX_DB = 'wind_index.db'
+WIND_INDEX_DB = 'windindex.db'
 WIND_INDEX_JSON = 'windindexdata.json'
 
 MACAU_TZ = ZoneInfo('Asia/Macau')
