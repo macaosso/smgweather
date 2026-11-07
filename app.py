@@ -1287,6 +1287,7 @@ def generate_24h_rainfall_summary(stations_data=None):
 
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
+        # Only pull the last 26 hours to keep memory usage low and fast
         df = pd.read_sql_query("SELECT * FROM weather_history ORDER BY timestamp ASC", conn)
         conn.close()
     except Exception as e:
@@ -1296,32 +1297,40 @@ def generate_24h_rainfall_summary(stations_data=None):
     if not df.empty:
         try:
             df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau')
-            latest_time = df['datetime'].max()
-            start_24h_window = latest_time - timedelta(hours=24)
-            df_24h = df[df['datetime'] >= start_24h_window].copy()
 
             for station, info in STATION_COORDS.items():
                 if station in BRIDGE_STATIONS:
                     continue
-                st_data = df_24h[df_24h['station'] == station].copy()
-                
+
+                st_data = df[df['station'] == station].copy()
                 total_24h_rain = 0.0
                 current_h_rain = 0.0
 
                 if not st_data.empty:
-                    st_data['minute'] = st_data['datetime'].dt.minute
-                    st_data['date_hour'] = st_data['datetime'].dt.strftime('%Y-%m-%d %H')
-                    sample_candidates = st_data[(st_data['minute'] >= 30) & (st_data['minute'] <= 40)].copy()
-                    if not sample_candidates.empty:
-                        sample_candidates['diff_35'] = (sample_candidates['minute'] - 35).abs()
-                        sampled_hourly = sample_candidates.sort_values('diff_35').groupby('date_hour').first().reset_index()
-                        total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
-                    else:
-                        sampled_hourly = st_data.groupby(st_data['datetime'].dt.strftime('%Y-%m-%d %H')).last().reset_index()
-                        total_24h_rain = sampled_hourly['rain'].fillna(0.0).sum()
-
+                    st_data = st_data.sort_values('datetime')
                     latest_row = st_data.iloc[-1]
+                    latest_time = latest_row['datetime']
                     current_h_rain = latest_row['rain'] if pd.notnull(latest_row['rain']) else 0.0
+
+                    # Generate the 24 exact hourly target timestamps:
+                    # t_0 = latest_time, t_1 = latest_time - 1h, ..., t_23 = latest_time - 23h
+                    target_times = [latest_time - timedelta(hours=i) for i in range(24)]
+                    
+                    hourly_readings = []
+                    for target in target_times:
+                        # Find readings within ±7 minutes of the target timestamp
+                        window = st_data[
+                            (st_data['datetime'] >= target - timedelta(minutes=7)) &
+                            (st_data['datetime'] <= target + timedelta(minutes=7))
+                        ]
+                        if not window.empty:
+                            # Pick the point closest to the exact target minute
+                            closest_idx = (window['datetime'] - target).abs().idxmin()
+                            val = window.loc[closest_idx, 'rain']
+                            if pd.notnull(val):
+                                hourly_readings.append(val)
+
+                    total_24h_rain = sum(hourly_readings)
 
                 records.append({
                     "Station": station,
@@ -1330,6 +1339,7 @@ def generate_24h_rainfall_summary(stations_data=None):
                     "Current_Hourly_Rain (mm)": round(float(current_h_rain), 1),
                     "Past_24H_Total_Rain (mm)": round(float(total_24h_rain), 1)
                 })
+
         except Exception as e:
             print(f"⚠️ 分析 24 小時累積雨量錯誤: {e}")
             records = []
