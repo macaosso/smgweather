@@ -18,12 +18,11 @@ import matplotlib.dates as mdates
 warnings.filterwarnings("ignore")
 
 # 確保輸出目錄存在
-os.makedirs('flood', exist_ok=True)
-os.makedirs('images', exist_ok=True)
+os.makedirs('flood/images', exist_ok=True)
 
 DB_PATH = 'flood/tidehistory.db'
 JSON_PATH = 'flood/tidedata.json'
-IMG_PATH = 'images/tide.png'
+IMG_PATH = 'flood/images/tide.png'
 
 MACAU_TZ = ZoneInfo('Asia/Macau')
 
@@ -101,7 +100,6 @@ def parse_tide_xml(root):
     if root is None:
         return None
 
-    # 解析 <item><date>2026/11/07</date><time>12:40</time><recordTide>192</recordTide></item>
     item = root.find('.//item')
     if item is None:
         print("⚠️ XML 中未找到 <item> 節點")
@@ -115,7 +113,6 @@ def parse_tide_xml(root):
         print("⚠️ 潮汐數據欄位不完整")
         return None
 
-    # 統一日期格式為 YYYY-MM-DD HH:MM
     dt_str = f"{date_str.replace('/', '-')} {time_str}"
     try:
         dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M").replace(tzinfo=MACAU_TZ)
@@ -141,7 +138,7 @@ def parse_tide_xml(root):
     }
 
 # ==========================================
-# 繪圖輔助
+# 繪圖斷線輔助函式
 # ==========================================
 def insert_nans_on_gap(df, col, max_gap_minutes=25):
     valid_df = df.dropna(subset=[col]).sort_values('datetime').reset_index(drop=True)
@@ -185,7 +182,6 @@ def render_tide_chart(latest_info):
     x_end = datetime.fromtimestamp(st_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
     x_start = x_end - timedelta(hours=24)
 
-    # 過去 24 小時動態自適應 Y 軸刻度（使用公尺 m 單位，以與防洪標準一致）
     df_24h = df[df['datetime'] >= x_start]
     valid_series = df_24h['record_tide_m'].dropna() if not df_24h.empty else df['record_tide_m'].dropna()
 
@@ -203,7 +199,6 @@ def render_tide_chart(latest_info):
         else:
             step = 0.5
 
-        # 嚴格限制 Y 軸下限不小於 0
         plot_ymin = max(0.0, np.floor((data_min - 0.05) / step) * step)
         plot_ymax = np.ceil((data_max + 0.05) / step) * step
         if plot_ymin >= plot_ymax:
@@ -217,14 +212,12 @@ def render_tide_chart(latest_info):
 
     plot_df = insert_nans_on_gap(df, 'record_tide_m', max_gap_minutes=25)
     if not plot_df['record_tide_m'].dropna().empty:
-        # 折線與填充
         ax.plot(plot_df['datetime'], plot_df['record_tide_m'], color=LINE_COLOR, linewidth=2.2, antialiased=True, zorder=4, label='實時潮高 Real-time Tide')
         ax.fill_between(plot_df['datetime'], plot_df['record_tide_m'], plot_ymin, color=LINE_COLOR, alpha=0.15, zorder=3)
         ax.scatter(df['datetime'], df['record_tide_m'], color='#0369A1', s=16, alpha=0.85, edgecolors='none', zorder=5)
     else:
         ax.text(0.5, 0.5, '暫無潮位數據 No Data', transform=ax.transAxes, fontsize=18, color='gray', ha='center', va='center')
 
-    # 坐標軸與動態刻度設置
     ax.set_xlim(x_start, x_end)
     ax.set_ylim(bottom=plot_ymin, top=plot_ymax)
     y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
@@ -253,7 +246,7 @@ def render_tide_chart(latest_info):
     ax.set_ylabel('實時潮高 Tide Height (m)', fontsize=15, color=LINE_COLOR, labelpad=12)
     ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
 
-    header_title = "澳門海事及水務局 實時潮汐趨勢 (DSAMA)"
+    header_title = "澳門實時潮汐"
     header_update_text = f"更新時間 Update Time:{st_record_time.replace('-', '/')}"
 
     ax.text(0.0, 1.02, header_title, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
@@ -308,7 +301,7 @@ def main():
         json.dump(payload, f, ensure_ascii=False, indent=2)
     print(f"✅ 潮位 JSON 已輸出至：{JSON_PATH}")
 
-    # 3. 繪製並儲存圖表
+    # 3. 繪製並儲存圖表至 flood/images/tide.png
     render_tide_chart(tide_data)
     print("🎉 潮位同步與繪圖流程順利完成！")
     sys.exit(0)
