@@ -17,7 +17,7 @@
     "Station":"黑沙環",
     "Code":"EM",
     "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":2.0,
+    "Current_Hourly_Rain (mm)":2.2,
     "Past_24H_Total_Rain (mm)":2.0
   },
   {
@@ -38,7 +38,7 @@
     "Station":"外港碼頭",
     "Code":"PE",
     "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":1.6,
+    "Current_Hourly_Rain (mm)":1.4,
     "Past_24H_Total_Rain (mm)":1.6
   },
   {
@@ -52,7 +52,7 @@
     "Station":"東亞運大馬路",
     "Code":"JA",
     "Area":"氹仔",
-    "Current_Hourly_Rain (mm)":1.4,
+    "Current_Hourly_Rain (mm)":1.2,
     "Past_24H_Total_Rain (mm)":1.6
   },
   {
