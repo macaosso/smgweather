@@ -158,38 +158,57 @@ def parse_flood_xml(root):
             return None
 
     for st in root.findall('.//station'):
+        # 1. 抓取 station code
         code = st.get('code')
         if not code:
-            code_node = st.find('stationcode') or st.find('StationCode') or st.find('code')
-            if code_node is not None and code_node.text:
-                code = code_node.text.strip()
+            for child in st:
+                if child.tag.lower() in ['code', 'stationcode']:
+                    if child.text and child.text.strip():
+                        code = child.text.strip()
+                        break
 
         if not code:
             continue
         code = code.strip()
 
-        # 1. 站名取自 <stationname>
-        name_node = st.find('stationname') or st.find('StationName')
-        name = name_node.text.strip() if name_node is not None and name_node.text else code
+        # 2. 嚴格比對 tag 忽略大小寫取得 <stationname>
+        name = None
+        for child in st:
+            if child.tag.lower() in ['stationname', 'name']:
+                if child.text and child.text.strip():
+                    name = child.text.strip()
+                    break
+        if not name:
+            name = code
 
-        # 2. 更新時間取自該站的 <RecordTime>
-        rec_time_node = st.find('RecordTime') or st.find('recordtime')
-        rec_time_raw = rec_time_node.text.strip() if rec_time_node is not None and rec_time_node.text else sys_time_str
+        # 3. 抓取 RecordTime (忽略大小寫)
+        rec_time_raw = None
+        for child in st:
+            if child.tag.lower() in ['recordtime', 'time']:
+                if child.text and child.text.strip():
+                    rec_time_raw = child.text.strip()
+                    break
+        if not rec_time_raw:
+            rec_time_raw = sys_time_str
+
         rec_time_clean, rec_timestamp = parse_time_to_ts(rec_time_raw)
 
-        # 3. 提取水位數值
+        # 4. 提取水位數值
         water_val = None
-        wl_node = st.find('Waterlevel') or st.find('waterlevel')
-        if wl_node is not None:
-            val_node = wl_node.find('Value') or wl_node.find('value') or wl_node.find('dValue')
-            if val_node is not None and val_node.text:
-                water_val = parse_float(val_node.text)
+        for child in st:
+            if child.tag.lower() == 'waterlevel':
+                for sub in child:
+                    if sub.tag.lower() in ['value', 'dvalue']:
+                        water_val = parse_float(sub.text)
+                        if water_val is not None:
+                            break
+            if water_val is not None:
+                break
 
         if water_val is None:
-            for tag in ['Value', 'value', 'waterlevel']:
-                node = st.find(f'.//{tag}')
-                if node is not None and node.text:
-                    parsed = parse_float(node.text)
+            for el in st.iter():
+                if el.tag.lower() in ['value', 'waterlevel', 'level']:
+                    parsed = parse_float(el.text)
                     if parsed is not None:
                         water_val = parsed
                         break
@@ -230,7 +249,7 @@ def insert_nans_on_gap(df, col, max_gap_minutes=25):
     return pd.DataFrame(new_rows).reset_index(drop=True)
 
 # ==========================================
-# 繪製各水位站趨勢圖 (動態自適應 Y 軸)
+# 繪製各水位站趨勢圖 (Y 軸 ≥ 0.0，站名優先採用最新 stationname)
 # ==========================================
 def render_flood_charts(current_stations_data):
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -248,7 +267,16 @@ def render_flood_charts(current_stations_data):
         if st_df.empty:
             continue
 
-        st_name = cur_info.get('station_name', '')
+        # 優先使用從最新 XML 取出的中文站名；若為空再查 DB
+        st_name = cur_info.get('station_name')
+        if not st_name or st_name == st_code:
+            valid_names = st_df['station_name'].dropna()
+            valid_names = valid_names[valid_names != st_code]
+            if not valid_names.empty:
+                st_name = valid_names.iloc[-1]
+            else:
+                st_name = st_code
+
         st_record_time = cur_info.get('record_time', '')
         st_timestamp = cur_info.get('timestamp')
 
@@ -273,7 +301,8 @@ def render_flood_charts(current_stations_data):
             else:
                 step = 0.5
 
-            plot_ymin = np.floor((data_min - 0.05) / step) * step
+            # 確保 y-axis 絕不小於 0
+            plot_ymin = max(0.0, np.floor((data_min - 0.02) / step) * step)
             plot_ymax = np.ceil((data_max + 0.05) / step) * step
             if plot_ymin >= plot_ymax:
                 plot_ymax = plot_ymin + step * 2
@@ -310,9 +339,9 @@ def render_flood_charts(current_stations_data):
         else:
             ax.text(0.5, 0.5, '暫無水位數據 No Data', transform=ax.transAxes, fontsize=18, color='gray', ha='center', va='center')
 
-        # 3. 坐標軸設置
+        # 3. 坐標軸設置 (嚴格限制底部 >= 0)
         ax.set_xlim(x_start, x_end)
-        ax.set_ylim(plot_ymin, plot_ymax)
+        ax.set_ylim(bottom=plot_ymin, top=plot_ymax)
         y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
         ax.set_yticks(y_ticks)
         ax.set_yticklabels([f"{y:.2f}m" for y in y_ticks], fontsize=13, color=LINE_COLOR, family='monospace')
