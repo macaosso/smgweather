@@ -60,7 +60,6 @@ def init_db():
                   station_name TEXT, water_level REAL,
                   PRIMARY KEY (record_time, station_code))''')
     
-    # 檢查是否有從 gh-pages 拉取下來的舊版欄位 (time_str)
     c.execute("PRAGMA table_info(flood_history)")
     columns = [row[1] for row in c.fetchall()]
     
@@ -79,23 +78,44 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_last_pubdate_from_db():
+def check_for_new_data(stations_data):
+    """
+    精確檢查：只要有任何一個站點的 (record_time, station_code) 不在資料庫中，
+    或者該記錄的水位數值與庫內不同，即視為有新數據。
+    """
     if not os.path.exists(DB_PATH):
-        return ""
+        return True
+
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
+    has_new = False
+    new_count = 0
+
     try:
-        c.execute("PRAGMA table_info(flood_history)")
-        columns = [row[1] for row in c.fetchall()]
-        time_col = "record_time" if "record_time" in columns else "time_str"
-        
-        c.execute(f"SELECT {time_col} FROM flood_history ORDER BY timestamp DESC LIMIT 1")
-        row = c.fetchone()
-        return row[0] if row else ""
-    except Exception:
-        return ""
+        for code, info in stations_data.items():
+            r_time = info['record_time']
+            w_level = info.get('water_level')
+            
+            c.execute("""SELECT water_level FROM flood_history 
+                         WHERE record_time = ? AND station_code = ?""", (r_time, code))
+            row = c.fetchone()
+            
+            if row is None:
+                has_new = True
+                new_count += 1
+            elif w_level is not None and row[0] is not None:
+                if abs(float(w_level) - float(row[0])) > 0.001:
+                    has_new = True
+                    new_count += 1
+    except Exception as e:
+        print(f"⚠️ 檢查數據更新時發生錯誤: {e}，將預設執行同步")
+        has_new = True
     finally:
         conn.close()
+
+    if has_new:
+        print(f"📊 檢測到 {new_count} 個站點數據產生推進或變動")
+    return has_new
 
 def save_to_db(stations_data, sys_timestamp_val):
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -116,7 +136,11 @@ def save_to_db(stations_data, sys_timestamp_val):
 # ==========================================
 def fetch_smg_flood_xml():
     url = "https://xml.dsmg.gov.mo/c_ftgms.xml"
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+    }
     try:
         res = requests.get(url, headers=headers, timeout=12)
         res.encoding = 'utf-8'
@@ -158,7 +182,6 @@ def parse_flood_xml(root):
             return None
 
     for st in root.findall('.//station'):
-        # 1. 抓取 station code
         code = st.get('code')
         if not code:
             for child in st:
@@ -171,7 +194,7 @@ def parse_flood_xml(root):
             continue
         code = code.strip()
 
-        # 2. 嚴格比對 tag 忽略大小寫取得 <stationname>
+        # 1. 站名
         name = None
         for child in st:
             if child.tag.lower() in ['stationname', 'name']:
@@ -181,7 +204,7 @@ def parse_flood_xml(root):
         if not name:
             name = code
 
-        # 3. 抓取 RecordTime (忽略大小寫)
+        # 2. RecordTime
         rec_time_raw = None
         for child in st:
             if child.tag.lower() in ['recordtime', 'time']:
@@ -193,7 +216,7 @@ def parse_flood_xml(root):
 
         rec_time_clean, rec_timestamp = parse_time_to_ts(rec_time_raw)
 
-        # 4. 提取水位數值
+        # 3. 水位數值
         water_val = None
         for child in st:
             if child.tag.lower() == 'waterlevel':
@@ -249,7 +272,7 @@ def insert_nans_on_gap(df, col, max_gap_minutes=25):
     return pd.DataFrame(new_rows).reset_index(drop=True)
 
 # ==========================================
-# 繪製各水位站趨勢圖 (Y 軸 ≥ 0.0，站名優先採用最新 stationname)
+# 繪製各水位站趨勢圖
 # ==========================================
 def render_flood_charts(current_stations_data):
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -267,15 +290,11 @@ def render_flood_charts(current_stations_data):
         if st_df.empty:
             continue
 
-        # 優先使用從最新 XML 取出的中文站名；若為空再查 DB
         st_name = cur_info.get('station_name')
         if not st_name or st_name == st_code:
             valid_names = st_df['station_name'].dropna()
             valid_names = valid_names[valid_names != st_code]
-            if not valid_names.empty:
-                st_name = valid_names.iloc[-1]
-            else:
-                st_name = st_code
+            st_name = valid_names.iloc[-1] if not valid_names.empty else st_code
 
         st_record_time = cur_info.get('record_time', '')
         st_timestamp = cur_info.get('timestamp')
@@ -283,7 +302,6 @@ def render_flood_charts(current_stations_data):
         x_end = datetime.fromtimestamp(st_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
         x_start = x_end - timedelta(hours=24)
 
-        # 篩選過去 24 小時數據以動態調整此站專屬的 Y 軸範圍
         st_df_24h = st_df[st_df['datetime'] >= x_start]
         valid_series = st_df_24h['water_level'].dropna() if not st_df_24h.empty else st_df['water_level'].dropna()
 
@@ -301,7 +319,6 @@ def render_flood_charts(current_stations_data):
             else:
                 step = 0.5
 
-            # 確保 y-axis 絕不小於 0
             plot_ymin = max(0.0, np.floor((data_min - 0.02) / step) * step)
             plot_ymax = np.ceil((data_max + 0.05) / step) * step
             if plot_ymin >= plot_ymax:
@@ -316,7 +333,6 @@ def render_flood_charts(current_stations_data):
         fig.patch.set_facecolor('white')
         ax.set_facecolor('white')
 
-        # 1. 警戒階層背景與水平線
         for low, high, bg_color, text_c, label_text in FLOOD_SPANS:
             if low < plot_ymax and high > plot_ymin:
                 eff_low = max(low, plot_ymin)
@@ -331,7 +347,6 @@ def render_flood_charts(current_stations_data):
                 ax.text(x_start + timedelta(minutes=15), mid_y, label_text,
                         color=text_c, fontsize=9.5, fontweight='bold', alpha=0.8, va='center', zorder=2)
 
-        # 2. 曲線與觀測點
         plot_df = insert_nans_on_gap(st_df, 'water_level', max_gap_minutes=25)
         if not plot_df['water_level'].dropna().empty:
             ax.plot(plot_df['datetime'], plot_df['water_level'], color=LINE_COLOR, linewidth=2.0, antialiased=True, zorder=4, label='水位 Water Level')
@@ -339,7 +354,6 @@ def render_flood_charts(current_stations_data):
         else:
             ax.text(0.5, 0.5, '暫無水位數據 No Data', transform=ax.transAxes, fontsize=18, color='gray', ha='center', va='center')
 
-        # 3. 坐標軸設置 (嚴格限制底部 >= 0)
         ax.set_xlim(x_start, x_end)
         ax.set_ylim(bottom=plot_ymin, top=plot_ymax)
         y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
@@ -383,8 +397,7 @@ def render_flood_charts(current_stations_data):
 # ==========================================
 def main():
     init_db()
-    last_pubdate = get_last_pubdate_from_db()
-    print(f"🚀 開始執行 DSMG 水位監測同步，資料庫最新記錄：'{last_pubdate}'")
+    print("🚀 開始執行 DSMG 水位監測同步...")
 
     root = fetch_smg_flood_xml()
     if root is None:
@@ -397,12 +410,13 @@ def main():
         print("⚠️ XML 未包含有效的站點水位數據。")
         sys.exit(1)
 
-    latest_rec_in_xml = max([s['record_time'] for s in stations_data.values()])
-    if latest_rec_in_xml <= last_pubdate and last_pubdate != "":
-        print(f"ℹ️ 各站水位數據尚未推進 (當前最新: {latest_rec_in_xml})，跳過後續步驟。")
+    # 精準檢查：只要有任何站點有新時間戳或數值變更即進行寫入
+    if not check_for_new_data(stations_data):
+        print("ℹ️ 各站水位數據均已最新，跳過後續步驟。")
         sys.exit(2)
 
-    print(f"🔔 檢測到新數據 (最新 RecordTime: {latest_rec_in_xml})，共解析到 {len(stations_data)} 個站點，正在處理...")
+    latest_rec_in_xml = max([s['record_time'] for s in stations_data.values()])
+    print(f"🔔 檢測到新數據 (最新站點時間: {latest_rec_in_xml})，共解析到 {len(stations_data)} 個站點，正在處理...")
     
     save_to_db(stations_data, sys_timestamp)
 
