@@ -49,8 +49,10 @@ jobs:
 
       - name: 執行 4.5 小時常駐循環 (每 1 分鐘抓取更新一次)
         run: |
-          END_TIME=$(($(date +%s) + 16200))
+          NOW=$(date +%s)
+          END_TIME=$((NOW + 16200))
           INTERVAL=60
+          IMG_NAME="MSSO(H).png"
 
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -115,21 +117,21 @@ jobs:
             # 5.2 僅覆蓋/增量更新此工作流負責的檔案，其餘檔案完整保留
             mkdir -p static/images
 
-            cp -f "$GITHUB_WORKSPACE"/index.html ./ 2>/dev/null || true
-            cp -f "$GITHUB_WORKSPACE"/notify.html ./ 2>/dev/null || true
-            cp -f "$GITHUB_WORKSPACE"/sw.js ./ 2>/dev/null || true
-            cp -rf "$GITHUB_WORKSPACE"/static/* ./static/ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/index.html" ./ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/notify.html" ./ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/sw.js" ./ 2>/dev/null || true
+            cp -rf "$GITHUB_WORKSPACE/static/." ./static/ 2>/dev/null || true
 
-            cp -f "$GITHUB_WORKSPACE"/weather_data.json ./ 2>/dev/null || true
-            cp -f "$GITHUB_WORKSPACE"/history.db ./ 2>/dev/null || true
-            cp -f "$GITHUB_WORKSPACE"/windindex.db ./ 2>/dev/null || true
-            cp -f "$GITHUB_WORKSPACE"/windindexdata.json ./ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/weather_data.json" ./ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/history.db" ./ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/windindex.db" ./ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/windindexdata.json" ./ 2>/dev/null || true
 
-            cp -f "$GITHUB_WORKSPACE"/MSSO(H).png ./ 2>/dev/null || true
-            cp -f "$GITHUB_WORKSPACE"/MSSO(H).png ./static/images/ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/$IMG_NAME" ./ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/$IMG_NAME" ./static/images/ 2>/dev/null || true
 
-            if [ -f "$GITHUB_WORKSPACE"/static/images/rainfall_24h_summary.json ]; then
-              cp -f "$GITHUB_WORKSPACE"/static/images/rainfall_24h_summary.json ./rainfall_24h_summary.json 2>/dev/null || true
+            if [ -f "$GITHUB_WORKSPACE/static/images/rainfall_24h_summary.json" ]; then
+              cp -f "$GITHUB_WORKSPACE/static/images/rainfall_24h_summary.json" ./rainfall_24h_summary.json 2>/dev/null || true
             fi
 
             # 5.3 檢查是否有實際變更
@@ -159,7 +161,7 @@ jobs:
             cd "$GITHUB_WORKSPACE"
             rm -rf /tmp/gh-pages-deploy
 
-            echo "更新成功，等待 1 分鐘進行下一輪監控..."
+            echo "更新流程完畢，等待 1 分鐘進行下一輪監控..."
             sleep $INTERVAL
           done
 
