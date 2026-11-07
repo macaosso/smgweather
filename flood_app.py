@@ -50,7 +50,7 @@ TEXT_COLOR = '#334155'
 LINE_COLOR = '#0284C7'
 
 # ==========================================
-# 資料庫管理
+# 資料庫管理 (含向下相容與自動熱遷移)
 # ==========================================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -59,6 +59,23 @@ def init_db():
                  (record_time TEXT, timestamp REAL, station_code TEXT, 
                   station_name TEXT, water_level REAL,
                   PRIMARY KEY (record_time, station_code))''')
+    
+    # 檢查是否有從 gh-pages 拉取下來的舊版欄位 (time_str)
+    c.execute("PRAGMA table_info(flood_history)")
+    columns = [row[1] for row in c.fetchall()]
+    
+    if 'record_time' not in columns and 'time_str' in columns:
+        print("🔧 檢測到舊版 flood_history 資料庫結構，正在無縫熱遷移欄位...")
+        c.execute('''CREATE TABLE flood_history_new
+                     (record_time TEXT, timestamp REAL, station_code TEXT, 
+                      station_name TEXT, water_level REAL,
+                      PRIMARY KEY (record_time, station_code))''')
+        c.execute('''INSERT OR IGNORE INTO flood_history_new (record_time, timestamp, station_code, station_name, water_level)
+                     SELECT time_str, timestamp, station_code, station_name, water_level FROM flood_history''')
+        c.execute("DROP TABLE flood_history")
+        c.execute("ALTER TABLE flood_history_new RENAME TO flood_history")
+        print("✅ flood_history 表結構熱遷移完成！")
+
     conn.commit()
     conn.close()
 
@@ -68,7 +85,11 @@ def get_last_pubdate_from_db():
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     try:
-        c.execute("SELECT record_time FROM flood_history ORDER BY timestamp DESC LIMIT 1")
+        c.execute("PRAGMA table_info(flood_history)")
+        columns = [row[1] for row in c.fetchall()]
+        time_col = "record_time" if "record_time" in columns else "time_str"
+        
+        c.execute(f"SELECT {time_col} FROM flood_history ORDER BY timestamp DESC LIMIT 1")
         row = c.fetchone()
         return row[0] if row else ""
     except Exception:
@@ -209,7 +230,7 @@ def insert_nans_on_gap(df, col, max_gap_minutes=25):
     return pd.DataFrame(new_rows).reset_index(drop=True)
 
 # ==========================================
-# 繪製各水位站趨勢圖 (動態 Y 軸自適應各站實際數值)
+# 繪製各水位站趨勢圖 (動態自適應 Y 軸)
 # ==========================================
 def render_flood_charts(current_stations_data):
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -234,11 +255,10 @@ def render_flood_charts(current_stations_data):
         x_end = datetime.fromtimestamp(st_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
         x_start = x_end - timedelta(hours=24)
 
-        # 篩選過去 24 小時資料以計算獨立的 Y 軸範圍
+        # 篩選過去 24 小時數據以動態調整此站專屬的 Y 軸範圍
         st_df_24h = st_df[st_df['datetime'] >= x_start]
         valid_series = st_df_24h['water_level'].dropna() if not st_df_24h.empty else st_df['water_level'].dropna()
 
-        # 個別站點自適應動態 Y 軸 (不固定刻度)
         if not valid_series.empty:
             data_min = valid_series.min()
             data_max = valid_series.max()
@@ -267,7 +287,7 @@ def render_flood_charts(current_stations_data):
         fig.patch.set_facecolor('white')
         ax.set_facecolor('white')
 
-        # 1. 警戒階層背景與文字標籤
+        # 1. 警戒階層背景與水平線
         for low, high, bg_color, text_c, label_text in FLOOD_SPANS:
             if low < plot_ymax and high > plot_ymin:
                 eff_low = max(low, plot_ymin)
@@ -282,7 +302,7 @@ def render_flood_charts(current_stations_data):
                 ax.text(x_start + timedelta(minutes=15), mid_y, label_text,
                         color=text_c, fontsize=9.5, fontweight='bold', alpha=0.8, va='center', zorder=2)
 
-        # 2. 折線與離散觀測點
+        # 2. 曲線與觀測點
         plot_df = insert_nans_on_gap(st_df, 'water_level', max_gap_minutes=25)
         if not plot_df['water_level'].dropna().empty:
             ax.plot(plot_df['datetime'], plot_df['water_level'], color=LINE_COLOR, linewidth=2.0, antialiased=True, zorder=4, label='水位 Water Level')
@@ -290,7 +310,7 @@ def render_flood_charts(current_stations_data):
         else:
             ax.text(0.5, 0.5, '暫無水位數據 No Data', transform=ax.transAxes, fontsize=18, color='gray', ha='center', va='center')
 
-        # 3. 坐標軸與動態刻度設置
+        # 3. 坐標軸設置
         ax.set_xlim(x_start, x_end)
         ax.set_ylim(plot_ymin, plot_ymax)
         y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
