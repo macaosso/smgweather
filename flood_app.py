@@ -33,11 +33,11 @@ plt.rcParams['axes.unicode_minus'] = False
 
 # ==========================================
 # 水位站警戒區間與顏色配置
+# 0.5 - 1.0 yellow
+# 1.0 - 1.5 orange
+# 1.5 - 2.5 red
+# 2.5 +     black
 # ==========================================
-# 0.5 - 1.0 yellow (#EAB308 / #FEF08A)
-# 1.0 - 1.5 orange (#F97316 / #FFEDD5)
-# 1.5 - 2.5 red    (#EF4444 / #FEE2E2)
-# 2.5 +     black  (#0F172A / #CBD5E1)
 FLOOD_SPANS = [
     (2.5, 6.0,  "#CBD5E1", "#0F172A", "黑色風暴潮 (≥2.5m)"),
     (1.5, 2.5,  "#FEE2E2", "#DC2626", "紅色風暴潮 (1.5-2.5m)"),
@@ -91,7 +91,7 @@ def save_to_db(stations_data, pub_time_str, pub_timestamp_val):
     conn.close()
 
 # ==========================================
-# XML 資料擷取與解析
+# XML 資料擷取與解析 (依據實際 XML 結構)
 # ==========================================
 def fetch_smg_flood_xml():
     url = "https://xml.dsmg.gov.mo/c_ftgms.xml"
@@ -107,7 +107,7 @@ def fetch_smg_flood_xml():
 def parse_xml_timestamp(root):
     pub_node = root.find('.//System/SysPubdate')
     if pub_node is None:
-        pub_node = root.find('.//SysPubdate') or root.find('.//SysPubDate') or root.find('.//PubDate')
+        pub_node = root.find('.//SysPubdate') or root.find('.//SysPubDate')
         
     if pub_node is not None and pub_node.text:
         raw_time = pub_node.text.strip()
@@ -136,29 +136,49 @@ def parse_flood_xml(root):
         except (ValueError, TypeError):
             return None
 
-    # 兼容常見 DSMG/SMG XML 節點結構
-    station_nodes = root.findall('.//station') or root.findall('.//Station')
-    for st in station_nodes:
-        code_node = st.find('stationcode') or st.find('StationCode') or st.find('code')
-        name_node = st.find('stationname') or st.find('StationName') or st.find('name')
-        
-        code = code_node.text.strip() if code_node is not None and code_node.text else None
-        name = name_node.text.strip() if name_node is not None and name_node.text else code
+    # 針對 <WLReport><station code="..."> 結構抓取
+    for st in root.findall('.//station'):
+        # 1. 優先從屬性 code 取出代碼 (如 code="LSI")，若無則降級找子標籤
+        code = st.get('code')
+        if not code:
+            code_node = st.find('stationcode') or st.find('StationCode') or st.find('code')
+            if code_node is not None and code_node.text:
+                code = code_node.text.strip()
 
         if not code:
             continue
+        code = code.strip()
 
+        # 2. 獲取站名
+        name_node = st.find('stationname') or st.find('StationName') or st.find('name')
+        name = name_node.text.strip() if name_node is not None and name_node.text else code
+
+        # 3. 獲取站點記錄時間 RecordTime
+        rec_time_node = st.find('RecordTime')
+        rec_time = rec_time_node.text.strip() if rec_time_node is not None and rec_time_node.text else pub_time_str
+
+        # 4. 提取水位數值 (Waterlevel/Value)
         water_val = None
-        for tag in ['waterlevel', 'WaterLevel', 'level', 'Value', 'dValue']:
-            val_el = st.find(f'.//{tag}') if '/' in tag else st.find(tag)
-            if val_el is not None and val_el.text:
-                water_val = parse_float(val_el.text)
-                if water_val is not None:
-                    break
+        wl_node = st.find('Waterlevel') or st.find('waterlevel')
+        if wl_node is not None:
+            val_node = wl_node.find('Value') or wl_node.find('value') or wl_node.find('dValue')
+            if val_node is not None and val_node.text:
+                water_val = parse_float(val_node.text)
+
+        # 容錯降級搜尋
+        if water_val is None:
+            for tag in ['Value', 'value', 'waterlevel']:
+                node = st.find(f'.//{tag}')
+                if node is not None and node.text:
+                    parsed = parse_float(node.text)
+                    if parsed is not None:
+                        water_val = parsed
+                        break
 
         stations_data[code] = {
             "station_code": code,
             "station_name": name,
+            "record_time": rec_time,
             "water_level": water_val
         }
 
@@ -318,7 +338,7 @@ def main():
         print(f"ℹ️ DSMG 水位 XML 尚未更新 (發布時間: {pub_time_str})，跳過後續步驟。")
         sys.exit(2)
 
-    print(f"🔔 檢測到新水位發布數據: {pub_time_str}，共 {len(stations_data)} 個站點，正在處理...")
+    print(f"🔔 檢測到新水位發布數據: {pub_time_str}，共解析到 {len(stations_data)} 個站點，正在處理...")
     
     # 儲存至 SQLite
     save_to_db(stations_data, pub_time_str, pub_timestamp)
@@ -332,7 +352,7 @@ def main():
     with open(JSON_PATH, 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
-    # 繪製各站圖片
+    # 繪製各站圖片 (儲存至 flood/images/<station code>.png)
     render_flood_charts(pub_time_str, pub_timestamp)
     print("🎉 水位同步與圖片儲存完畢。")
     sys.exit(0)
