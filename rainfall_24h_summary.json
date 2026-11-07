@@ -7,6 +7,20 @@
     "Past_24H_Total_Rain (mm)":0.6
   },
   {
+    "Station":"大潭山",
+    "Code":"TG",
+    "Area":"氹仔",
+    "Current_Hourly_Rain (mm)":0.4,
+    "Past_24H_Total_Rain (mm)":0.4
+  },
+  {
+    "Station":"東亞運大馬路",
+    "Code":"JA",
+    "Area":"氹仔",
+    "Current_Hourly_Rain (mm)":0.2,
+    "Past_24H_Total_Rain (mm)":0.2
+  },
+  {
     "Station":"紀念孫中山公園",
     "Code":"DP",
     "Area":"澳門半島",
@@ -39,20 +53,6 @@
     "Code":"PE",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":0.0
-  },
-  {
-    "Station":"大潭山",
-    "Code":"TG",
-    "Area":"氹仔",
-    "Current_Hourly_Rain (mm)":0.4,
-    "Past_24H_Total_Rain (mm)":0.0
-  },
-  {
-    "Station":"東亞運大馬路",
-    "Code":"JA",
-    "Area":"氹仔",
-    "Current_Hourly_Rain (mm)":0.2,
     "Past_24H_Total_Rain (mm)":0.0
   },
   {
