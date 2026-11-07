@@ -1,0 +1,120 @@
+{
+  "update_time": "2026-11-07 12:31",
+  "timestamp": 1794025860.0,
+  "stations": {
+    "LSI": {
+      "station_code": "LSI",
+      "station_name": "LSI",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LPI": {
+      "station_code": "LPI",
+      "station_name": "LPI",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LHK": {
+      "station_code": "LHK",
+      "station_name": "LHK",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LPH": {
+      "station_code": "LPH",
+      "station_name": "LPH",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LPF": {
+      "station_code": "LPF",
+      "station_name": "LPF",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LPM": {
+      "station_code": "LPM",
+      "station_name": "LPM",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LIV": {
+      "station_code": "LIV",
+      "station_name": "LIV",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LMF": {
+      "station_code": "LMF",
+      "station_name": "LMF",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LMM": {
+      "station_code": "LMM",
+      "station_name": "LMM",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LRR": {
+      "station_code": "LRR",
+      "station_name": "LRR",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LTA": {
+      "station_code": "LTA",
+      "station_name": "LTA",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LHO": {
+      "station_code": "LHO",
+      "station_name": "LHO",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LCH": {
+      "station_code": "LCH",
+      "station_name": "LCH",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LAO": {
+      "station_code": "LAO",
+      "station_name": "LAO",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LIL": {
+      "station_code": "LIL",
+      "station_name": "LIL",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LCS": {
+      "station_code": "LCS",
+      "station_name": "LCS",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LPN": {
+      "station_code": "LPN",
+      "station_name": "LPN",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LSP": {
+      "station_code": "LSP",
+      "station_name": "LSP",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    },
+    "LCL": {
+      "station_code": "LCL",
+      "station_name": "LCL",
+      "record_time": "2026-11-07 12:25",
+      "water_level": 0.0
+    }
+  }
+}
