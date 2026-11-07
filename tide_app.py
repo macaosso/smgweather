@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import json
 import warnings
 from datetime import datetime, timedelta
@@ -32,10 +33,12 @@ plt.rcParams['font.sans-serif'] = [
 ]
 plt.rcParams['axes.unicode_minus'] = False
 
-API_URL = "https://dsama.apigateway.data.gov.mo/currentTideXmlApi"
+BASE_API_URL = "https://dsama.apigateway.data.gov.mo/currentTideXmlApi"
 API_HEADERS = {
     "Authorization": "APPCODE 09d43a591fba407fb862412970667de4",
-    "User-Agent": "Mozilla/5.0"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    "Pragma": "no-cache"
 }
 
 GRID_BORDER_COLOR = '#8DA59A'
@@ -83,11 +86,12 @@ def save_to_db(record_time, timestamp_val, tide_cm, tide_m):
     conn.close()
 
 # ==========================================
-# API 擷取與 XML 解析
+# API 擷取與 XML 解析 (時間戳破快取)
 # ==========================================
 def fetch_tide_xml():
+    url = f"{BASE_API_URL}?_t={int(time.time())}"
     try:
-        res = requests.get(API_URL, headers=API_HEADERS, timeout=12)
+        res = requests.get(url, headers=API_HEADERS, timeout=12)
         res.encoding = 'utf-8'
         if res.status_code != 200:
             print(f"❌ 請求 DSAMA 潮汐 API 失敗，HTTP Status: {res.status_code}")
@@ -183,10 +187,9 @@ def render_tide_chart(latest_info):
     x_end = datetime.fromtimestamp(st_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
     x_start = x_end - timedelta(hours=24)
 
-    df_24h = df[df['datetime'] >= x_start]
+    df_24h = df[(df['datetime'] >= x_start) & (df['datetime'] <= x_end)].copy()
     valid_series = df_24h['record_tide_m'].dropna() if not df_24h.empty else df['record_tide_m'].dropna()
 
-    # 計算動態 Y 軸刻度，並確保 plot_ymax 至少容納 3.1m 紅線
     if not valid_series.empty:
         data_min = valid_series.min()
         data_max = max(valid_series.max(), 3.1)
@@ -218,11 +221,11 @@ def render_tide_chart(latest_info):
                 fontsize=9.5, fontweight='bold', alpha=0.9, va='bottom', zorder=2)
 
     # 2. 潮位折線與陰影填充
-    plot_df = insert_nans_on_gap(df, 'record_tide_m', max_gap_minutes=25)
+    plot_df = insert_nans_on_gap(df_24h, 'record_tide_m', max_gap_minutes=25)
     if not plot_df['record_tide_m'].dropna().empty:
         ax.plot(plot_df['datetime'], plot_df['record_tide_m'], color=LINE_COLOR, linewidth=2.2, antialiased=True, zorder=4, label='實時潮高 Real-time Tide')
         ax.fill_between(plot_df['datetime'], plot_df['record_tide_m'], plot_ymin, color=LINE_COLOR, alpha=0.15, zorder=3)
-        ax.scatter(df['datetime'], df['record_tide_m'], color='#0369A1', s=16, alpha=0.85, edgecolors='none', zorder=5)
+        ax.scatter(df_24h['datetime'], df_24h['record_tide_m'], color='#0369A1', s=16, alpha=0.85, edgecolors='none', zorder=5)
     else:
         ax.text(0.5, 0.5, '暫無潮位數據 No Data', transform=ax.transAxes, fontsize=18, color='gray', ha='center', va='center')
 
@@ -284,11 +287,14 @@ def main():
         sys.exit(1)
 
     current_rec_time = tide_data['record_time']
-    if current_rec_time == last_record_time and last_record_time != "":
-        print(f"ℹ️ 潮汐數據尚未更新 (當前記錄: {current_rec_time})，跳過發布與繪圖。")
+    image_exists = os.path.exists(IMG_PATH)
+
+    # 只有在時間未變且圖片檔案確實存在時才跳過
+    if current_rec_time == last_record_time and last_record_time != "" and image_exists:
+        print(f"ℹ️ 潮汐數據尚未更新 (當前記錄: {current_rec_time}) 且圖片已存在，跳過發布。")
         sys.exit(2)
 
-    print(f"🔔 檢測到新潮位數據: {current_rec_time} -> {tide_data['record_tide_cm']} cm ({tide_data['record_tide_m']} m)")
+    print(f"🔔 檢測到新數據或圖片需要補繪: {current_rec_time} -> {tide_data['record_tide_cm']} cm ({tide_data['record_tide_m']} m)")
 
     # 1. 寫入 SQLite
     save_to_db(
