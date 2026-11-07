@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>澳門特別行政區 氣象中心 - 實時氣象與風力指數監測平台</title>
+  <title>澳門特別行政區 氣象與環境監測中心 - 綜合實時資訊平台</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -28,7 +28,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Chart.js for Interactive Charts -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- sql.js (WebAssembly SQLite in Browser) -->
@@ -80,7 +80,6 @@
       box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
     }
 
-    /* Weather Pill Markers on Leaflet Map */
     .weather-pill-container {
       background: transparent;
       border: none;
@@ -106,7 +105,7 @@
       font-size: 11.5px;
       font-weight: 800;
       line-height: 1.15;
-      border: 1.5px solid rgba(15, 23, 42, 0.7);
+      border: 1.5px solid rgba(15, 23, 42, 0.6);
       box-shadow: 0 2px 6px rgba(0,0,0,0.32);
       white-space: nowrap;
       letter-spacing: -0.2px;
@@ -170,7 +169,6 @@
       }
     })();
 
-    // Robust image error handler with retry logic
     function handleImageError(imgEl, customMsg) {
       if (!imgEl) return;
       imgEl.onerror = null;
@@ -215,16 +213,16 @@
       
       <!-- Brand & Telemetry Status -->
       <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-sky-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 flex-shrink-0">
-          <i class="fa-solid fa-tower-broadcast text-sm sm:text-base"></i>
+        <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-sky-600 via-teal-500 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-sky-500/20 flex-shrink-0">
+          <i class="fa-solid fa-water-ladder text-sm sm:text-base"></i>
         </div>
         <div class="min-w-0">
           <h1 class="text-xs sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight flex items-center gap-1.5 truncate">
-            <span>澳門氣象站網</span>
+            <span>澳門氣象環境監測中心</span>
             <span class="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-mono-num flex-shrink-0">LIVE</span>
           </h1>
           <div class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 truncate">
-            <span class="truncate">SysPubdate：<strong id="headerUpdateTime" class="font-mono-num text-slate-800 dark:text-slate-200">--</strong></span>
+            <span class="truncate">更新：<strong id="headerUpdateTime" class="font-mono-num text-slate-800 dark:text-slate-200">--</strong></span>
             <span class="hidden md:inline text-slate-300 dark:text-slate-700">|</span>
             <span class="hidden md:inline" id="dbStatusBadge">
               <span class="inline-block w-2 h-2 rounded-full bg-slate-400 mr-1"></span>
@@ -248,16 +246,24 @@
     </div>
   </header>
 
-  <!-- ================= REQUIREMENT 1: SECTION CHOOSING BUTTONS BELOW HEADER ================= -->
+  <!-- ================= NAVIGATION SECTION CHOOSING BUTTONS ================= -->
   <nav class="bg-slate-200/70 dark:bg-slate-900 border-b border-slate-300/60 dark:border-slate-800 px-3 sm:px-6 py-1.5 flex-shrink-0 z-20">
     <div class="max-w-7xl mx-auto flex items-center justify-start sm:justify-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
       <button onclick="switchView('map')" id="btnNavMap" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm">
         <i class="fa-solid fa-map-location-dot text-emerald-500"></i>
-        <span>地圖</span>
+        <span>地圖監測</span>
+      </button>
+      <button onclick="switchView('flood_tide')" id="btnNavFlood" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+        <i class="fa-solid fa-water text-cyan-500"></i>
+        <span>水位與潮汐</span>
+      </button>
+      <button onclick="switchView('aqi')" id="btnNavAqi" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+        <i class="fa-solid fa-smog text-amber-500"></i>
+        <span>空氣質素 (AQI)</span>
       </button>
       <button onclick="switchView('gallery')" id="btnNavGallery" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
         <i class="fa-solid fa-chart-line text-indigo-500"></i>
-        <span>時序折線圖庫</span>
+        <span>氣象時序折線圖</span>
       </button>
       <button onclick="switchView('comparison')" id="btnNavCompare" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
         <i class="fa-solid fa-code-compare text-sky-500"></i>
@@ -270,25 +276,21 @@
     </div>
   </nav>
 
-  <!-- ================= REQUIREMENT 5: 極端氣象預警 (EXTREME WEATHER ALERTS) ================= -->
+  <!-- ================= 極端氣象預警 (EXTREME WEATHER & SURGE & AQI ALERTS) ================= -->
   <aside id="alertRibbon" class="bg-slate-100 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 py-2 flex-shrink-0 text-xs transition-colors">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-start justify-between gap-2">
       <div class="flex items-center justify-between gap-2 flex-shrink-0 w-full md:w-auto">
         <span class="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold font-mono-num text-[11px] flex items-center gap-1.5" id="alertRibbonBadge">
           <i class="fa-solid fa-shield-halved text-xs"></i>
-          <span id="alertRibbonBadgeText">氣象正常</span>
+          <span id="alertRibbonBadgeText">常規狀態</span>
         </span>
-        <!-- Single unified toggle button (Desktop & Mobile) -->
         <button id="alertToggleBtn" onclick="toggleAlertRibbonExpansion()" class="hidden items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-lg bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition">
           <i id="alertToggleIcon" class="fa-solid fa-chevron-down text-[9px]"></i>
           <span id="alertToggleText">展開詳情</span>
         </button>
       </div>
 
-      <!-- Main Container: Supports Contracted summary view and Expanded detailed view -->
-      <div class="flex flex-col gap-1.5 text-xs font-mono-num w-full" id="alertRibbonContainer">
-        <!-- Rendered dynamically -->
-      </div>
+      <div class="flex flex-col gap-1.5 text-xs font-mono-num w-full" id="alertRibbonContainer"></div>
     </div>
   </aside>
 
@@ -300,9 +302,7 @@
       
       <!-- Metric Selection Pill Bar -->
       <div class="glass-surface border-b border-slate-200/80 dark:border-slate-800 px-3 sm:px-6 py-2 z-20 flex-shrink-0 flex items-center overflow-x-auto no-scrollbar">
-        <div class="flex items-center gap-1.5 flex-nowrap" id="metricTabsContainer">
-          <!-- Populated by JS -->
-        </div>
+        <div class="flex items-center gap-1.5 flex-nowrap" id="metricTabsContainer"></div>
       </div>
 
       <!-- Leaflet Map Area -->
@@ -316,7 +316,7 @@
             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
           <span class="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1 font-mono-num">
-            <span>更新時間：</span>
+            <span>更新：</span>
             <span id="mapUpdateTimeLabel" class="text-emerald-600 dark:text-emerald-400">--</span>
           </span>
         </div>
@@ -331,14 +331,180 @@
             </span>
             <span class="text-[9px] text-slate-400 font-medium whitespace-nowrap">分級標準</span>
           </div>
-          <div id="legendColorBar" class="flex flex-col gap-1 text-[10px] font-mono-num font-semibold">
-            <!-- Populated dynamically -->
-          </div>
+          <div id="legendColorBar" class="flex flex-col gap-1 text-[10px] font-mono-num font-semibold"></div>
         </div>
       </div>
     </div>
 
-    <!-- ================= VIEW 2: LINE CHART GALLERY ================= -->
+    <!-- ================= VIEW 2: FLOOD & TIDE SECTION ================= -->
+    <div id="viewFloodTide" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
+      <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        
+        <!-- Section Header -->
+        <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-2">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-water text-cyan-500"></i>
+                澳門水位監測與實時潮汐 (DSAMA & DSMG)
+              </h2>
+              <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                監控 19 處沿岸及低窪地區水位站實時數據與海事及水務局實時天文潮高（警戒線 3.10m）。
+              </p>
+            </div>
+            <button onclick="refreshData()" class="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 self-start sm:self-auto">
+              <i class="fa-solid fa-rotate text-xs"></i> 重新載入數據
+            </button>
+          </div>
+        </div>
+
+        <!-- Tide Summary Card & Graph -->
+        <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-3 border-l-4 border-cyan-500 shadow-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-800">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse"></span>
+              <h3 class="font-bold text-slate-900 dark:text-white text-sm sm:text-base">海事及水務局 (DSAMA) 實時潮汐趨勢</h3>
+            </div>
+            <div class="flex items-center gap-2 text-xs font-mono-num">
+              <span>更新：<strong id="tideUpdateTimeLabel">--</strong></span>
+              <span id="tideAlertBadge" class="px-2 py-0.5 rounded font-bold text-[11px] bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400">潮位正常</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <div class="bg-slate-100/70 dark:bg-slate-900/70 p-4 rounded-xl space-y-2 border border-slate-200/80 dark:border-slate-800">
+              <div class="text-xs text-slate-500 font-bold">現時潮高 (Tide Height)</div>
+              <div class="flex items-baseline gap-2">
+                <span id="tideValM" class="text-3xl font-extrabold font-mono-num text-cyan-600 dark:text-cyan-400">--</span>
+                <span class="text-sm font-bold text-slate-400">米 (m)</span>
+              </div>
+              <div class="text-[11px] text-slate-400 font-mono-num">
+                折合：<strong id="tideValCm" class="text-slate-700 dark:text-slate-300">--</strong> cm
+              </div>
+              <div class="pt-2 text-[10px] text-slate-500 border-t border-slate-200 dark:border-slate-800">
+                警戒線基準：<strong class="text-rose-500 font-bold">3.10 米 (m)</strong>
+              </div>
+            </div>
+
+            <!-- Tide Image Preview with Lightbox -->
+            <div class="md:col-span-2 bg-white dark:bg-slate-950 p-2 sm:p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex justify-center items-center min-h-[220px] relative">
+              <img id="tideStaticImg" data-origin-src="flood/images/tide.png" src="flood/images/tide.png" alt="澳門實時潮汐時序圖" class="expandable-image max-h-[300px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '澳門實時潮汐 (含 3.1m 警戒線)')" onerror="handleImageError(this, 'flood/images/tide.png')">
+            </div>
+          </div>
+        </div>
+
+        <!-- 19 Flood Stations Summary Table -->
+        <div class="glass-surface-elevated rounded-2xl p-4 sm:p-5 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+            <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-sm flex items-center gap-1.5">
+              <i class="fa-solid fa-list-check text-cyan-500"></i>
+              全澳 19 處水位監測站即時狀態表
+            </h3>
+            <span class="text-[10px] text-slate-400 font-mono" id="floodTableUpdateTime">--</span>
+          </div>
+
+          <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full text-left text-xs border-collapse font-mono-num">
+              <thead class="bg-slate-100 dark:bg-slate-900 text-slate-500 uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-2 px-2.5 font-sans">站點名稱</th>
+                  <th class="py-2 px-2.5">代碼</th>
+                  <th class="py-2 px-2.5">即時水位 (m)</th>
+                  <th class="py-2 px-2.5 font-sans">風暴潮警戒級別</th>
+                  <th class="py-2 px-2.5 font-sans">記錄時間</th>
+                  <th class="py-2 px-2.5 text-center font-sans">折線圖</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200/60 dark:divide-slate-800/80 text-[11px]" id="floodStationsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 19 Flood Stations Graph Gallery Cards -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-xs sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <i class="fa-solid fa-chart-area text-cyan-500"></i>
+              19 處水位站 24 小時時序折線圖庫 (點擊圖片全屏展開)
+            </h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5" id="floodGalleryGrid"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================= VIEW 3: AQI SECTION ================= -->
+    <div id="viewAqi" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
+      <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        
+        <!-- Header -->
+        <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-2">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-smog text-amber-500"></i>
+                澳門空氣質素指數 (AQI) 實時監測
+              </h2>
+              <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                整合全澳 6 處主要空氣監測站（路邊、高密度住宅區、一般性），依污染物片段式線性內插計算即時副指數與綜合 AQI。
+              </p>
+            </div>
+            <div class="flex items-center gap-2 text-xs font-mono-num">
+              <span>發布時間：<strong id="aqiSectionUpdateTime">--</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6 AQI Station Summary Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-6 gap-2.5 sm:gap-3" id="aqiStationsCardsGrid"></div>
+
+        <!-- Detailed Pollutants Table -->
+        <div class="glass-surface-elevated rounded-2xl p-4 sm:p-5 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+            <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-sm flex items-center gap-1.5">
+              <i class="fa-solid fa-table-list text-amber-500"></i>
+              各站空氣污染物濃度與副指數明細表
+            </h3>
+            <span class="text-[10px] text-slate-400 font-mono">μg/m³ (CO: mg/m³)</span>
+          </div>
+
+          <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full text-left text-xs border-collapse font-mono-num">
+              <thead class="bg-slate-100 dark:bg-slate-900 text-slate-500 uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-2 px-2.5 font-sans">監測站</th>
+                  <th class="py-2 px-2.5">代碼</th>
+                  <th class="py-2 px-2.5">綜合 AQI</th>
+                  <th class="py-2 px-2.5 font-sans">首要污染物</th>
+                  <th class="py-2 px-2.5">PM10</th>
+                  <th class="py-2 px-2.5">PM2.5</th>
+                  <th class="py-2 px-2.5">SO2</th>
+                  <th class="py-2 px-2.5">NO2</th>
+                  <th class="py-2 px-2.5">O3</th>
+                  <th class="py-2 px-2.5">CO</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200/60 dark:divide-slate-800/80 text-[11px]" id="aqiDetailedTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 6 AQI Trend Charts Grid -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-xs sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <i class="fa-solid fa-chart-line text-amber-500"></i>
+              6 處空氣監測站 24 小時 AQI 趨勢折線圖 (點擊放大)
+            </h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5" id="aqiGalleryGrid"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================= VIEW 4: WEATHER LINE CHART GALLERY ================= -->
     <div id="viewGallery" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
       <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
@@ -386,17 +552,15 @@
           </div>
         </div>
 
-        <!-- Rendered Line Chart Grid -->
         <div id="galleryResultsContainer" class="space-y-4"></div>
 
       </div>
     </div>
 
-    <!-- ================= VIEW 3: MULTI-STATION COMPARISON ================= -->
+    <!-- ================= VIEW 5: MULTI-STATION COMPARISON ================= -->
     <div id="viewComparison" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
       <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
-        <!-- Controls Panel -->
         <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-3 sm:space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800 pb-3">
             <div>
@@ -409,7 +573,6 @@
               </p>
             </div>
 
-            <!-- Metric Selector for Comparison -->
             <div class="flex items-center gap-2">
               <label class="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">比對要素：</label>
               <select id="compareMetricSelect" onchange="renderMultiStationChart()" class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
@@ -426,7 +589,6 @@
             </div>
           </div>
 
-          <!-- Station Selectors & Presets -->
           <div>
             <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
               <span class="text-xs font-bold text-slate-700 dark:text-slate-300">選擇比對測站：</span>
@@ -446,7 +608,6 @@
           </div>
         </div>
 
-        <!-- Chart Container -->
         <div class="glass-surface-elevated p-3.5 sm:p-5 rounded-2xl space-y-3">
           <div class="flex items-center justify-between text-xs text-slate-500">
             <span id="compareDataCountLabel" class="font-mono-num text-[11px] sm:text-xs">等待歷史庫時序數據...</span>
@@ -461,7 +622,6 @@
           </div>
         </div>
 
-        <!-- Summary Table for Comparison -->
         <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-3">
           <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
             <h3 class="font-bold text-xs sm:text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -490,11 +650,10 @@
       </div>
     </div>
 
-    <!-- ================= VIEW 4: WIND INDEX ================= -->
+    <!-- ================= VIEW 6: WIND INDEX ================= -->
     <div id="viewWindIndex" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
       <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
-        <!-- Summary Cards -->
         <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <div class="col-span-2 lg:col-span-1 glass-surface-elevated p-4 rounded-2xl flex flex-col justify-between border-l-4 border-teal-500 shadow-sm">
             <div>
@@ -559,7 +718,6 @@
           </div>
         </div>
 
-        <!-- Tables -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="glass-surface-elevated rounded-2xl overflow-hidden p-4 space-y-3">
             <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
@@ -610,7 +768,6 @@
           </div>
         </div>
 
-        <!-- 4 Static Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-3">
             <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
@@ -670,7 +827,6 @@
     
     <div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-2 sm:hidden"></div>
 
-    <!-- Header -->
     <div class="px-4 py-3 sm:p-5 border-b border-slate-200/80 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-900/50 flex items-center justify-between flex-shrink-0">
       <div class="flex items-center gap-2.5">
         <div id="drawerIconBg" class="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-bold text-xs shadow-md font-mono-num">
@@ -691,13 +847,9 @@
       </button>
     </div>
 
-    <!-- Body -->
     <div class="flex-1 overflow-y-auto p-3.5 sm:p-5 space-y-4 no-scrollbar">
-      
-      <!-- Metrics Grid -->
       <div class="grid grid-cols-3 gap-2 font-mono-num text-[11px] sm:text-xs" id="drawerMetricsGrid"></div>
 
-      <!-- Static Graph Tab Box (Fixed image reload logic) -->
       <div class="bg-slate-100/80 dark:bg-slate-900/80 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
         <div class="flex items-center justify-between gap-1 overflow-x-auto no-scrollbar">
           <div class="flex items-center gap-1.5">
@@ -721,8 +873,7 @@
         </div>
       </div>
 
-      <!-- Interactive SQLite Chart (Strict 24 Hours) -->
-      <div class="bg-slate-100/80 dark:bg-slate-900/80 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+      <div id="drawerInteractiveBox" class="bg-slate-100/80 dark:bg-slate-900/80 p-3 sm:p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
         <div class="flex items-center justify-between">
           <span class="font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
             <i class="fa-solid fa-chart-area text-sky-500"></i>
@@ -734,31 +885,27 @@
           <canvas id="drawerInteractiveCanvas"></canvas>
         </div>
       </div>
-
     </div>
   </div>
 
-  <!-- Drawer Backdrop (Fixed: prevents null classList errors) -->
   <div id="drawerBackdrop" onclick="closeStationDrawer()" class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-40 hidden"></div>
 
   <!-- ================= IMAGE LIGHTBOX MODAL WITH ZOOM & PAN ================= -->
   <div id="imageLightboxModal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-2 sm:p-4 transition-opacity duration-200" onclick="handleLightboxBackdropClick(event)">
     <div class="relative w-full max-w-6xl h-full max-h-[94vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onclick="event.stopPropagation()">
-      <!-- Modal Header -->
       <div class="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-100/80 dark:bg-slate-850/80 flex-shrink-0 z-20">
         <div class="flex items-center gap-2 truncate">
           <i class="fa-solid fa-image text-indigo-500 text-sm"></i>
           <span id="lightboxModalTitle" class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">圖片檢視</span>
         </div>
         
-        <!-- Zoom & Action Toolbar -->
         <div class="flex items-center gap-1.5 sm:gap-2">
           <div class="flex items-center bg-slate-200 dark:bg-slate-800 rounded-xl p-0.5 border border-slate-300 dark:border-slate-700 text-xs">
-            <button onclick="zoomLightboxImage(-0.25)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition" title="縮小 (Zoom Out)">
+            <button onclick="zoomLightboxImage(-0.25)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition" title="縮小">
               <i class="fa-solid fa-minus text-xs"></i>
             </button>
             <span id="lightboxZoomLevelLabel" class="px-2 font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300 select-none">100%</span>
-            <button onclick="zoomLightboxImage(0.25)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition" title="放大 (Zoom In)">
+            <button onclick="zoomLightboxImage(0.25)" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition" title="放大">
               <i class="fa-solid fa-plus text-xs"></i>
             </button>
             <button onclick="resetLightboxZoom()" class="px-2 h-7 flex items-center justify-center rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-[11px] transition ml-0.5" title="還原比例">
@@ -777,11 +924,9 @@
         </div>
       </div>
 
-      <!-- Modal Image Viewport Container with Drag-to-Pan support -->
       <div id="lightboxViewport" class="flex-1 relative overflow-hidden flex items-center justify-center bg-slate-950/20 dark:bg-black/50 cursor-grab active:cursor-grabbing select-none" onwheel="handleLightboxWheel(event)">
         <img id="lightboxModalImg" src="" alt="放大預覽" class="max-w-full max-h-full object-contain rounded-lg shadow-lg pointer-events-none transition-transform duration-75 ease-out select-none" onerror="handleImageError(this, '無法載入此圖片')">
         
-        <!-- Quick Usage Hint -->
         <div class="absolute bottom-3 right-3 px-2 py-1 rounded-lg bg-black/60 text-white/80 text-[10px] font-mono pointer-events-none backdrop-blur-xs">
           滾輪縮放 / 拖拽平移
         </div>
@@ -789,7 +934,7 @@
     </div>
   </div>
 
-  <!-- ================= LOGIC & CORE CONTROLLER ================= -->
+  <!-- ================= APPLICATION LOGIC & DATA CONTROLLER ================= -->
   <script>
     function get_contrast_text_color(hex_color) {
       if (!hex_color) return '#FFFFFF';
@@ -806,12 +951,13 @@
       if (val === null || val === undefined || isNaN(val) || val === '') return '--';
       const num = parseFloat(val);
       if (isNaN(num)) return '--';
-      if (metricKey === 'humidity' || metricKey === 'uv_index') {
+      if (metricKey === 'humidity' || metricKey === 'uv_index' || metricKey === 'aqi') {
         return Math.round(num).toString();
       }
       return num.toFixed(1);
     }
 
+    // Weather style functions
     function get_temp_style(temp) {
       if (temp === null || temp === undefined || isNaN(temp) || temp === '') return ['#78797A', '#FFFFFF'];
       const t = parseFloat(temp);
@@ -927,6 +1073,64 @@
       return [c, get_contrast_text_color(c)];
     }
 
+    // ==========================================
+    // FLOOD & STORM SURGE DEFINITIONS
+    // >=2.5m: 黑色風暴潮
+    // 1.5 - 2.49m: 紅色風暴潮
+    // 1.0 - 1.49m: 橙色風暴潮
+    // 0.5 - 0.99m: 黃色風暴潮
+    // 0.01 - 0.49m: 藍色風暴潮
+    // 0m: 正常 (Gray)
+    // ==========================================
+    function get_flood_style_and_label(val) {
+      if (val === null || val === undefined || isNaN(val) || val === '') {
+        return ['#64748B', '#FFFFFF', '無數據'];
+      }
+      const v = parseFloat(val);
+      if (v >= 2.5) {
+        return ['#0F172A', '#CBD5E1', '黑色風暴潮 (≥2.5m)'];
+      } else if (v >= 1.5) {
+        return ['#DC2626', '#FFFFFF', '紅色風暴潮 (1.5-2.49m)'];
+      } else if (v >= 1.0) {
+        return ['#EA580C', '#FFFFFF', '橙色風暴潮 (1.0-1.49m)'];
+      } else if (v >= 0.5) {
+        return ['#CA8A04', '#0F172A', '黃色風暴潮 (0.5-0.99m)'];
+      } else if (v >= 0.01) {
+        return ['#0284C7', '#FFFFFF', '藍色風暴潮 (0.01-0.49m)'];
+      } else {
+        return ['#64748B', '#FFFFFF', '正常 (0m)'];
+      }
+    }
+
+    // ==========================================
+    // AQI DEFINITIONS
+    // 0-50 良好 green
+    // 51-100 普通 yellow
+    // 101-200 不良 darker yellow
+    // 201-300 非常不良 orange
+    // 301-400 嚴重 red
+    // 401-500 有害 darker red
+    // ==========================================
+    function get_aqi_style_and_label(val) {
+      if (val === null || val === undefined || isNaN(val) || val === '') {
+        return ['#64748B', '#FFFFFF', '無數據'];
+      }
+      const v = parseFloat(val);
+      if (v <= 50) {
+        return ['#16A34A', '#FFFFFF', '良好 (0-50)'];
+      } else if (v <= 100) {
+        return ['#CA8A04', '#0F172A', '普通 (51-100)'];
+      } else if (v <= 200) {
+        return ['#D97706', '#FFFFFF', '不良 (101-200)'];
+      } else if (v <= 300) {
+        return ['#EA580C', '#FFFFFF', '非常不良 (201-300)'];
+      } else if (v <= 400) {
+        return ['#DC2626', '#FFFFFF', '嚴重 (301-400)'];
+      } else {
+        return ['#991B1B', '#FFFFFF', '有害 (401-500)'];
+      }
+    }
+
     function estimate_wbgt_kmh(ta, rh, w, uvi = 0.0) {
       if (ta === null || rh === null || w === null || isNaN(ta) || isNaN(rh) || isNaN(w)) return null;
       try {
@@ -960,9 +1164,9 @@
     const BRIDGE_STATIONS = [
       "友誼大橋北", "友誼大橋南", "澳門大橋北", "澳門大橋南", "嘉樂庇總督大橋", "西灣大橋", "蓮花大橋"
     ];
-
     const PRESSURE_STATIONS = ["外港碼頭", "媽閣", "大潭山", "澳門大學", "九澳", "東亞運大馬路"];
 
+    // 17 Weather stations
     const STATION_COORDS = {
       "紀念孫中山公園": { lat: 22.216088, lon: 113.544967, area: "澳門半島", code: "DP", isBridge: false, hasPressure: false, hasUv: false },
       "黑沙環":         { lat: 22.207104, lon: 113.560261, area: "澳門半島", code: "EM", isBridge: false, hasPressure: false, hasUv: false },
@@ -983,6 +1187,39 @@
       "蓮花大橋":       { lat: 22.139996, lon: 113.549312, area: "跨海大橋", code: "PL", isBridge: true,  hasPressure: false, hasUv: false }
     };
 
+    // 19 Flood stations
+    const FLOOD_POINT_LIST = [
+      { name: "青洲河邊馬路", code: "LIV", lat: 22.212097, lng: 113.535243 },
+      { name: "花地瑪教會街", code: "LMF", lat: 22.211374, lng: 113.546674 },
+      { name: "紅街市",       code: "LMM", lat: 22.205155, lng: 113.544597 },
+      { name: "光復街",       code: "LRR", lat: 22.202498, lng: 113.544916 },
+      { name: "永樂戲院",     code: "LTA", lat: 22.202574, lng: 113.542885 },
+      { name: "內港北",       code: "LSI", lat: 22.199984, lng: 113.536861 },
+      { name: "內港",         code: "LPI", lat: 22.198031, lng: 113.536426 },
+      { name: "康公廟",       code: "LHK", lat: 22.197330, lng: 113.537858 },
+      { name: "司打口",       code: "LPH", lat: 22.193228, lng: 113.536822 },
+      { name: "內港南",       code: "LPF", lat: 22.190755, lng: 113.532853 },
+      { name: "下環街",       code: "LPM", lat: 22.189418, lng: 113.534413 },
+      { name: "菜園路",       code: "LHO", lat: 22.159073, lng: 113.558961 },
+      { name: "沙維斯街",     code: "LCH", lat: 22.157666, lng: 113.550649 },
+      { name: "柯維納馬路",   code: "LAO", lat: 22.157473, lng: 113.548550 },
+      { name: "益隆",         code: "LIL", lat: 22.156058, lng: 113.559474 },
+      { name: "松樹尾",       code: "LCS", lat: 22.154766, lng: 113.557309 },
+      { name: "黑橋街",       code: "LPN", lat: 22.154409, lng: 113.556284 },
+      { name: "石排灣",       code: "LSP", lat: 22.131648, lng: 113.562820 },
+      { name: "聖方濟各堂",   code: "LCL", lat: 22.117434, lng: 113.551004 }
+    ];
+
+    // 6 AQI stations
+    const AQI_STATION_LIST = [
+      { name: "台山",       code: "EN", lat: 22.2143048, lng: 113.5430605, type: "高密度住宅區" },
+      { name: "荷蘭園",     code: "PO", lat: 22.1957226, lng: 113.5447928, type: "路邊" },
+      { name: "氹仔中心區", code: "TC", lat: 22.1585991, lng: 113.5555425, type: "高密度住宅區" },
+      { name: "大潭山",     code: "TG", lat: 22.1594111, lng: 113.5684563, type: "一般性" },
+      { name: "石排灣",     code: "CD", lat: 22.1250727, lng: 113.5544267, type: "一般性" },
+      { name: "九澳",       code: "KH", lat: 22.1330617, lng: 113.5835098, type: "路邊" }
+    ];
+
     const METRIC_CONFIGS = [
       { id: 'temp_now',      label: '實時氣溫',   unit: '°C',   icon: 'fa-temperature-half',     styleFn: get_temp_style,      chartMetric: 'temp' },
       { id: 'temp_max',      label: '日高溫',     unit: '°C',   icon: 'fa-arrow-trend-up',       styleFn: get_temp_style,      chartMetric: 'temp' },
@@ -993,16 +1230,22 @@
       { id: 'humidity',      label: '相對濕度',   unit: '%',    icon: 'fa-droplet',              styleFn: get_humidity_style,  chartMetric: 'humidity' },
       { id: 'rain_h',        label: '時雨量',     unit: 'mm',   icon: 'fa-cloud-rain',           styleFn: get_rain1h_style,    chartMetric: 'rain' },
       { id: 'rain_d',        label: '日雨量',     unit: 'mm',   icon: 'fa-cloud-showers-heavy',  styleFn: get_raintotal_style, chartMetric: 'rain' },
-      { id: 'rain_24h',      label: '24小時雨量', unit: 'mm',   icon: 'fa-cloud-meatball',       styleFn: get_raintotal_style, chartMetric: 'rain' },
       { id: 'wind_speed',    label: '風速',       unit: 'km/h', icon: 'fa-wind',                 styleFn: get_wind_style,      chartMetric: 'wind_speed' },
       { id: 'gust_speed',    label: '陣風',       unit: 'km/h', icon: 'fa-bolt',                 styleFn: get_wind_style,      chartMetric: 'gust_speed' },
       { id: 'wind_dir',      label: '風向',       unit: '',     icon: 'fa-compass',              styleFn: get_wind_style,      chartMetric: 'wind_speed' },
       { id: 'pressure',      label: '海平面氣壓', unit: 'hPa',  icon: 'fa-gauge-high',           styleFn: get_pressure_style,  chartMetric: 'pressure' },
-      { id: 'uv_index',      label: '紫外線指數', unit: '',     icon: 'fa-sun',                  styleFn: get_uv_style,        chartMetric: 'uv_index' }
+      { id: 'uv_index',      label: '紫外線指數', unit: '',     icon: 'fa-sun',                  styleFn: get_uv_style,        chartMetric: 'uv_index' },
+      // Added Flood and AQI Map Modes
+      { id: 'mode_flood',    label: '水位監測 (19站)', unit: 'm',   icon: 'fa-water',                styleFn: get_flood_style_and_label, isSpecialMode: 'flood' },
+      { id: 'mode_aqi',      label: '空氣質素 AQI (6站)', unit: '', icon: 'fa-smog',                styleFn: get_aqi_style_and_label,   isSpecialMode: 'aqi' }
     ];
 
     let currentMetric = 'temp_now';
     let weatherData = { update_time: '', stations: {} };
+    let floodData = { system_pubdate: '', timestamp: 0, stations: {} };
+    let tideData = { update_time: '', timestamp: 0, tide_m: null, tide_cm: null };
+    let aqiData = { datetime: '', timestamp: 0, stations: {} };
+
     let latestUvi = null;
     let leafletMap = null;
     let markerLayerGroup = null;
@@ -1093,7 +1336,7 @@
       viewport.dataset.initialized = "true";
 
       viewport.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return; // Primary click only
+        if (e.button !== 0) return;
         isLightboxDragging = true;
         dragStartX = e.clientX - lightboxTranslateX;
         dragStartY = e.clientY - lightboxTranslateY;
@@ -1110,21 +1353,18 @@
         isLightboxDragging = false;
       });
 
-      // Touch drag support for mobile screens
-      let touchStartX = 0;
-      let touchStartY = 0;
       viewport.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1) {
           isLightboxDragging = true;
-          touchStartX = e.touches[0].clientX - lightboxTranslateX;
-          touchStartY = e.touches[0].clientY - lightboxTranslateY;
+          dragStartX = e.touches[0].clientX - lightboxTranslateX;
+          dragStartY = e.touches[0].clientY - lightboxTranslateY;
         }
       }, { passive: true });
 
       viewport.addEventListener('touchmove', (e) => {
         if (!isLightboxDragging || e.touches.length !== 1) return;
-        lightboxTranslateX = e.touches[0].clientX - touchStartX;
-        lightboxTranslateY = e.touches[0].clientY - touchStartY;
+        lightboxTranslateX = e.touches[0].clientX - dragStartX;
+        lightboxTranslateY = e.touches[0].clientY - dragStartY;
         updateLightboxTransform();
       }, { passive: true });
 
@@ -1152,30 +1392,14 @@
       evaluateAlertRibbon();
     }
 
-    // REQUIREMENT 1: Switches the map active metric cleanly WITHOUT any station highlighting, ringing, or bouncing
-    function handleAlertPillClick(metricId) {
-      if (!metricId) return;
-      switchView('map');
-      changeActiveMetric(metricId);
-    }
-
-    function closeImageModal() {
-      const modal = document.getElementById('imageLightboxModal');
-      modal.classList.add('hidden');
-      document.getElementById('lightboxModalImg').src = '';
-    }
-
-    function handleLightboxBackdropClick(event) {
-      if (event.target.id === 'imageLightboxModal') {
-        closeImageModal();
-      }
-    }
-
-    function expandDrawerImage() {
-      const imgEl = document.getElementById('drawerDirectStaticImg');
-      if (imgEl && imgEl.src && imgEl.style.display !== 'none') {
-        const title = `${selectedStationForDrawer} • ${document.getElementById('drawerGraphSectionTitle').innerText}`;
-        openImageModal(imgEl.src, title);
+    function handleAlertPillClick(actionType, targetId) {
+      if (actionType === 'metric') {
+        switchView('map');
+        changeActiveMetric(targetId);
+      } else if (actionType === 'flood') {
+        switchView('flood_tide');
+      } else if (actionType === 'aqi') {
+        switchView('aqi');
       }
     }
 
@@ -1224,6 +1448,9 @@
       `;
     }
 
+    // =========================================================================
+    // MAP MARKERS CONTROLLER (WEATHER / 19 FLOOD STATIONS / 6 AQI STATIONS)
+    // =========================================================================
     function updateMapPillMarkers() {
       if (!markerLayerGroup) return;
       markerLayerGroup.clearLayers();
@@ -1231,6 +1458,79 @@
       const config = METRIC_CONFIGS.find(m => m.id === currentMetric) || METRIC_CONFIGS[0];
       updateLegendRibbon(config);
 
+      // --- MODE A: FLOOD MONITORING STATIONS (19 STATIONS) ---
+      if (currentMetric === 'mode_flood') {
+        FLOOD_POINT_LIST.forEach(st => {
+          const stCode = st.code;
+          const fInfo = (floodData.stations && floodData.stations[stCode]) || {};
+          const wLevel = fInfo.water_level;
+          const [bgColor, fontColor, alertLabel] = get_flood_style_and_label(wLevel);
+
+          const displayVal = (wLevel !== null && wLevel !== undefined && !isNaN(wLevel))
+            ? `${parseFloat(wLevel).toFixed(2)}m`
+            : '--';
+
+          const iconHtml = `
+            <div class="weather-pill" onclick="handleMapFloodClick('${stCode}', '${st.name}')">
+              <div class="weather-pill-badge" style="background-color: ${bgColor}; color: ${fontColor};">
+                <span>${displayVal}</span>
+              </div>
+              <div class="weather-pill-label">
+                <span>${st.name}</span>
+              </div>
+            </div>
+          `;
+
+          const customIcon = L.divIcon({
+            className: 'weather-pill-container',
+            html: iconHtml,
+            iconSize: [64, 44],
+            iconAnchor: [32, 22]
+          });
+
+          const marker = L.marker([st.lat, st.lng], { icon: customIcon });
+          markerLayerGroup.addLayer(marker);
+        });
+        return;
+      }
+
+      // --- MODE B: AQI MONITORING STATIONS (6 STATIONS) ---
+      if (currentMetric === 'mode_aqi') {
+        AQI_STATION_LIST.forEach(st => {
+          const stCode = st.code;
+          const aqiInfo = (aqiData.stations && aqiData.stations[stCode]) || {};
+          const aqiVal = aqiInfo.aqi;
+          const [bgColor, fontColor, aqiLabel] = get_aqi_style_and_label(aqiVal);
+
+          const displayVal = (aqiVal !== null && aqiVal !== undefined && !isNaN(aqiVal))
+            ? `${Math.round(aqiVal)}`
+            : '--';
+
+          const iconHtml = `
+            <div class="weather-pill" onclick="handleMapAqiClick('${stCode}', '${st.name}')">
+              <div class="weather-pill-badge" style="background-color: ${bgColor}; color: ${fontColor};">
+                <span>${displayVal}</span>
+              </div>
+              <div class="weather-pill-label">
+                <span>${st.name}</span>
+              </div>
+            </div>
+          `;
+
+          const customIcon = L.divIcon({
+            className: 'weather-pill-container',
+            html: iconHtml,
+            iconSize: [60, 44],
+            iconAnchor: [30, 22]
+          });
+
+          const marker = L.marker([st.lat, st.lng], { icon: customIcon });
+          markerLayerGroup.addLayer(marker);
+        });
+        return;
+      }
+
+      // --- MODE C: REGULAR WEATHER STATIONS (17 STATIONS) ---
       const isWindMetric = ['wind_speed', 'gust_speed', 'wind_dir'].includes(currentMetric);
 
       Object.keys(STATION_COORDS).forEach(name => {
@@ -1249,8 +1549,6 @@
           rawVal = data.wbgt !== undefined ? data.wbgt : estimate_wbgt_kmh(data.temp_now, data.humidity, data.wind_speed, latestUvi || 0.0);
         } else if (currentMetric === 'temp_diff_24h') {
           rawVal = data.temp_diff_24h;
-        } else if (currentMetric === 'rain_24h') {
-          rawVal = data.rain_24h !== undefined ? data.rain_24h : data.rain_d;
         } else if (currentMetric === 'uv_index') {
           rawVal = data.uv_index !== undefined ? data.uv_index : latestUvi;
         }
@@ -1262,8 +1560,6 @@
                               .replace("東亞運大馬路", "東亞運")
                               .replace("跨海大橋", "");
 
-        let iconHtml = '';
-
         if (currentMetric === 'wind_dir') {
           const spd = data.wind_speed || 0;
           const dir = data.wind_dir || 'N';
@@ -1272,7 +1568,7 @@
           const [windBarbColor] = get_wind_style(spd);
           const barbSvg = generateWindBarbSvg(spd, deg, windBarbColor);
 
-          iconHtml = `
+          const iconHtml = `
             <div class="weather-pill" onclick="handleMapStationClick('${name}')">
               ${barbSvg}
               <div class="weather-pill-label" style="margin-top: 1px;">
@@ -1303,7 +1599,7 @@
           }
         }
 
-        iconHtml = `
+        const iconHtml = `
           <div class="weather-pill" onclick="handleMapStationClick('${name}')">
             <div class="weather-pill-badge" style="background-color: ${bgColor}; color: ${fontColor};">
               <span>${displayVal}</span>
@@ -1333,6 +1629,30 @@
       const colorBar = document.getElementById('legendColorBar');
       colorBar.className = "flex flex-col gap-1 text-[10px] font-mono-num font-semibold w-full";
       
+      if (config.id === 'mode_flood') {
+        colorBar.innerHTML = `
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#0F172A"></span><span>≥ 2.50m 黑色風暴潮</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#DC2626"></span><span>1.50 - 2.49m 紅色風暴潮</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#EA580C"></span><span>1.00 - 1.49m 橙色風暴潮</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#CA8A04"></span><span>0.50 - 0.99m 黃色風暴潮</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#0284C7"></span><span>0.01 - 0.49m 藍色風暴潮</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#64748B"></span><span>0.00m 正常水位</span></div>
+        `;
+        return;
+      }
+
+      if (config.id === 'mode_aqi') {
+        colorBar.innerHTML = `
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#16A34A"></span><span>0 - 50 良好</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#CA8A04"></span><span>51 - 100 普通</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#D97706"></span><span>101 - 200 不良</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#EA580C"></span><span>201 - 300 非常不良</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#DC2626"></span><span>301 - 400 嚴重</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#991B1B"></span><span>401 - 500 有害</span></div>
+        `;
+        return;
+      }
+
       if (['temp_now', 'apparent', 'temp_max', 'temp_min'].includes(config.id)) {
         colorBar.innerHTML = `
           <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full" style="background:#800020"></span><span>≥ 37.5°C 極為酷熱</span></div>
@@ -1378,7 +1698,7 @@
           <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#8BC34A"></span><span>0.1 - 9.9 mm 雨</span></div>
           <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#64748B"></span><span>0 mm 無雨</span></div>
         `;
-      } else if (['rain_d', 'rain_24h'].includes(config.id)) {
+      } else if (config.id === 'rain_d') {
         colorBar.innerHTML = `
           <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#000000"></span><span>≥ 350 mm</span></div>
           <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#800020"></span><span>200.0 - 349.9 mm</span></div>
@@ -1421,9 +1741,20 @@
       const container = document.getElementById('metricTabsContainer');
       container.innerHTML = METRIC_CONFIGS.map(m => {
         const isActive = m.id === currentMetric;
-        const activeCls = isActive
-          ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/25'
-          : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700';
+        let activeCls;
+        if (m.id === 'mode_flood') {
+          activeCls = isActive
+            ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/25 ring-2 ring-cyan-400'
+            : 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-500/25 border border-cyan-500/30';
+        } else if (m.id === 'mode_aqi') {
+          activeCls = isActive
+            ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/25 ring-2 ring-amber-400'
+            : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25 border border-amber-500/30';
+        } else {
+          activeCls = isActive
+            ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/25'
+            : 'bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700';
+        }
         return `
           <button onclick="changeActiveMetric('${m.id}')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap ${activeCls}">
             <i class="fa-solid ${m.icon} text-[11px]"></i>
@@ -1439,8 +1770,16 @@
       updateMapPillMarkers();
     }
 
+    function handleMapFloodClick(code, name) {
+      openImageModal(`flood/images/${code}.png`, `${name} (${code}) 水位趨勢圖`);
+    }
+
+    function handleMapAqiClick(code, name) {
+      openImageModal(`AQI/images/${code}.png`, `${name} (${code}) 24小時空氣質素指數 AQI 趨勢`);
+    }
+
     // =========================================================================
-    // REQUIREMENT 2 & 3: FAST CONCURRENT LOADING + STRICT RECENT 24H SQL WINDOW
+    // SQLITE ENGINE
     // =========================================================================
     async function initSqliteEngine() {
       const statusEl = document.getElementById('dbStatusBadge');
@@ -1456,7 +1795,6 @@
         dbInstance = new SQL.Database(new Uint8Array(buf));
         isDbReady = true;
 
-        // Obtain latest timestamp to enforce exact 24-hour cutoff
         try {
           const tsRes = dbInstance.exec("SELECT timestamp FROM weather_history ORDER BY timestamp DESC LIMIT 1");
           if (tsRes.length && tsRes[0].values.length) {
@@ -1471,7 +1809,7 @@
         if (statusEl) {
           statusEl.innerHTML = `
             <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1"></span>
-            <span class="text-[10px] font-mono-num text-emerald-600 dark:text-emerald-400 font-bold">SQLite 在線 (24H)</span>
+            <span class="text-[10px] font-mono-num text-emerald-600 dark:text-emerald-400 font-bold">歷史庫在線 (24H)</span>
           `;
         }
 
@@ -1501,11 +1839,9 @@
       }
     }
 
-    // REQUIREMENT 3: ALL SQLite only need the recent 24 hours, before no need to plot
     function queryStationHistory(stationName) {
       if (!dbInstance || !isDbReady) return [];
-
-      const cutoffTimestamp = dbLatestTimestamp - 86400; // Strict 24 hours window
+      const cutoffTimestamp = dbLatestTimestamp - 86400;
 
       let hasUvTable = false;
       try {
@@ -1593,7 +1929,7 @@
     }
 
     // =========================================================================
-    // REQUIREMENT 5 & INTERACTION: 極端氣象預警 (EXTREME WEATHER ALERTS)
+    // EXTREME ALERTS RIBBON (WEATHER + FLOOD SURGE + TIDE + AQI)
     // =========================================================================
     function evaluateAlertRibbon() {
       const ribbonContainer = document.getElementById('alertRibbonContainer');
@@ -1604,7 +1940,7 @@
 
       const stations = (weatherData && weatherData.stations) ? weatherData.stations : {};
 
-      // 1. 氣溫 (map metric: temp_now)
+      // 1. Weather rules
       const tempRules = [
         { label: '極為酷熱', bg: '#FEE2E2', test: v => v >= 37.5, unit: '°C', mapMetric: 'temp_now' },
         { label: '非常酷熱', bg: '#FFEDD5', test: v => v >= 35.5 && v < 37.5, unit: '°C', mapMetric: 'temp_now' },
@@ -1614,7 +1950,6 @@
         { label: '極為寒冷', bg: '#EDE9FE', test: v => v < 3.5, unit: '°C', mapMetric: 'temp_now' }
       ];
 
-      // 2. 體感 (map metric: apparent)
       const apparentRules = [
         { label: '極為酷熱', bg: '#FEE2E2', test: v => v >= 37.5, unit: '°C', mapMetric: 'apparent' },
         { label: '非常酷熱', bg: '#FFEDD5', test: v => v >= 35.5 && v < 37.5, unit: '°C', mapMetric: 'apparent' },
@@ -1622,14 +1957,12 @@
         { label: '極為寒冷', bg: '#EDE9FE', test: v => v < 3.5, unit: '°C', mapMetric: 'apparent' }
       ];
 
-      // 3. 暑熱 (map metric: wbgt)
       const wbgtRules = [
         { label: '極危', bg: '#FEE2E2', test: v => v >= 32.5, unit: '', mapMetric: 'wbgt' },
         { label: '危險', bg: '#FFEDD5', test: v => v >= 30.5 && v < 32.5, unit: '', mapMetric: 'wbgt' },
         { label: '警戒', bg: '#FEF3C7', test: v => v >= 29.5 && v < 30.5, unit: '', mapMetric: 'wbgt' }
       ];
 
-      // 4. 風速 (map metric: wind_speed)
       const windRules = [
         { label: '颶風', bg: '#FEE2E2', test: v => v >= 117.5, unit: 'km/h', mapMetric: 'wind_speed' },
         { label: '暴風', bg: '#FFEDD5', test: v => v >= 87.5 && v < 117.5, unit: 'km/h', mapMetric: 'wind_speed' },
@@ -1637,7 +1970,6 @@
         { label: '強風', bg: '#E0F2FE', test: v => v >= 40.5 && v < 62.5, unit: 'km/h', mapMetric: 'wind_speed' }
       ];
 
-      // 5. 陣風 (map metric: gust_speed)
       const gustRules = [
         { label: '颶陣', bg: '#FEE2E2', test: v => v >= 117.5, unit: 'km/h', mapMetric: 'gust_speed' },
         { label: '暴陣', bg: '#FFEDD5', test: v => v >= 87.5 && v < 117.5, unit: 'km/h', mapMetric: 'gust_speed' },
@@ -1645,14 +1977,13 @@
         { label: '強陣', bg: '#E0F2FE', test: v => v >= 40.5 && v < 62.5, unit: 'km/h', mapMetric: 'gust_speed' }
       ];
 
-      // 6. 降雨 (map metric: rain_h)
       const rainRules = [
         { label: '大暴雨', bg: '#EDE9FE', test: v => v >= 100.0, unit: 'mm', mapMetric: 'rain_h' },
         { label: '暴雨',   bg: '#FEE2E2', test: v => v >= 50.0 && v < 100.0, unit: 'mm', mapMetric: 'rain_h' },
         { label: '大雨',   bg: '#DBEAFE', test: v => v >= 20.0 && v < 50.0, unit: 'mm', mapMetric: 'rain_h' }
       ];
 
-      function buildElementAlerts(categoryTitle, rules, extractor) {
+      function buildWeatherSection(categoryTitle, rules, extractor) {
         const rows = [];
         rules.forEach(rule => {
           const matched = [];
@@ -1672,51 +2003,132 @@
               label: rule.label,
               count: matched.length,
               stationsText: matched.join(', '),
-              mapMetric: rule.mapMetric
+              actionType: 'metric',
+              targetId: rule.mapMetric
             });
           }
         });
-
         if (rows.length === 0) return null;
-
-        return {
-          title: categoryTitle,
-          rows: rows
-        };
+        return { title: categoryTitle, rows };
       }
 
       const alertSections = [
-        buildElementAlerts('氣溫', tempRules, d => d.temp_now),
-        buildElementAlerts('體感', apparentRules, d => d.apparent !== undefined ? d.apparent : calculate_apparent_temperature(d.temp_now, d.humidity, d.wind_speed)),
-        buildElementAlerts('暑熱', wbgtRules, d => d.wbgt !== undefined ? d.wbgt : estimate_wbgt_kmh(d.temp_now, d.humidity, d.wind_speed, latestUvi || 0.0)),
-        buildElementAlerts('風速', windRules, d => d.wind_speed),
-        buildElementAlerts('陣風', gustRules, d => d.gust_speed),
-        buildElementAlerts('降雨', rainRules, d => d.rain_h)
+        buildWeatherSection('氣溫', tempRules, d => d.temp_now),
+        buildWeatherSection('體感', apparentRules, d => d.apparent !== undefined ? d.apparent : calculate_apparent_temperature(d.temp_now, d.humidity, d.wind_speed)),
+        buildWeatherSection('暑熱', wbgtRules, d => d.wbgt !== undefined ? d.wbgt : estimate_wbgt_kmh(d.temp_now, d.humidity, d.wind_speed, latestUvi || 0.0)),
+        buildWeatherSection('風速', windRules, d => d.wind_speed),
+        buildWeatherSection('陣風', gustRules, d => d.gust_speed),
+        buildWeatherSection('降雨', rainRules, d => d.rain_h)
       ].filter(Boolean);
 
+      // 2. Flood Surge alerts
+      const floodRules = [
+        { label: '黑色風暴潮', bg: '#CBD5E1', min: 2.5,  max: 99.0 },
+        { label: '紅色風暴潮', bg: '#FEE2E2', min: 1.5,  max: 2.499 },
+        { label: '橙色風暴潮', bg: '#FFEDD5', min: 1.0,  max: 1.499 },
+        { label: '黃色風暴潮', bg: '#FEF9C3', min: 0.5,  max: 0.999 },
+        { label: '藍色風暴潮', bg: '#E0F2FE', min: 0.01, max: 0.499 }
+      ];
+
+      const floodMatchedRows = [];
+      const fStations = (floodData && floodData.stations) ? floodData.stations : {};
+
+      floodRules.forEach(r => {
+        const matched = [];
+        FLOOD_POINT_LIST.forEach(st => {
+          const info = fStations[st.code] || {};
+          const w = info.water_level;
+          if (w !== null && w !== undefined && !isNaN(w) && w >= r.min && w <= r.max) {
+            matched.push(`${st.name} (${parseFloat(w).toFixed(2)}m)`);
+          }
+        });
+
+        if (matched.length > 0) {
+          floodMatchedRows.push({
+            bg: r.bg,
+            label: r.label,
+            count: matched.length,
+            stationsText: matched.join(', '),
+            actionType: 'flood'
+          });
+        }
+      });
+
+      if (floodMatchedRows.length > 0) {
+        alertSections.push({ title: '風暴潮水位', rows: floodMatchedRows });
+      }
+
+      // 3. Tide alert: >= 3.10 m
+      if (tideData && tideData.tide_m !== null && !isNaN(tideData.tide_m) && tideData.tide_m >= 3.10) {
+        alertSections.push({
+          title: '實時天文潮',
+          rows: [{
+            bg: '#FEE2E2',
+            label: '天文潮警戒',
+            count: 1,
+            stationsText: `海事及水務局實時潮高 ${tideData.tide_m.toFixed(2)}m (≥3.10m 警戒線)`,
+            actionType: 'flood'
+          }]
+        });
+      }
+
+      // 4. AQI alerts: >= 101
+      const aqiRules = [
+        { label: '有害',     bg: '#FCE7F3', min: 401, max: 5000 },
+        { label: '嚴重',     bg: '#FEE2E2', min: 301, max: 400.99 },
+        { label: '非常不良', bg: '#FFEDD5', min: 201, max: 300.99 },
+        { label: '不良',     bg: '#FEF08A', min: 101, max: 200.99 }
+      ];
+
+      const aqiMatchedRows = [];
+      const aqiStations = (aqiData && aqiData.stations) ? aqiData.stations : {};
+
+      aqiRules.forEach(r => {
+        const matched = [];
+        AQI_STATION_LIST.forEach(st => {
+          const info = aqiStations[st.code] || {};
+          const q = info.aqi;
+          if (q !== null && q !== undefined && !isNaN(q) && q >= r.min && q <= r.max) {
+            matched.push(`${st.name} (AQI: ${Math.round(q)})`);
+          }
+        });
+
+        if (matched.length > 0) {
+          aqiMatchedRows.push({
+            bg: r.bg,
+            label: r.label,
+            count: matched.length,
+            stationsText: matched.join(', '),
+            actionType: 'aqi'
+          });
+        }
+      });
+
+      if (aqiMatchedRows.length > 0) {
+        alertSections.push({ title: '空氣質素', rows: aqiMatchedRows });
+      }
+
+      // Render ribbon
       if (alertSections.length === 0) {
         ribbonBadge.className = "px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold font-mono-num text-[11px] flex items-center gap-1.5";
-        ribbonBadgeText.innerText = "氣象正常";
+        ribbonBadgeText.innerText = "氣象環境正常";
         if (toggleBtn) toggleBtn.classList.add('hidden');
         ribbonContainer.innerHTML = `
           <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium py-1">
             <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>全澳所有氣象站各要素均處於正常常規區間，無極端氣象預警。</span>
+            <span>氣象各要素、風暴潮水位（全部 ≤0.00m）、潮位（<3.10m）及空氣質素（AQI 良好/普通）均處於常規區間。</span>
           </div>
         `;
         return;
       }
 
-      // Variable name display without 'x項觸發'
       const triggeredVariables = alertSections.map(s => s.title).join('、');
       ribbonBadge.className = "px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-bold font-mono-num text-[11px] flex items-center gap-1.5 animate-pulse";
       ribbonBadgeText.innerText = triggeredVariables;
 
       if (toggleBtn) toggleBtn.classList.remove('hidden');
 
-      // Requirement 1 & 3: Pill click switches the map metric cleanly
       if (!isAlertRibbonExpanded) {
-        // Contracted (Collapsed) View
         ribbonContainer.innerHTML = `
           <div class="flex items-center gap-2 flex-wrap py-0.5">
             ${alertSections.map(sec => `
@@ -1725,10 +2137,10 @@
                 <div class="flex items-center gap-1">
                   ${sec.rows.map(r => `
                     <button 
-                      onclick="handleAlertPillClick('${r.mapMetric}')" 
+                      onclick="handleAlertPillClick('${r.actionType}', '${r.targetId || ''}')" 
                       class="px-2 py-0.5 rounded text-slate-900 font-semibold font-sans border border-black/10 hover:opacity-80 active:scale-95 transition shadow-xs cursor-pointer text-[10px]" 
                       style="background-color: ${r.bg};"
-                      title="點擊切換地圖至此要素">
+                      title="點擊前往檢視">
                       ${r.label}(${r.count})
                     </button>
                   `).join('')}
@@ -1738,7 +2150,6 @@
           </div>
         `;
       } else {
-        // Expanded View
         ribbonContainer.innerHTML = alertSections.map(sec => `
           <div class="w-full flex flex-col gap-1 py-1 border-b border-slate-200/50 dark:border-slate-800/80 last:border-b-0">
             <div class="text-[11px] font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -1749,10 +2160,10 @@
               ${sec.rows.map(r => `
                 <div class="flex items-center gap-2 text-xs flex-wrap">
                   <button 
-                    onclick="handleAlertPillClick('${r.mapMetric}')" 
+                    onclick="handleAlertPillClick('${r.actionType}', '${r.targetId || ''}')" 
                     class="px-2 py-0.5 rounded-md text-slate-900 font-semibold font-sans border border-black/10 shadow-xs hover:opacity-80 active:scale-95 transition cursor-pointer" 
                     style="background-color: ${r.bg};"
-                    title="點擊切換地圖至此要素">
+                    title="點擊前往檢視">
                     ${r.label} (${r.count})
                   </button>
                   <span class="font-mono text-slate-700 dark:text-slate-300 font-normal">${r.stationsText}</span>
@@ -1764,6 +2175,183 @@
       }
     }
 
+    // =========================================================================
+    // SECTION 2: FLOOD & TIDE RENDERERS
+    // =========================================================================
+    function renderFloodAndTideSection() {
+      // 1. Tide Information
+      const tValM = document.getElementById('tideValM');
+      const tValCm = document.getElementById('tideValCm');
+      const tTime = document.getElementById('tideUpdateTimeLabel');
+      const tBadge = document.getElementById('tideAlertBadge');
+
+      if (tideData && tideData.tide_m !== null && !isNaN(tideData.tide_m)) {
+        tValM.innerText = tideData.tide_m.toFixed(2);
+        tValCm.innerText = tideData.tide_cm !== null ? Math.round(tideData.tide_cm) : (tideData.tide_m * 100).toFixed(0);
+        tTime.innerText = tideData.update_time || '--';
+
+        if (tideData.tide_m >= 3.10) {
+          tBadge.className = "px-2 py-0.5 rounded font-bold text-[11px] bg-rose-500 text-white animate-pulse";
+          tBadge.innerText = "高潮警戒 (≥3.10m)";
+        } else {
+          tBadge.className = "px-2 py-0.5 rounded font-bold text-[11px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30";
+          tBadge.innerText = "潮位正常";
+        }
+      } else {
+        tValM.innerText = '--';
+        tValCm.innerText = '--';
+        tTime.innerText = '--';
+        tBadge.innerText = '等待數據';
+      }
+
+      // 2. 19 Stations Summary Table
+      const fTbody = document.getElementById('floodStationsTableBody');
+      const fTimeEl = document.getElementById('floodTableUpdateTime');
+      fTimeEl.innerText = floodData.system_pubdate ? `系統發布：${floodData.system_pubdate}` : '';
+
+      fTbody.innerHTML = FLOOD_POINT_LIST.map(st => {
+        const info = (floodData.stations && floodData.stations[st.code]) || {};
+        const w = info.water_level;
+        const [bgColor, fontColor, label] = get_flood_style_and_label(w);
+        const wDisplay = (w !== null && w !== undefined && !isNaN(w)) ? `${parseFloat(w).toFixed(2)}` : '--';
+        const recTime = info.record_time || info.RecordTime || floodData.system_pubdate || '--';
+
+        return `
+          <tr class="hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
+            <td class="py-2.5 px-2.5 font-sans font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full" style="background-color: ${bgColor}"></span>
+              <span>${st.name}</span>
+            </td>
+            <td class="py-2.5 px-2.5 font-mono text-cyan-600 dark:text-cyan-400 font-bold">${st.code}</td>
+            <td class="py-2.5 px-2.5 font-bold text-slate-800 dark:text-slate-100">${wDisplay}</td>
+            <td class="py-2.5 px-2.5">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background-color:${bgColor}; color:${fontColor};">
+                ${label}
+              </span>
+            </td>
+            <td class="py-2.5 px-2.5 font-mono text-slate-500">${recTime}</td>
+            <td class="py-2.5 px-2.5 text-center">
+              <button onclick="openImageModal('flood/images/${st.code}.png', '${st.name} (${st.code}) 水位趨勢')" class="px-2 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white rounded-lg text-[10px] font-bold transition">
+                <i class="fa-solid fa-chart-line mr-1"></i>看圖
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // 3. 19 Stations Graph Gallery Grid
+      const fGrid = document.getElementById('floodGalleryGrid');
+      fGrid.innerHTML = FLOOD_POINT_LIST.map(st => {
+        const p = `flood/images/${st.code}.png`;
+        const title = `${st.name} (${st.code}) 水位趨勢`;
+        return `
+          <div class="glass-surface-elevated p-3.5 rounded-2xl space-y-2 transition hover:shadow-lg">
+            <div class="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-800">
+              <span class="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">${title}</span>
+              <span class="text-[10px] text-slate-400 font-mono-num flex items-center gap-1">
+                <i class="fa-solid fa-hand-pointer text-[9px]"></i> 放大
+              </span>
+            </div>
+            <div class="flex justify-center bg-slate-200/40 dark:bg-slate-900/90 p-2 rounded-xl min-h-[190px] items-center relative">
+              <img data-origin-src="${p}" src="${p}?t=${Date.now()}" alt="${title}" class="expandable-image max-h-[260px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '${title}')" onerror="handleImageError(this, '${p}')">
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // SECTION 3: AQI RENDERERS
+    // =========================================================================
+    function renderAqiSection() {
+      document.getElementById('aqiSectionUpdateTime').innerText = aqiData.datetime || '--';
+
+      // 1. 6 Station summary cards
+      const aqiCardsGrid = document.getElementById('aqiStationsCardsGrid');
+      aqiCardsGrid.innerHTML = AQI_STATION_LIST.map(st => {
+        const info = (aqiData.stations && aqiData.stations[st.code]) || {};
+        const q = info.aqi;
+        const [bgColor, fontColor, label] = get_aqi_style_and_label(q);
+        const qDisplay = (q !== null && q !== undefined && !isNaN(q)) ? Math.round(q) : '--';
+        const primary = info.primary_pollutant || '--';
+
+        return `
+          <div class="glass-surface-elevated p-3 rounded-2xl flex flex-col justify-between border-t-4 shadow-sm" style="border-color:${bgColor}">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-xs text-slate-900 dark:text-white truncate">${st.name}</span>
+                <span class="font-mono text-[10px] text-slate-400">${st.code}</span>
+              </div>
+              <div class="mt-2 flex items-baseline gap-1.5">
+                <span class="text-2xl font-extrabold font-mono-num" style="color:${bgColor}">${qDisplay}</span>
+                <span class="text-[10px] text-slate-400 font-sans">AQI</span>
+              </div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-800 text-[10px] flex items-center justify-between">
+              <span class="px-1.5 py-0.5 rounded font-bold" style="background-color:${bgColor}; color:${fontColor}">${label.split(' ')[0]}</span>
+              <span class="text-slate-400 font-mono truncate" title="首要污染物">${primary}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // 2. Detailed pollutants table
+      const aqiTbody = document.getElementById('aqiDetailedTableBody');
+      aqiTbody.innerHTML = AQI_STATION_LIST.map(st => {
+        const info = (aqiData.stations && aqiData.stations[st.code]) || {};
+        const conc = info.concentrations || {};
+        const q = info.aqi;
+        const [bgColor, fontColor, label] = get_aqi_style_and_label(q);
+
+        const fmt = v => (v !== null && v !== undefined && !isNaN(v)) ? parseFloat(v).toFixed(1) : '--';
+
+        return `
+          <tr class="hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
+            <td class="py-2.5 px-2.5 font-sans font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full" style="background-color: ${bgColor}"></span>
+              <span>${st.name}</span>
+            </td>
+            <td class="py-2.5 px-2.5 font-mono text-amber-600 dark:text-amber-400 font-bold">${st.code}</td>
+            <td class="py-2.5 px-2.5">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background-color:${bgColor}; color:${fontColor};">
+                ${q !== null && !isNaN(q) ? Math.round(q) : '--'} ${label.split(' ')[0]}
+              </span>
+            </td>
+            <td class="py-2.5 px-2.5 font-bold text-slate-700 dark:text-slate-300">${info.primary_pollutant || '--'}</td>
+            <td class="py-2.5 px-2.5">${fmt(conc.PM10)}</td>
+            <td class="py-2.5 px-2.5 font-semibold text-amber-600 dark:text-amber-400">${fmt(conc.PM2_5)}</td>
+            <td class="py-2.5 px-2.5">${fmt(conc.SO2)}</td>
+            <td class="py-2.5 px-2.5">${fmt(conc.NO2)}</td>
+            <td class="py-2.5 px-2.5 font-semibold text-rose-500">${fmt(conc.O3)}</td>
+            <td class="py-2.5 px-2.5">${fmt(conc.CO)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // 3. 6 AQI Graphs Grid
+      const aqiGrid = document.getElementById('aqiGalleryGrid');
+      aqiGrid.innerHTML = AQI_STATION_LIST.map(st => {
+        const p = `AQI/images/${st.code}.png`;
+        const title = `${st.name} (${st.code}) 空氣質素指數趨勢`;
+        return `
+          <div class="glass-surface-elevated p-3.5 rounded-2xl space-y-2 transition hover:shadow-lg">
+            <div class="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-800">
+              <span class="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">${title}</span>
+              <span class="text-[10px] text-slate-400 font-mono-num flex items-center gap-1">
+                <i class="fa-solid fa-hand-pointer text-[9px]"></i> 放大
+              </span>
+            </div>
+            <div class="flex justify-center bg-slate-200/40 dark:bg-slate-900/90 p-2 rounded-xl min-h-[190px] items-center relative">
+              <img data-origin-src="${p}" src="${p}?t=${Date.now()}" alt="${title}" class="expandable-image max-h-[260px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '${title}')" onerror="handleImageError(this, '${p}')">
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // SECTION 4, 5, 6: WEATHER GALLERY, COMPARISON, WIND INDEX
+    // =========================================================================
     function initLeafletMap() {
       leafletMap = L.map('weatherMap', {
         center: [22.170, 113.553],
@@ -1891,8 +2479,8 @@
             <span class="text-xs font-bold text-slate-800 dark:text-slate-200">${formatValue(data.wind_speed, 'wind_speed')} / ${formatValue(data.gust_speed, 'gust_speed')}</span>
           </div>
           <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
-            <span class="text-slate-400 font-sans block text-[10px]">時雨量 / 24H</span>
-            <span class="text-xs font-bold text-blue-500">${formatValue(data.rain_h ?? 0, 'rain')} / ${formatValue(data.rain_24h ?? data.rain_d ?? 0, 'rain')} mm</span>
+            <span class="text-slate-400 font-sans block text-[10px]">時雨量 / 日雨量</span>
+            <span class="text-xs font-bold text-blue-500">${formatValue(data.rain_h ?? 0, 'rain')} / ${formatValue(data.rain_d ?? 0, 'rain')} mm</span>
           </div>
           <div class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
             <span class="text-slate-400 font-sans block text-[10px]">即時風向</span>
@@ -1951,9 +2539,6 @@
       renderDrawerInteractiveChart(selectedStationForDrawer, metricKey === 'temp_diff_24h' ? 'temp' : metricKey);
     }
 
-    // =========================================================================
-    // REQUIREMENT 4: FIX FIRST-CLICK "無法載入" ERROR ON LINE CHARTS
-    // =========================================================================
     function loadDrawerDirectStaticImage(stName, metricKey) {
       const imgContainer = document.getElementById('drawerDirectStaticImg').parentElement;
       const oldPlaceholder = imgContainer.querySelector('.error-placeholder');
@@ -1970,11 +2555,9 @@
         imgPath = `static/images/line_${stName}_${metricKey}.png`;
       }
 
-      // Pre-set attributes and reset handlers before changing src
       imgEl.setAttribute('data-origin-src', imgPath);
       imgEl.style.display = 'block';
 
-      // Pre-load in background to prevent race conditions triggering false errors
       const testImg = new Image();
       testImg.onload = function() {
         imgEl.onerror = () => handleImageError(imgEl);
@@ -1999,7 +2582,6 @@
       }
     }
 
-    // REQUIREMENT 3: SQLite Interactive Chart strictly plots recent 24 hours
     function renderDrawerInteractiveChart(stName, metricKey) {
       const canvas = document.getElementById('drawerInteractiveCanvas');
       if (!canvas) return;
@@ -2196,7 +2778,6 @@
       renderMultiStationChart();
     }
 
-    // REQUIREMENT 3: Multi-Station Chart strictly bounded by 24h
     function renderMultiStationChart() {
       const canvas = document.getElementById('multiStationChartCanvas');
       if (!canvas) return;
@@ -2498,13 +3079,15 @@
 
     function switchView(viewName) {
       const mapEl = document.getElementById('viewMap');
+      const floodEl = document.getElementById('viewFloodTide');
+      const aqiEl = document.getElementById('viewAqi');
       const galEl = document.getElementById('viewGallery');
       const cmpEl = document.getElementById('viewComparison');
       const wndEl = document.getElementById('viewWindIndex');
 
-      [mapEl, galEl, cmpEl, wndEl].forEach(el => el.classList.add('hidden'));
+      [mapEl, floodEl, aqiEl, galEl, cmpEl, wndEl].forEach(el => el.classList.add('hidden'));
 
-      ['btnNavMap', 'btnNavGallery', 'btnNavCompare', 'btnNavWindIndex'].forEach(btnId => {
+      ['btnNavMap', 'btnNavFlood', 'btnNavAqi', 'btnNavGallery', 'btnNavCompare', 'btnNavWindIndex'].forEach(btnId => {
         const b = document.getElementById(btnId);
         if (b) b.className = "px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
       });
@@ -2515,6 +3098,14 @@
         mapEl.classList.remove('hidden');
         document.getElementById('btnNavMap').className = activeBtnClass;
         setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 200);
+      } else if (viewName === 'flood_tide') {
+        floodEl.classList.remove('hidden');
+        document.getElementById('btnNavFlood').className = activeBtnClass;
+        renderFloodAndTideSection();
+      } else if (viewName === 'aqi') {
+        aqiEl.classList.remove('hidden');
+        document.getElementById('btnNavAqi').className = activeBtnClass;
+        renderAqiSection();
       } else if (viewName === 'gallery') {
         galEl.classList.remove('hidden');
         document.getElementById('btnNavGallery').className = activeBtnClass;
@@ -2530,67 +3121,99 @@
       }
     }
 
-    function initEmptyWeatherData() {
+    function initEmptyDataStructures() {
       const stations = {};
       Object.keys(STATION_COORDS).forEach(st => {
         stations[st] = {
-          temp_now: null,
-          temp_max: null,
-          temp_min: null,
-          temp_diff_24h: null,
-          humidity: null,
-          wind_speed: null,
-          gust_speed: null,
-          wind_dir: '--',
-          rain_h: null,
-          rain_d: null,
-          rain_24h: null,
-          pressure: null,
-          uv_index: null
+          temp_now: null, temp_max: null, temp_min: null, temp_diff_24h: null,
+          humidity: null, wind_speed: null, gust_speed: null, wind_dir: '--',
+          rain_h: null, rain_d: null, pressure: null, uv_index: null
         };
       });
-      return {
-        update_time: '--',
-        stations: stations
-      };
+      weatherData = { update_time: '--', stations };
+
+      const fStations = {};
+      FLOOD_POINT_LIST.forEach(p => {
+        fStations[p.code] = { station_code: p.code, station_name: p.name, water_level: null, record_time: '--' };
+      });
+      floodData = { system_pubdate: '--', timestamp: 0, stations: fStations };
+
+      const aStations = {};
+      AQI_STATION_LIST.forEach(a => {
+        aStations[a.code] = { station_code: a.code, station_name: a.name, aqi: null, primary_pollutant: '--' };
+      });
+      aqiData = { datetime: '--', timestamp: 0, stations: aStations };
     }
 
-    // REQUIREMENT 2: Fast concurrent data loading
-    async function loadWeatherData() {
-      try {
-        const res = await fetch(`weather_data.json?t=${Date.now()}`);
-        if (res.ok) {
-          const data = await res.json();
-          weatherData = data;
-          const upTime = data.update_time || '--';
-          document.getElementById('headerUpdateTime').innerText = upTime;
-          document.getElementById('mapUpdateTimeLabel').innerText = upTime;
-        } else {
-          weatherData = initEmptyWeatherData();
-          document.getElementById('headerUpdateTime').innerText = '未連線';
-          document.getElementById('mapUpdateTimeLabel').innerText = '等待數據';
-        }
-      } catch (e) {
-        weatherData = initEmptyWeatherData();
-        document.getElementById('headerUpdateTime').innerText = '暫無連線';
-        document.getElementById('mapUpdateTimeLabel').innerText = '連線異常';
-      }
+    // =========================================================================
+    // PARALLEL DATA FETCHING (WEATHER, FLOOD, TIDE, AQI)
+    // =========================================================================
+    async function loadAllDatasets() {
+      // 1. Weather Data JSON
+      const pWeather = fetch(`weather_data.json?t=${Date.now()}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) {
+            weatherData = data;
+            const upTime = data.update_time || '--';
+            document.getElementById('headerUpdateTime').innerText = upTime;
+            document.getElementById('mapUpdateTimeLabel').innerText = upTime;
+            if (data.stations && data.stations['大潭山'] && data.stations['大潭山'].uv_index !== undefined) {
+              latestUvi = Math.round(data.stations['大潭山'].uv_index);
+            }
+          }
+        })
+        .catch(() => {});
 
-      if (weatherData.stations && weatherData.stations['大潭山'] && weatherData.stations['大潭山'].uv_index !== undefined) {
-        latestUvi = Math.round(weatherData.stations['大潭山'].uv_index);
-      }
+      // 2. Flood Data JSON
+      const pFlood = fetch(`flood/flooddata.json?t=${Date.now()}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && data.stations) floodData = data;
+        })
+        .catch(() => {});
+
+      // 3. Tide Data JSON
+      const pTide = fetch(`flood/tidedata.json?t=${Date.now()}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) tideData = data;
+        })
+        .catch(() => {});
+
+      // 4. AQI Data (Support both AQI/AQIdata.js and direct window.AQIData)
+      const pAqi = (async () => {
+        try {
+          if (window.AQIData && window.AQIData.stations) {
+            aqiData = window.AQIData;
+            return;
+          }
+          const res = await fetch(`AQI/AQIdata.js?t=${Date.now()}`);
+          if (res.ok) {
+            const text = await res.text();
+            const jsonPart = text.replace(/^window\.AQIData\s*=\s*/, '').replace(/;\s*$/, '');
+            aqiData = JSON.parse(jsonPart);
+          }
+        } catch (e) {}
+      })();
+
+      await Promise.all([pWeather, pFlood, pTide, pAqi]);
 
       updateMapPillMarkers();
       calculateAndDisplayWindIndex();
       evaluateAlertRibbon();
+      renderFloodAndTideSection();
+      renderAqiSection();
     }
 
     async function refreshData() {
       const icon = document.getElementById('refreshSpinIcon');
       icon.classList.add('fa-spin');
       
-      // Parallel fast fetch
-      await Promise.all([loadWeatherData(), initSqliteEngine()]);
+      await Promise.all([
+        loadAllDatasets(),
+        initSqliteEngine()
+      ]);
 
       calculateAndDisplayWindIndex();
       initGalleryOptions();
@@ -2600,14 +3223,13 @@
     }
 
     window.addEventListener('load', async () => {
-      weatherData = initEmptyWeatherData();
+      initEmptyDataStructures();
       renderMetricTabs();
       initLeafletMap();
       initComparisonControls();
 
-      // Parallel execution for maximum speed
       await Promise.all([
-        loadWeatherData(),
+        loadAllDatasets(),
         initSqliteEngine()
       ]);
 
