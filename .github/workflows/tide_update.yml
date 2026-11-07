@@ -1,52 +1,4 @@
-name: Macau Tide Auto Sync & Render
-
-on:
-  schedule:
-    - cron: '15 */5 * * *'
-  workflow_dispatch:
-
-env:
-  TZ: Asia/Macau
-
-concurrency:
-  group: tide-render-sync
-  cancel-in-progress: false
-
-jobs:
-  tide-loop:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
-
-    steps:
-      - name: 檢出主分支代碼
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: 配置 Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: 安裝中文字體依賴
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends fonts-wqy-microhei fontconfig
-          fc-cache -fv
-          rm -rf ~/.cache/matplotlib
-
-      - name: 安裝 uv 極速套件管理器
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: 安裝 Python 核心庫
-        run: |
-          uv pip install --system requests pandas numpy matplotlib
-
-      - name: 執行 4.5 小時常駐循環 (每 1 分鐘抓取更新一次)
+- name: 執行 4.5 小時常駐循環 (每 1 分鐘抓取更新一次)
         run: |
           NOW=$(date +%s)
           END_TIME=$((NOW + 16200))
@@ -55,9 +7,9 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          while [ $(date +\%s) -lt$END_TIME ]; do
+          while [ $(date +%s) -lt $END_TIME ]; do
             echo "=========================================================="
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] 開始執行 DSAMA 實時潮汐同步..."
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] 開始執行同步..."
             echo "=========================================================="
 
             cd "$GITHUB_WORKSPACE"
@@ -66,7 +18,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # 2. 拉取 gh-pages 分支歷史資料庫，維持時序連續性
+            # 2. 拉取 gh-pages 分支歷史資料庫
             mkdir -p flood/images
             rm -rf /tmp/gh-pages-tide-fetch
             if git clone --depth 1 --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/gh-pages-tide-fetch 2>/dev/null; then
@@ -74,25 +26,68 @@ jobs:
               rm -rf /tmp/gh-pages-tide-fetch
             fi
 
-            # 3. 執行潮汐核心腳本
+            # 3. 執行核心腳本並攔截狀態碼
             set +e
             python tide_app.py
             APP_STATUS=$?
             set -e
 
             if [ $APP_STATUS -eq 2 ]; then
-              echo "⏭️ 潮汐數據未推進，跳過 gh-pages 發布，等待 1 分鐘..."
+              echo "⏭️ 數據未推進，跳過 gh-pages 發布，等待 1 分鐘..."
               sleep $INTERVAL
               continue
             elif [ $APP_STATUS -ne 0 ]; then
-              echo "⚠️ 潮汐同步異常 (Exit Code: $APP_STATUS)，等待 1 分鐘後重試..."
+              echo "⚠️ 同步異常 (Exit Code: $APP_STATUS)，等待 1 分鐘後重試..."
               sleep $INTERVAL
               continue
             fi
 
             # 4. 同步更新發布至 gh-pages
-            echo "準備同步潮汐檔案至 gh-pages..."
+            echo "準備同步檔案至 gh-pages..."
             rm -rf /tmp/gh-pages-deploy
+            REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+            if ! git clone --single-branch --branch gh-pages "$REPO_URL" /tmp/gh-pages-deploy 2>/dev/null; then
+              mkdir -p /tmp/gh-pages-deploy
+              cd /tmp/gh-pages-deploy
+              git init
+              git checkout -b gh-pages
+            fi
+
+            cd /tmp/gh-pages-deploy
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            mkdir -p flood/images
+            cp -f "$GITHUB_WORKSPACE/flood/tidedata.json" ./flood/ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/flood/tidehistory.db" ./flood/ 2>/dev/null || true
+            cp -f "$GITHUB_WORKSPACE/flood/images/tide.png" ./flood/images/ 2>/dev/null || true
+
+            git add flood/tidedata.json flood/tidehistory.db flood/images/tide.png
+            if git diff-index --quiet HEAD 2>/dev/null; then
+              echo "檔案無實質變更，跳過本次提交。"
+            else
+              git commit -m "Auto Update: $(date '+%Y-%m-%d %H:%M:%S') [Macau DSAMA Tide Sync]"
+
+              PUSH_SUCCESS=false
+              for retry in 1 2 3; do
+                git pull --rebase origin gh-pages 2>/dev/null || true
+                if git push "$REPO_URL" gh-pages; then
+                  PUSH_SUCCESS=true
+                  break
+                fi
+                echo "⚠️ 推送衝突，等待 3 秒重試..."
+                sleep 3
+              done
+
+              if [ "$PUSH_SUCCESS" = false ]; then
+                echo "❌ 推送失敗，將於下個週期重試。"
+              fi
+            fi
+
+            cd "$GITHUB_WORKSPACE"
+            rm -rf /tmp/gh-pages-deploy
+
             echo "更新完畢，等待 1 分鐘..."
             sleep $INTERVAL
           done
