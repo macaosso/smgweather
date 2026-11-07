@@ -41,6 +41,7 @@ API_HEADERS = {
 GRID_BORDER_COLOR = '#8DA59A'
 TEXT_COLOR = '#334155'
 LINE_COLOR = '#0284C7'
+ALERT_LINE_COLOR = '#EF4444'
 
 # ==========================================
 # 資料庫管理
@@ -163,7 +164,7 @@ def insert_nans_on_gap(df, col, max_gap_minutes=25):
     return pd.DataFrame(new_rows).reset_index(drop=True)
 
 # ==========================================
-# 繪製 24 小時潮位時序趨勢圖
+# 繪製 24 小時潮位時序趨勢圖 (含 3.1m 紅線)
 # ==========================================
 def render_tide_chart(latest_info):
     conn = sqlite3.connect(DB_PATH, timeout=10)
@@ -185,14 +186,13 @@ def render_tide_chart(latest_info):
     df_24h = df[df['datetime'] >= x_start]
     valid_series = df_24h['record_tide_m'].dropna() if not df_24h.empty else df['record_tide_m'].dropna()
 
+    # 計算動態 Y 軸刻度，並確保 plot_ymax 至少容納 3.1m 紅線
     if not valid_series.empty:
         data_min = valid_series.min()
-        data_max = valid_series.max()
+        data_max = max(valid_series.max(), 3.1)
         v_range = data_max - data_min
 
-        if v_range < 0.4:
-            step = 0.05
-        elif v_range < 1.0:
+        if v_range < 0.8:
             step = 0.1
         elif v_range < 2.0:
             step = 0.2
@@ -200,16 +200,24 @@ def render_tide_chart(latest_info):
             step = 0.5
 
         plot_ymin = max(0.0, np.floor((data_min - 0.05) / step) * step)
-        plot_ymax = np.ceil((data_max + 0.05) / step) * step
+        plot_ymax = np.ceil((data_max + 0.1) / step) * step
         if plot_ymin >= plot_ymax:
             plot_ymax = plot_ymin + step * 2
     else:
-        plot_ymin, plot_ymax, step = 0.0, 3.0, 0.5
+        plot_ymin, plot_ymax, step = 0.0, 3.5, 0.5
 
     fig, ax = plt.subplots(figsize=(15, 6.5), dpi=120)
     fig.patch.set_facecolor('white')
     ax.set_facecolor('white')
 
+    # 1. 繪製 3.1m 紅色警戒線
+    if plot_ymin <= 3.1 <= plot_ymax:
+        ax.axhline(3.1, color=ALERT_LINE_COLOR, linestyle='--', linewidth=1.4, alpha=0.9, zorder=2)
+        ax.text(x_end, 3.1, " 3.10m", color=ALERT_LINE_COLOR, va='center', ha='left', fontsize=10.5, fontweight='bold')
+        ax.text(x_start + timedelta(minutes=15), 3.13, "警戒潮位 (3.1m)", color=ALERT_LINE_COLOR, 
+                fontsize=9.5, fontweight='bold', alpha=0.9, va='bottom', zorder=2)
+
+    # 2. 潮位折線與陰影填充
     plot_df = insert_nans_on_gap(df, 'record_tide_m', max_gap_minutes=25)
     if not plot_df['record_tide_m'].dropna().empty:
         ax.plot(plot_df['datetime'], plot_df['record_tide_m'], color=LINE_COLOR, linewidth=2.2, antialiased=True, zorder=4, label='實時潮高 Real-time Tide')
@@ -218,6 +226,7 @@ def render_tide_chart(latest_info):
     else:
         ax.text(0.5, 0.5, '暫無潮位數據 No Data', transform=ax.transAxes, fontsize=18, color='gray', ha='center', va='center')
 
+    # 3. 坐標軸與動態刻度設置
     ax.set_xlim(x_start, x_end)
     ax.set_ylim(bottom=plot_ymin, top=plot_ymax)
     y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
