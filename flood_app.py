@@ -32,7 +32,7 @@ plt.rcParams['font.sans-serif'] = [
 plt.rcParams['axes.unicode_minus'] = False
 
 # ==========================================
-# 水位站警戒區間與顏色配置
+# 水位警告區間與著色階層
 # 0.5 - 1.0 yellow
 # 1.0 - 1.5 orange
 # 1.5 - 2.5 red
@@ -56,9 +56,9 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS flood_history
-                 (time_str TEXT, timestamp REAL, station_code TEXT, 
+                 (record_time TEXT, timestamp REAL, station_code TEXT, 
                   station_name TEXT, water_level REAL,
-                  PRIMARY KEY (time_str, station_code))''')
+                  PRIMARY KEY (record_time, station_code))''')
     conn.commit()
     conn.close()
 
@@ -68,7 +68,7 @@ def get_last_pubdate_from_db():
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     try:
-        c.execute("SELECT time_str FROM flood_history ORDER BY timestamp DESC LIMIT 1")
+        c.execute("SELECT record_time FROM flood_history ORDER BY timestamp DESC LIMIT 1")
         row = c.fetchone()
         return row[0] if row else ""
     except Exception:
@@ -76,22 +76,22 @@ def get_last_pubdate_from_db():
     finally:
         conn.close()
 
-def save_to_db(stations_data, pub_time_str, pub_timestamp_val):
+def save_to_db(stations_data, sys_timestamp_val):
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
-    cutoff_ts = pub_timestamp_val - (7 * 86400)
+    cutoff_ts = sys_timestamp_val - (7 * 86400)
     c.execute("DELETE FROM flood_history WHERE timestamp < ?", (cutoff_ts,))
     for code, data in stations_data.items():
-        row = (pub_time_str, pub_timestamp_val, code, 
-               data.get('station_name', code), data.get('water_level'))
+        row = (data['record_time'], data['timestamp'], code, 
+               data['station_name'], data.get('water_level'))
         c.execute('''INSERT OR REPLACE INTO flood_history 
-                     (time_str, timestamp, station_code, station_name, water_level) 
+                     (record_time, timestamp, station_code, station_name, water_level) 
                      VALUES (?, ?, ?, ?, ?)''', row)
     conn.commit()
     conn.close()
 
 # ==========================================
-# XML 資料擷取與解析 (依據實際 XML 結構)
+# XML 擷取與解析
 # ==========================================
 def fetch_smg_flood_xml():
     url = "https://xml.dsmg.gov.mo/c_ftgms.xml"
@@ -104,20 +104,17 @@ def fetch_smg_flood_xml():
         print(f"❌ 請求 SMG 水位 XML 失敗: {e}")
         return None
 
-def parse_xml_timestamp(root):
-    pub_node = root.find('.//System/SysPubdate')
-    if pub_node is None:
-        pub_node = root.find('.//SysPubdate') or root.find('.//SysPubDate')
-        
-    if pub_node is not None and pub_node.text:
-        raw_time = pub_node.text.strip()
-        for fmt in ["%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S"]:
-            try:
-                dt = datetime.strptime(raw_time, fmt).replace(tzinfo=MACAU_TZ)
-                clean_str = dt.strftime("%Y-%m-%d %H:%M")
-                return clean_str, dt.timestamp()
-            except ValueError:
-                continue
+def parse_time_to_ts(time_str):
+    if not time_str:
+        dt = datetime.now(MACAU_TZ)
+        return dt.strftime("%Y-%m-%d %H:%M"), dt.timestamp()
+    time_str = time_str.strip()
+    for fmt in ["%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S"]:
+        try:
+            dt = datetime.strptime(time_str, fmt).replace(tzinfo=MACAU_TZ)
+            return dt.strftime("%Y-%m-%d %H:%M"), dt.timestamp()
+        except ValueError:
+            continue
     fallback_dt = datetime.now(MACAU_TZ)
     return fallback_dt.strftime("%Y-%m-%d %H:%M"), fallback_dt.timestamp()
 
@@ -125,7 +122,10 @@ def parse_flood_xml(root):
     if root is None:
         return "", 0.0, {}
 
-    pub_time_str, pub_timestamp = parse_xml_timestamp(root)
+    sys_pub_node = root.find('.//System/SysPubdate')
+    sys_pub_str = sys_pub_node.text.strip() if sys_pub_node is not None and sys_pub_node.text else ""
+    sys_time_str, sys_timestamp = parse_time_to_ts(sys_pub_str)
+
     stations_data = {}
 
     def parse_float(val_str):
@@ -136,9 +136,7 @@ def parse_flood_xml(root):
         except (ValueError, TypeError):
             return None
 
-    # 針對 <WLReport><station code="..."> 結構抓取
     for st in root.findall('.//station'):
-        # 1. 優先從屬性 code 取出代碼 (如 code="LSI")，若無則降級找子標籤
         code = st.get('code')
         if not code:
             code_node = st.find('stationcode') or st.find('StationCode') or st.find('code')
@@ -149,15 +147,16 @@ def parse_flood_xml(root):
             continue
         code = code.strip()
 
-        # 2. 獲取站名
-        name_node = st.find('stationname') or st.find('StationName') or st.find('name')
+        # 1. 站名取自 <stationname>
+        name_node = st.find('stationname') or st.find('StationName')
         name = name_node.text.strip() if name_node is not None and name_node.text else code
 
-        # 3. 獲取站點記錄時間 RecordTime
-        rec_time_node = st.find('RecordTime')
-        rec_time = rec_time_node.text.strip() if rec_time_node is not None and rec_time_node.text else pub_time_str
+        # 2. 更新時間取自該站的 <RecordTime>
+        rec_time_node = st.find('RecordTime') or st.find('recordtime')
+        rec_time_raw = rec_time_node.text.strip() if rec_time_node is not None and rec_time_node.text else sys_time_str
+        rec_time_clean, rec_timestamp = parse_time_to_ts(rec_time_raw)
 
-        # 4. 提取水位數值 (Waterlevel/Value)
+        # 3. 提取水位數值
         water_val = None
         wl_node = st.find('Waterlevel') or st.find('waterlevel')
         if wl_node is not None:
@@ -165,7 +164,6 @@ def parse_flood_xml(root):
             if val_node is not None and val_node.text:
                 water_val = parse_float(val_node.text)
 
-        # 容錯降級搜尋
         if water_val is None:
             for tag in ['Value', 'value', 'waterlevel']:
                 node = st.find(f'.//{tag}')
@@ -178,11 +176,12 @@ def parse_flood_xml(root):
         stations_data[code] = {
             "station_code": code,
             "station_name": name,
-            "record_time": rec_time,
+            "record_time": rec_time_clean,
+            "timestamp": rec_timestamp,
             "water_level": water_val
         }
 
-    return pub_time_str, pub_timestamp, stations_data
+    return sys_time_str, sys_timestamp, stations_data
 
 # ==========================================
 # 繪圖斷線輔助函式
@@ -210,64 +209,80 @@ def insert_nans_on_gap(df, col, max_gap_minutes=25):
     return pd.DataFrame(new_rows).reset_index(drop=True)
 
 # ==========================================
-# 繪製各水位站趨勢圖
+# 繪製各水位站趨勢圖 (動態 Y 軸自適應各站實際數值)
 # ==========================================
-def render_flood_charts(pub_time_str, pub_timestamp):
+def render_flood_charts(current_stations_data):
     conn = sqlite3.connect(DB_PATH, timeout=10)
     df = pd.read_sql_query("SELECT * FROM flood_history ORDER BY timestamp ASC", conn)
     conn.close()
 
     if df.empty:
-        print("⚠️ flood_history 為空，略過圖表渲染。")
+        print("⚠️ flood_history 資料表為空，跳過繪圖。")
         return
 
     df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('Asia/Macau').dt.tz_localize(None)
 
-    x_end = datetime.fromtimestamp(pub_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
-    x_start = x_end - timedelta(hours=24)
-    header_update_text = f"更新時間 Update Time:{pub_time_str.replace('-', '/')}"
-
-    unique_stations = df[['station_code', 'station_name']].drop_duplicates().to_dict('records')
-
-    # 計算全站過去 24 小時動態 Y 軸刻度
-    df_24h = df[df['datetime'] >= x_start]
-    valid_levels = df_24h['water_level'].dropna() if not df_24h.empty else df['water_level'].dropna()
-    max_level = valid_levels.max() if not valid_levels.empty else 1.0
-    min_level = valid_levels.min() if not valid_levels.empty else 0.0
-
-    plot_ymin = min(0.0, np.floor(min_level * 2.0) / 2.0)
-    calc_ymax = max(1.5, np.ceil(max_level * 2.0) / 2.0 + 0.2)
-    step = 0.2 if calc_ymax <= 2.0 else 0.5
-    plot_ymax = np.ceil(calc_ymax / step) * step
-
-    for st in unique_stations:
-        st_code = st['station_code']
-        st_name = st['station_name']
+    for st_code, cur_info in current_stations_data.items():
         st_df = df[df['station_code'] == st_code].copy()
         if st_df.empty:
             continue
+
+        st_name = cur_info.get('station_name', '')
+        st_record_time = cur_info.get('record_time', '')
+        st_timestamp = cur_info.get('timestamp')
+
+        x_end = datetime.fromtimestamp(st_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
+        x_start = x_end - timedelta(hours=24)
+
+        # 篩選過去 24 小時資料以計算獨立的 Y 軸範圍
+        st_df_24h = st_df[st_df['datetime'] >= x_start]
+        valid_series = st_df_24h['water_level'].dropna() if not st_df_24h.empty else st_df['water_level'].dropna()
+
+        # 個別站點自適應動態 Y 軸 (不固定刻度)
+        if not valid_series.empty:
+            data_min = valid_series.min()
+            data_max = valid_series.max()
+            v_range = data_max - data_min
+
+            if v_range < 0.2:
+                step = 0.05
+            elif v_range < 0.6:
+                step = 0.1
+            elif v_range < 1.5:
+                step = 0.2
+            else:
+                step = 0.5
+
+            plot_ymin = np.floor((data_min - 0.05) / step) * step
+            plot_ymax = np.ceil((data_max + 0.05) / step) * step
+            if plot_ymin >= plot_ymax:
+                plot_ymax = plot_ymin + step * 2
+        else:
+            plot_ymin, plot_ymax, step = 0.0, 1.0, 0.2
+
+        header_title = f"{st_name} ({st_code}) 水位趨勢"
+        header_update_text = f"更新時間 Update Time:{st_record_time.replace('-', '/')}"
 
         fig, ax = plt.subplots(figsize=(15, 6.5), dpi=120)
         fig.patch.set_facecolor('white')
         ax.set_facecolor('white')
 
-        # 1. 著色背景警告區間
+        # 1. 警戒階層背景與文字標籤
         for low, high, bg_color, text_c, label_text in FLOOD_SPANS:
             if low < plot_ymax and high > plot_ymin:
                 eff_low = max(low, plot_ymin)
                 eff_high = min(high, plot_ymax)
                 ax.axhspan(eff_low, eff_high, facecolor=bg_color, alpha=0.35, zorder=1)
-                
-                # 門檻標籤與輔助虛線
+
                 if eff_low > plot_ymin:
                     ax.axhline(eff_low, color=text_c, linestyle='--', linewidth=0.9, alpha=0.6, zorder=2)
-                    ax.text(x_end, eff_low, f" {eff_low:.1f}m", color=text_c, va='center', ha='left', fontsize=9.5, fontweight='bold')
-                
+                    ax.text(x_end, eff_low, f" {eff_low:.2f}m", color=text_c, va='center', ha='left', fontsize=9.5, fontweight='bold')
+
                 mid_y = (eff_low + eff_high) / 2.0
                 ax.text(x_start + timedelta(minutes=15), mid_y, label_text,
                         color=text_c, fontsize=9.5, fontweight='bold', alpha=0.8, va='center', zorder=2)
 
-        # 2. 繪製折線
+        # 2. 折線與離散觀測點
         plot_df = insert_nans_on_gap(st_df, 'water_level', max_gap_minutes=25)
         if not plot_df['water_level'].dropna().empty:
             ax.plot(plot_df['datetime'], plot_df['water_level'], color=LINE_COLOR, linewidth=2.0, antialiased=True, zorder=4, label='水位 Water Level')
@@ -275,12 +290,12 @@ def render_flood_charts(pub_time_str, pub_timestamp):
         else:
             ax.text(0.5, 0.5, '暫無水位數據 No Data', transform=ax.transAxes, fontsize=18, color='gray', ha='center', va='center')
 
-        # 3. 坐標軸與刻度
+        # 3. 坐標軸與動態刻度設置
         ax.set_xlim(x_start, x_end)
         ax.set_ylim(plot_ymin, plot_ymax)
         y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
         ax.set_yticks(y_ticks)
-        ax.set_yticklabels([f"{y:.1f}m" for y in y_ticks], fontsize=13, color=LINE_COLOR, family='monospace')
+        ax.set_yticklabels([f"{y:.2f}m" for y in y_ticks], fontsize=13, color=LINE_COLOR, family='monospace')
 
         ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
         ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
@@ -304,7 +319,6 @@ def render_flood_charts(pub_time_str, pub_timestamp):
         ax.set_ylabel('水位 Water Level (m)', fontsize=15, color=LINE_COLOR, labelpad=12)
         ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
 
-        header_title = f"{st_name} ({st_code}) 水位趨勢"
         ax.text(0.0, 1.02, header_title, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
         ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
 
@@ -328,32 +342,31 @@ def main():
         print("❌ 無法取得水位 XML 數據。")
         sys.exit(1)
 
-    pub_time_str, pub_timestamp, stations_data = parse_flood_xml(root)
+    sys_time_str, sys_timestamp, stations_data = parse_flood_xml(root)
 
     if not stations_data:
         print("⚠️ XML 未包含有效的站點水位數據。")
         sys.exit(1)
 
-    if pub_time_str == last_pubdate:
-        print(f"ℹ️ DSMG 水位 XML 尚未更新 (發布時間: {pub_time_str})，跳過後續步驟。")
+    latest_rec_in_xml = max([s['record_time'] for s in stations_data.values()])
+    if latest_rec_in_xml <= last_pubdate and last_pubdate != "":
+        print(f"ℹ️ 各站水位數據尚未推進 (當前最新: {latest_rec_in_xml})，跳過後續步驟。")
         sys.exit(2)
 
-    print(f"🔔 檢測到新水位發布數據: {pub_time_str}，共解析到 {len(stations_data)} 個站點，正在處理...")
+    print(f"🔔 檢測到新數據 (最新 RecordTime: {latest_rec_in_xml})，共解析到 {len(stations_data)} 個站點，正在處理...")
     
-    # 儲存至 SQLite
-    save_to_db(stations_data, pub_time_str, pub_timestamp)
+    save_to_db(stations_data, sys_timestamp)
 
-    # 儲存至 JSON
     payload = {
-        "update_time": pub_time_str,
-        "timestamp": pub_timestamp,
+        "system_pubdate": sys_time_str,
+        "latest_record_time": latest_rec_in_xml,
+        "timestamp": sys_timestamp,
         "stations": stations_data
     }
     with open(JSON_PATH, 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
-    # 繪製各站圖片 (儲存至 flood/images/<station code>.png)
-    render_flood_charts(pub_time_str, pub_timestamp)
+    render_flood_charts(stations_data)
     print("🎉 水位同步與圖片儲存完畢。")
     sys.exit(0)
 
