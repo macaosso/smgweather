@@ -3,8 +3,15 @@
     "Station":"紀念孫中山公園",
     "Code":"DP",
     "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":2.8
+    "Current_Hourly_Rain (mm)":0.2,
+    "Past_24H_Total_Rain (mm)":3.0
+  },
+  {
+    "Station":"外港碼頭",
+    "Code":"PE",
+    "Area":"澳門半島",
+    "Current_Hourly_Rain (mm)":0.4,
+    "Past_24H_Total_Rain (mm)":2.4
   },
   {
     "Station":"大潭山",
@@ -18,13 +25,6 @@
     "Code":"EM",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":2.2
-  },
-  {
-    "Station":"外港碼頭",
-    "Code":"PE",
-    "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":0.2,
     "Past_24H_Total_Rain (mm)":2.2
   },
   {
