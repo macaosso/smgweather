@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import json
 import warnings
 from datetime import datetime, timedelta
@@ -50,7 +51,7 @@ TEXT_COLOR = '#334155'
 LINE_COLOR = '#0284C7'
 
 # ==========================================
-# 資料庫管理 (含向下相容與自動熱遷移)
+# 資料庫管理 (含向下相容與系統發布時間記錄)
 # ==========================================
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -60,11 +61,15 @@ def init_db():
                   station_name TEXT, water_level REAL,
                   PRIMARY KEY (record_time, station_code))''')
     
+    # 建立系統發布時間記錄表
+    c.execute('''CREATE TABLE IF NOT EXISTS sys_meta
+                 (key TEXT PRIMARY KEY, val TEXT, timestamp REAL)''')
+    
+    # 向下相容遷移舊版結構
     c.execute("PRAGMA table_info(flood_history)")
     columns = [row[1] for row in c.fetchall()]
-    
     if 'record_time' not in columns and 'time_str' in columns:
-        print("🔧 檢測到舊版 flood_history 資料庫結構，正在無縫熱遷移欄位...")
+        print("🔧 檢測到舊版結構，正在遷移欄位...")
         c.execute('''CREATE TABLE flood_history_new
                      (record_time TEXT, timestamp REAL, station_code TEXT, 
                       station_name TEXT, water_level REAL,
@@ -73,80 +78,64 @@ def init_db():
                      SELECT time_str, timestamp, station_code, station_name, water_level FROM flood_history''')
         c.execute("DROP TABLE flood_history")
         c.execute("ALTER TABLE flood_history_new RENAME TO flood_history")
-        print("✅ flood_history 表結構熱遷移完成！")
 
     conn.commit()
     conn.close()
 
-def check_for_new_data(stations_data):
-    """
-    精確檢查：只要有任何一個站點的 (record_time, station_code) 不在資料庫中，
-    或者該記錄的水位數值與庫內不同，即視為有新數據。
-    """
+def get_last_sys_pubdate():
     if not os.path.exists(DB_PATH):
-        return True
-
+        return ""
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
-    has_new = False
-    new_count = 0
-
     try:
-        for code, info in stations_data.items():
-            r_time = info['record_time']
-            w_level = info.get('water_level')
-            
-            c.execute("""SELECT water_level FROM flood_history 
-                         WHERE record_time = ? AND station_code = ?""", (r_time, code))
-            row = c.fetchone()
-            
-            if row is None:
-                has_new = True
-                new_count += 1
-            elif w_level is not None and row[0] is not None:
-                if abs(float(w_level) - float(row[0])) > 0.001:
-                    has_new = True
-                    new_count += 1
-    except Exception as e:
-        print(f"⚠️ 檢查數據更新時發生錯誤: {e}，將預設執行同步")
-        has_new = True
+        c.execute("SELECT val FROM sys_meta WHERE key = 'last_sys_pubdate'")
+        row = c.fetchone()
+        return row[0] if row else ""
+    except Exception:
+        return ""
     finally:
         conn.close()
 
-    if has_new:
-        print(f"📊 檢測到 {new_count} 個站點數據產生推進或變動")
-    return has_new
-
-def save_to_db(stations_data, sys_timestamp_val):
+def save_to_db(stations_data, sys_time_str, sys_timestamp_val):
     conn = sqlite3.connect(DB_PATH, timeout=10)
     c = conn.cursor()
     cutoff_ts = sys_timestamp_val - (7 * 86400)
     c.execute("DELETE FROM flood_history WHERE timestamp < ?", (cutoff_ts,))
+    
     for code, data in stations_data.items():
         row = (data['record_time'], data['timestamp'], code, 
                data['station_name'], data.get('water_level'))
         c.execute('''INSERT OR REPLACE INTO flood_history 
                      (record_time, timestamp, station_code, station_name, water_level) 
                      VALUES (?, ?, ?, ?, ?)''', row)
+        
+    c.execute('''INSERT OR REPLACE INTO sys_meta (key, val, timestamp) 
+                 VALUES ('last_sys_pubdate', ?, ?)''', (sys_time_str, sys_timestamp_val))
     conn.commit()
     conn.close()
 
 # ==========================================
-# XML 擷取與解析
+# XML 擷取與解析 (加入時間戳以穿透 CDN 快取)
 # ==========================================
 def fetch_smg_flood_xml():
-    url = "https://xml.dsmg.gov.mo/c_ftgms.xml"
+    # 加入動態 timestamp 參數，強制打破 DSMG 伺服器端與 CDN 快取
+    ts_param = int(time.time())
+    url = f"https://xml.dsmg.gov.mo/c_ftgms.xml?_nocache={ts_param}"
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
     }
     try:
         res = requests.get(url, headers=headers, timeout=12)
         res.encoding = 'utf-8'
+        if res.status_code != 200:
+            print(f"❌ 請求失敗，狀態碼：{res.status_code}")
+            return None
         return ET.fromstring(res.content)
     except Exception as e:
-        print(f"❌ 請求 SMG 水位 XML 失敗: {e}")
+        print(f"❌ 請求 SMG 水位 XML 異常: {e}")
         return None
 
 def parse_time_to_ts(time_str):
@@ -397,7 +386,8 @@ def render_flood_charts(current_stations_data):
 # ==========================================
 def main():
     init_db()
-    print("🚀 開始執行 DSMG 水位監測同步...")
+    last_pub = get_last_sys_pubdate()
+    print(f"🚀 開始執行 DSMG 水位監測同步，資料庫上記錄之 SysPubdate: '{last_pub}'")
 
     root = fetch_smg_flood_xml()
     if root is None:
@@ -410,19 +400,19 @@ def main():
         print("⚠️ XML 未包含有效的站點水位數據。")
         sys.exit(1)
 
-    # 精準檢查：只要有任何站點有新時間戳或數值變更即進行寫入
-    if not check_for_new_data(stations_data):
-        print("ℹ️ 各站水位數據均已最新，跳過後續步驟。")
+    print(f"📡 DSMG 官方最新發布時間 (SysPubdate): {sys_time_str}")
+
+    # 只要官方發布時間有更新，就必定觸發更新入庫與繪圖
+    if sys_time_str == last_pub and last_pub != "":
+        print(f"ℹ️ DSMG SysPubdate ({sys_time_str}) 尚未改變，跳過 gh-pages 發布。")
         sys.exit(2)
 
-    latest_rec_in_xml = max([s['record_time'] for s in stations_data.values()])
-    print(f"🔔 檢測到新數據 (最新站點時間: {latest_rec_in_xml})，共解析到 {len(stations_data)} 個站點，正在處理...")
+    print(f"🔔 檢測到新發布期數: {sys_time_str}，正在寫入資料庫並重新繪製趨勢圖...")
     
-    save_to_db(stations_data, sys_timestamp)
+    save_to_db(stations_data, sys_time_str, sys_timestamp)
 
     payload = {
         "system_pubdate": sys_time_str,
-        "latest_record_time": latest_rec_in_xml,
         "timestamp": sys_timestamp,
         "stations": stations_data
     }
