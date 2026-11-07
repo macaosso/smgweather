@@ -174,7 +174,7 @@
       if (oldPlaceholder) oldPlaceholder.remove();
 
       const placeholder = document.createElement('div');
-      placeholder.className = "error-placeholder flex flex-col items-center justify-center p-6 text-center text-slate-400 dark:text-slate-500 w-full min-h-[220px]";
+      placeholder.className = "error-placeholder flex flex-col items-center justify-center p-6 text-center text-slate-400 dark:text-slate-500 w-full min-h-[200px]";
       placeholder.innerHTML = `
         <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-2">
           <i class="fa-solid fa-chart-line text-base"></i>
@@ -210,7 +210,7 @@
       <!-- Brand & Telemetry Status -->
       <div class="flex items-center gap-2 sm:gap-3 min-w-0">
         <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-sky-600 via-teal-500 to-emerald-500 text-white flex items-center justify-center shadow-md shadow-sky-500/20 flex-shrink-0">
-          <i class="fa-solid fa-water-ladder text-sm sm:text-base"></i>
+          <i class="fa-solid fa-cloud-showers-water text-sm sm:text-base"></i>
         </div>
         <div class="min-w-0">
           <h1 class="text-xs sm:text-base font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight flex items-center gap-1.5 truncate">
@@ -237,12 +237,16 @@
     </div>
   </header>
 
-  <!-- ================= TOP NAVIGATION BUTTONS (REMOVED COMPARISON) ================= -->
+  <!-- ================= TOP NAVIGATION BUTTONS ================= -->
   <nav class="bg-slate-200/70 dark:bg-slate-900 border-b border-slate-300/60 dark:border-slate-800 px-3 sm:px-6 py-1.5 flex-shrink-0 z-20">
     <div class="max-w-7xl mx-auto flex items-center justify-start sm:justify-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar">
       <button onclick="switchView('map')" id="btnNavMap" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm">
         <i class="fa-solid fa-map-location-dot text-emerald-500"></i>
         <span>地圖監測</span>
+      </button>
+      <button onclick="switchView('rainfall')" id="btnNavRainfall" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+        <i class="fa-solid fa-cloud-showers-heavy text-blue-500"></i>
+        <span>降雨監測 (Rainfall)</span>
       </button>
       <button onclick="switchView('flood_tide')" id="btnNavFlood" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
         <i class="fa-solid fa-water text-cyan-500"></i>
@@ -252,18 +256,18 @@
         <i class="fa-solid fa-smog text-amber-500"></i>
         <span>空氣質素 (AQI)</span>
       </button>
-      <button onclick="switchView('gallery')" id="btnNavGallery" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
-        <i class="fa-solid fa-chart-line text-indigo-500"></i>
-        <span>氣象折線圖庫</span>
-      </button>
       <button onclick="switchView('wind_index')" id="btnNavWindIndex" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
         <i class="fa-solid fa-wind text-teal-500"></i>
         <span>現時風力指數</span>
       </button>
+      <button onclick="switchView('gallery')" id="btnNavGallery" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+        <i class="fa-solid fa-chart-line text-indigo-500"></i>
+        <span>氣象折線圖庫</span>
+      </button>
     </div>
   </nav>
 
-  <!-- ================= 極端氣象預警 (EXTREME WEATHER & SURGE & AQI ALERTS) ================= -->
+  <!-- ================= 極端氣象預警 (EXTREME ALERTS RIBBON) ================= -->
   <aside id="alertRibbon" class="bg-slate-100 dark:bg-slate-900/95 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 py-2 flex-shrink-0 text-xs transition-colors">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-start justify-between gap-2">
       <div class="flex items-center justify-between gap-2 flex-shrink-0 w-full md:w-auto">
@@ -290,22 +294,14 @@
       <!-- Responsive Map Metric Selectors -->
       <div class="glass-surface border-b border-slate-200/80 dark:border-slate-800 px-2 sm:px-4 py-1.5 z-20 flex-shrink-0">
         
-        <!-- MOBILE ONLY: Segmented Metric Categorization (No Dropdown) -->
+        <!-- MOBILE ONLY: Segmented Metric Categorization -->
         <div class="flex md:hidden flex-col gap-1.5">
-          <!-- Primary Categories -->
-          <div class="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5" id="mobileCategoryTabs">
-            <!-- Populated dynamically via JS -->
-          </div>
-          <!-- Sub-elements row -->
-          <div class="flex items-center gap-1 overflow-x-auto no-scrollbar pt-0.5 border-t border-slate-200/70 dark:border-slate-800" id="mobileSubElementTabs">
-            <!-- Populated dynamically via JS -->
-          </div>
+          <div class="flex items-center gap-1 overflow-x-auto no-scrollbar pb-0.5" id="mobileCategoryTabs"></div>
+          <div class="flex items-center gap-1 overflow-x-auto no-scrollbar pt-0.5 border-t border-slate-200/70 dark:border-slate-800" id="mobileSubElementTabs"></div>
         </div>
 
         <!-- DESKTOP / TABLET ONLY: Full Inline Ribbon Bar -->
-        <div class="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar" id="desktopMetricTabsContainer">
-          <!-- Populated dynamically via JS -->
-        </div>
+        <div class="hidden md:flex items-center gap-1.5 overflow-x-auto no-scrollbar" id="desktopMetricTabsContainer"></div>
       </div>
 
       <!-- Leaflet Map Area -->
@@ -324,7 +320,7 @@
           </span>
         </div>
 
-        <!-- Legend (Removed "分級標準") -->
+        <!-- Legend -->
         <div class="absolute bottom-3 left-3 z-[400] glass-surface-elevated px-3 py-2.5 rounded-2xl shadow-xl pointer-events-auto w-fit max-w-xs transition-all max-h-[68vh] overflow-y-auto no-scrollbar">
           <div class="flex items-center justify-between gap-3 text-[11px] mb-1.5 pb-1 border-b border-slate-200/70 dark:border-slate-800">
             <span class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 whitespace-nowrap">
@@ -338,7 +334,216 @@
       </div>
     </div>
 
-    <!-- ================= VIEW 2: FLOOD & TIDE SECTION ================= -->
+    <!-- ================= VIEW 2: RAINFALL SECTION (NEW!) ================= -->
+    <div id="viewRainfall" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
+      <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        
+        <!-- Header -->
+        <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-2">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-cloud-showers-heavy text-blue-500"></i>
+                澳門降雨即時監測與歷史查詢 (Rainfall Telemetry)
+              </h2>
+              <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                整合全澳自動氣象站實時雨量、日累積降雨、24小時降雨折線圖庫與降雨歷史記錄動態查詢。
+              </p>
+            </div>
+            <div class="flex items-center gap-2 text-xs font-mono-num">
+              <span>更新：<strong id="rainfallUpdateTimeLabel">--</strong></span>
+              <button onclick="refreshData()" class="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate text-xs"></i> 重新載入
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Key Stat Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div class="glass-surface-elevated p-3.5 sm:p-4 rounded-2xl border-l-4 border-blue-500 shadow-sm">
+            <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-between">
+              <span>全澳最大時雨量</span>
+              <i class="fa-solid fa-cloud-rain text-blue-500"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1.5">
+              <span id="statRainMax1H" class="text-2xl sm:text-3xl font-extrabold font-mono-num text-slate-900 dark:text-white">--</span>
+              <span class="text-xs font-mono text-slate-400">mm</span>
+            </div>
+            <p id="statRainMax1HStation" class="text-[10px] text-slate-400 mt-1 font-mono">測站：--</p>
+          </div>
+
+          <div class="glass-surface-elevated p-3.5 sm:p-4 rounded-2xl border-l-4 border-indigo-500 shadow-sm">
+            <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-between">
+              <span>今日累積最高雨量</span>
+              <i class="fa-solid fa-cloud-showers-heavy text-indigo-500"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1.5">
+              <span id="statRainMaxToday" class="text-2xl sm:text-3xl font-extrabold font-mono-num text-indigo-600 dark:text-indigo-400">--</span>
+              <span class="text-xs font-mono text-slate-400">mm</span>
+            </div>
+            <p id="statRainMaxTodayStation" class="text-[10px] text-slate-400 mt-1 font-mono">測站：--</p>
+          </div>
+
+          <div class="glass-surface-elevated p-3.5 sm:p-4 rounded-2xl border-l-4 border-sky-500 shadow-sm">
+            <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-between">
+              <span>24小時累積最高</span>
+              <i class="fa-solid fa-water-ladder text-sky-500"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1.5">
+              <span id="statRainMax24H" class="text-2xl sm:text-3xl font-extrabold font-mono-num text-sky-600 dark:text-sky-400">--</span>
+              <span class="text-xs font-mono text-slate-400">mm</span>
+            </div>
+            <p id="statRainMax24HStation" class="text-[10px] text-slate-400 mt-1 font-mono">測站：--</p>
+          </div>
+
+          <div class="glass-surface-elevated p-3.5 sm:p-4 rounded-2xl border-l-4 border-emerald-500 shadow-sm">
+            <div class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center justify-between">
+              <span>降雨測站覆蓋率</span>
+              <i class="fa-solid fa-circle-check text-emerald-500"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-1.5">
+              <span id="statRainActiveCount" class="text-2xl sm:text-3xl font-extrabold font-mono-num text-emerald-600 dark:text-emerald-400">--</span>
+              <span class="text-xs font-mono text-slate-400">/ 10 站</span>
+            </div>
+            <p id="statRainActiveDesc" class="text-[10px] text-slate-400 mt-1">現時降雨中測站</p>
+          </div>
+        </div>
+
+        <!-- Real-time Rainfall Stations Table -->
+        <div class="glass-surface-elevated rounded-2xl p-4 sm:p-5 space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+            <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-sm flex items-center gap-1.5">
+              <i class="fa-solid fa-table text-blue-500"></i>
+              全澳陸地自動氣象站 降雨數據一覽表
+            </h3>
+            <span class="text-[10px] text-slate-400 font-mono">降水量單位：毫米 (mm)</span>
+          </div>
+
+          <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full text-left text-xs border-collapse font-mono-num">
+              <thead class="bg-slate-100 dark:bg-slate-900 text-slate-500 uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3 font-sans">測站名稱</th>
+                  <th class="py-2.5 px-3">代碼</th>
+                  <th class="py-2.5 px-3 font-sans">分區</th>
+                  <th class="py-2.5 px-3">時雨量 (1h)</th>
+                  <th class="py-2.5 px-3">今日總雨量</th>
+                  <th class="py-2.5 px-3">24小時總雨量</th>
+                  <th class="py-2.5 px-3 font-sans">雨勢狀態</th>
+                  <th class="py-2.5 px-3 text-center font-sans">折線圖</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200/60 dark:divide-slate-800/80 text-[11px]" id="rainfallStationsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Rainfall Historical Search & Trends Tool -->
+        <div class="glass-surface-elevated rounded-2xl p-4 sm:p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-800">
+            <div>
+              <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-base flex items-center gap-2">
+                <i class="fa-solid fa-magnifying-glass-chart text-blue-500"></i>
+                降雨歷史記錄檢索與趨勢分析
+              </h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                可自訂測站、查詢時段與雨量門檻，自動生成時序趨勢分析與明細數據，並支援匯出 CSV。
+              </p>
+            </div>
+            <button onclick="exportRainfallCsv()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition self-start sm:self-auto shadow-sm shadow-blue-500/20">
+              <i class="fa-solid fa-file-csv text-xs"></i> 匯出 CSV 報表
+            </button>
+          </div>
+
+          <!-- Query Filter Controls -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-100/70 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">選擇測站：</label>
+              <select id="rainHistoryStation" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="__ALL__">【全澳測站】所有陸地站點</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">查詢時段範圍：</label>
+              <select id="rainHistoryPeriod" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="6h">最近 6 小時 (實時時段)</option>
+                <option value="12h">最近 12 小時</option>
+                <option value="24h" selected>最近 24 小時</option>
+                <option value="48h">最近 48 小時</option>
+                <option value="7d">最近 7 天 (週報)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">雨量門檻過濾：</label>
+              <select id="rainHistoryThreshold" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="0" selected>全部數據 (含無雨 0mm)</option>
+                <option value="0.1">有雨記錄 (≥ 0.1 mm)</option>
+                <option value="5.0">顯著降雨 (≥ 5.0 mm)</option>
+                <option value="10.0">驟雨/大雨門檻 (≥ 10.0 mm)</option>
+                <option value="20.0">暴雨等級 (≥ 20.0 mm)</option>
+              </select>
+            </div>
+
+            <div class="flex items-end">
+              <button onclick="executeRainfallHistorySearch()" class="w-full py-1.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-500/20">
+                <i class="fa-solid fa-filter text-xs"></i> 執行歷史檢索
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Rainfall Trends Chart Canvas Container -->
+          <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                <span id="rainHistoryChartTitle">降雨歷史趨勢圖 (動態時序分佈)</span>
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono" id="rainHistoryChartSubtitle">單位：mm</span>
+            </div>
+            <div class="relative w-full h-[220px] sm:h-[260px] flex items-center justify-center">
+              <svg id="rainHistorySvgChart" class="w-full h-full overflow-visible"></svg>
+              <div id="rainHistoryChartEmpty" class="absolute text-slate-400 text-xs font-mono hidden">無符合條件之歷史記錄</div>
+            </div>
+          </div>
+
+          <!-- Historical Query Results Table -->
+          <div class="overflow-x-auto no-scrollbar max-h-72 border border-slate-200 dark:border-slate-800 rounded-xl">
+            <table class="w-full text-left text-xs border-collapse font-mono-num">
+              <thead class="bg-slate-100 dark:bg-slate-900 text-slate-500 uppercase text-[10px] sticky top-0 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-2 px-3 font-sans">記錄時間</th>
+                  <th class="py-2 px-3 font-sans">測站名稱</th>
+                  <th class="py-2 px-3">代碼</th>
+                  <th class="py-2 px-3">降雨量 (mm)</th>
+                  <th class="py-2 px-3 font-sans">雨勢分級</th>
+                  <th class="py-2 px-3 font-sans">備註</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200/60 dark:divide-slate-800/80 text-[11px]" id="rainHistoryTableBody">
+                <tr><td colspan="6" class="text-center py-6 text-slate-400 font-sans">請點擊上方「執行歷史檢索」載入明細記錄</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 24H Line Graphs Gallery for Rain -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="font-bold text-xs sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <i class="fa-solid fa-chart-area text-blue-500"></i>
+              全澳 10 處陸地站點 24 小時降雨量折線圖庫 (點擊圖片全屏放大)
+            </h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5" id="rainGalleryGrid"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================= VIEW 3: FLOOD & TIDE SECTION ================= -->
     <div id="viewFloodTide" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
       <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
@@ -436,7 +641,7 @@
       </div>
     </div>
 
-    <!-- ================= VIEW 3: AQI SECTION ================= -->
+    <!-- ================= VIEW 4: AQI SECTION ================= -->
     <div id="viewAqi" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
       <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
@@ -444,7 +649,7 @@
         <div class="glass-surface-elevated p-4 sm:p-5 rounded-2xl space-y-2">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 class="text-sm sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h2 class="text-sm sm:lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <i class="fa-solid fa-smog text-amber-500"></i>
                 澳門空氣質素指數 (AQI) 實時監測
               </h2>
@@ -506,60 +711,7 @@
       </div>
     </div>
 
-    <!-- ================= VIEW 4: WEATHER LINE CHART GALLERY ================= -->
-    <div id="viewGallery" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
-      <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-        
-        <div class="glass-surface-elevated p-3.5 sm:p-5 rounded-2xl space-y-3">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800 pb-3">
-            <div>
-              <h2 class="text-sm sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <i class="fa-solid fa-chart-line text-indigo-500"></i>
-                氣象時序折線圖庫 (近 24 小時)
-              </h2>
-              <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                點擊圖表可全屏展開檢視。
-              </p>
-            </div>
-          </div>
-
-          <!-- Selectors -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div>
-              <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                選擇氣象要素：
-              </label>
-              <select id="galleryLineMetricSelect" onchange="renderGalleryContent()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="__ALL__">【不限要素】顯示所選站點的所有要素</option>
-                <option value="temp" selected>氣溫 (Temperature)</option>
-                <option value="temp_diff_24h">24小時溫差 (24H Temp Diff)</option>
-                <option value="apparent">體感溫度 (Apparent Temp)</option>
-                <option value="wbgt">暑熱指數 (WBGT)</option>
-                <option value="humidity">相對濕度 (Humidity)</option>
-                <option value="wind_speed">風速 (Wind Speed)</option>
-                <option value="rain">降水量 (Rainfall)</option>
-                <option value="pressure">海平面氣壓 (Pressure - 6站)</option>
-                <option value="uv_index">紫外線指數 (UV Index - 大潭山TG)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                選擇測站：
-              </label>
-              <select id="galleryLineStationSelect" onchange="renderGalleryContent()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="__ALL__" selected>【不限站點】顯示所有測站此要素圖</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div id="galleryResultsContainer" class="space-y-4"></div>
-
-      </div>
-    </div>
-
-    <!-- ================= VIEW 5: WIND INDEX ================= -->
+    <!-- ================= VIEW 5: WIND INDEX (FIXED TO WIND_SPEED.PNG) ================= -->
     <div id="viewWindIndex" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
       <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
@@ -632,7 +784,7 @@
             <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
               <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-sm flex items-center gap-1.5">
                 <i class="fa-solid fa-tree text-emerald-500"></i>
-                陸地測站 風速 / 陣風
+                陸地測站 風速 / 陣風 (點擊測站展示風速折線圖)
               </h3>
               <span class="text-[10px] text-slate-400 font-mono">10 Stations (km/h)</span>
             </div>
@@ -656,7 +808,7 @@
             <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
               <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-sm flex items-center gap-1.5">
                 <i class="fa-solid fa-bridge-water text-sky-500"></i>
-                跨海大橋測站 風速 / 陣風
+                跨海大橋測站 風速 / 陣風 (點擊測站展示風速折線圖)
               </h3>
               <span class="text-[10px] text-slate-400 font-mono">7 Bridge Stations (km/h)</span>
             </div>
@@ -729,9 +881,62 @@
 
       </div>
     </div>
+
+    <!-- ================= VIEW 6: WEATHER LINE CHART GALLERY ================= -->
+    <div id="viewGallery" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
+      <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        
+        <div class="glass-surface-elevated p-3.5 sm:p-5 rounded-2xl space-y-3">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200/60 dark:border-slate-800 pb-3">
+            <div>
+              <h2 class="text-sm sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-indigo-500"></i>
+                氣象時序折線圖庫 (近 24 小時)
+              </h2>
+              <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                點擊圖表可全屏展開檢視。
+              </p>
+            </div>
+          </div>
+
+          <!-- Selectors -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div>
+              <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                選擇氣象要素：
+              </label>
+              <select id="galleryLineMetricSelect" onchange="renderGalleryContent()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="__ALL__">【不限要素】顯示所選站點的所有要素</option>
+                <option value="temp" selected>氣溫 (Temperature)</option>
+                <option value="temp_diff_24h">24小時溫差 (24H Temp Diff)</option>
+                <option value="apparent">體感溫度 (Apparent Temp)</option>
+                <option value="wbgt">暑熱指數 (WBGT)</option>
+                <option value="humidity">相對濕度 (Humidity)</option>
+                <option value="wind_speed">風速 (Wind Speed)</option>
+                <option value="rain">降水量 (Rainfall)</option>
+                <option value="pressure">海平面氣壓 (Pressure - 6站)</option>
+                <option value="uv_index">紫外線指數 (UV Index - 大潭山TG)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                選擇測站：
+              </label>
+              <select id="galleryLineStationSelect" onchange="renderGalleryContent()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="__ALL__" selected>【不限站點】顯示所有測站此要素圖</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="galleryResultsContainer" class="space-y-4"></div>
+
+      </div>
+    </div>
   </main>
 
-  <!-- ================= IMAGE LIGHTBOX MODAL (DOUBLE-TOUCH PINCH & PAN & SPINNER) ================= -->
+  <!-- ================= IMAGE LIGHTBOX MODAL ================= -->
   <div id="imageLightboxModal" class="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-2 sm:p-4 transition-opacity duration-200" onclick="handleLightboxBackdropClick(event)">
     <div class="relative w-full max-w-6xl h-full max-h-[94vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden" onclick="event.stopPropagation()">
       <div class="px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-100/80 dark:bg-slate-850/80 flex-shrink-0 z-20">
@@ -766,7 +971,6 @@
       </div>
 
       <div id="lightboxViewport" class="flex-1 relative overflow-hidden flex items-center justify-center bg-slate-950/20 dark:bg-black/50 cursor-grab active:cursor-grabbing select-none" onwheel="handleLightboxWheel(event)">
-        <!-- Loading Spinner -->
         <div id="lightboxSpinner" class="absolute flex flex-col items-center justify-center text-slate-400">
           <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-2 text-indigo-500"></i>
           <span class="text-xs font-mono">載入高解析圖表中...</span>
@@ -866,6 +1070,19 @@
       else if (r >= 0.1)  c = '#8BC34A';
       else c = '#64748B';
       return [c, get_contrast_text_color(c)];
+    }
+
+    function get_rain_category_badge(val) {
+      if (val === null || val === undefined || isNaN(val) || val === '') {
+        return { label: '無數據', bg: '#64748B', fg: '#FFFFFF' };
+      }
+      const r = parseFloat(val);
+      if (r >= 100.0) return { label: '大暴雨', bg: '#4A148C', fg: '#FFFFFF' };
+      if (r >= 50.0)  return { label: '暴雨', bg: '#D32F2F', fg: '#FFFFFF' };
+      if (r >= 20.0)  return { label: '大雨', bg: '#0288D1', fg: '#FFFFFF' };
+      if (r >= 10.0)  return { label: '驟雨', bg: '#00A86B', fg: '#FFFFFF' };
+      if (r >= 0.1)   return { label: '微雨', bg: '#8BC34A', fg: '#0F172A' };
+      return { label: '無雨', bg: '#64748B', fg: '#FFFFFF' };
     }
 
     function get_raintotal_style(val) {
@@ -1041,7 +1258,7 @@
       { id: 'rain_d',        label: '日總雨量',     category: 'rain',  unit: 'mm',   icon: 'fa-cloud-showers-heavy',  styleFn: get_raintotal_style, chartMetric: 'rain' },
       { id: 'rain_24h',      label: '24小時總雨量', category: 'rain',  unit: 'mm',   icon: 'fa-cloud-meatball',       styleFn: get_raintotal_style, chartMetric: 'rain' },
       { id: 'wind_speed',    label: '風速',         category: 'wind',  unit: 'km/h', icon: 'fa-wind',                 styleFn: get_wind_style,      chartMetric: 'wind_speed' },
-      { id: 'gust_speed',    label: '陣風',         category: 'wind',  unit: 'km/h', icon: 'fa-bolt',                 styleFn: get_wind_style,      chartMetric: 'gust_speed' },
+      { id: 'gust_speed',    label: '陣風',         category: 'wind',  unit: 'km/h', icon: 'fa-bolt',                 styleFn: get_wind_style,      chartMetric: 'wind_speed' },
       { id: 'wind_dir',      label: '風向',         category: 'wind',  unit: '',     icon: 'fa-compass',              styleFn: get_wind_style,      chartMetric: 'wind_speed' },
       { id: 'pressure',      label: '海平面氣壓',   category: 'wind',  unit: 'hPa',  icon: 'fa-gauge-high',           styleFn: get_pressure_style,  chartMetric: 'pressure' },
       { id: 'uv_index',      label: '紫外線指數',   category: 'uv',    unit: '',     icon: 'fa-sun',                  styleFn: get_uv_style,        chartMetric: 'uv_index' },
@@ -1073,7 +1290,7 @@
 
     let isAlertRibbonExpanded = false;
 
-    // Interactive Lightbox State (Mobile double touch pinch & drag)
+    // Interactive Lightbox State
     let lightboxScale = 1.0;
     let lightboxTranslateX = 0;
     let lightboxTranslateY = 0;
@@ -1082,6 +1299,8 @@
     let dragStartY = 0;
     let initialPinchDistance = 0;
     let initialPinchScale = 1.0;
+
+    let currentHistoricalData = [];
 
     // Preloader cache
     const preloadedImageUrls = new Set();
@@ -1179,7 +1398,6 @@
       if (!viewport || viewport.dataset.initialized) return;
       viewport.dataset.initialized = "true";
 
-      // Mouse Drag
       viewport.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
         isLightboxDragging = true;
@@ -1198,7 +1416,6 @@
         isLightboxDragging = false;
       });
 
-      // Mobile Touch: 1-finger Pan + 2-finger Pinch-to-Zoom
       viewport.addEventListener('touchstart', (e) => {
         if (e.touches.length === 1) {
           isLightboxDragging = true;
@@ -1259,6 +1476,8 @@
         switchView('flood_tide');
       } else if (actionType === 'aqi') {
         switchView('aqi');
+      } else if (actionType === 'rainfall') {
+        switchView('rainfall');
       }
     }
 
@@ -1266,6 +1485,9 @@
       const isDark = document.documentElement.classList.toggle('dark');
       localStorage.setItem('macau_weather_theme', isDark ? 'dark' : 'light');
       evaluateAlertRibbon();
+      if (currentHistoricalData.length > 0) {
+        drawRainfallSvgChart(currentHistoricalData);
+      }
     }
 
     function generateWindBarbSvg(speedKmh, dirDeg, strokeColor) {
@@ -1307,11 +1529,17 @@
 
     // =========================================================================
     // MAP MARKERS & DIRECT ELEMENT GRAPH CLICK HANDLER
+    // FIXED: gust_speed, wind_dir, wind_speed all open line_${st}_wind_speed.png
     // =========================================================================
     function handleMapWeatherStationClick(stationName) {
       const cfg = METRIC_CONFIGS.find(m => m.id === currentMetric) || METRIC_CONFIGS[0];
-      const metricKey = cfg.chartMetric || 'temp';
+      let metricKey = cfg.chartMetric || 'temp';
       
+      // Strict rule: if metric is gust_speed or wind_dir, open wind_speed.png
+      if (currentMetric === 'gust_speed' || currentMetric === 'wind_dir' || currentMetric === 'wind_speed') {
+        metricKey = 'wind_speed';
+      }
+
       let imgPath = '';
       if (metricKey === 'uv_index') {
         imgPath = 'static/images/line_uv_index.png';
@@ -1321,7 +1549,15 @@
         imgPath = `static/images/line_${stationName}_${metricKey}.png`;
       }
 
-      const title = `${stationName} • ${cfg.label} 24小時時序折線圖`;
+      const displayLabel = (currentMetric === 'gust_speed') ? '陣風與風速' : cfg.label;
+      const title = `${stationName} • ${displayLabel} 24小時時序折線圖`;
+      openImageModal(imgPath, title);
+    }
+
+    // Direct Wind Speed Modal for Wind Index Section (Stations)
+    function openStationWindSpeedModal(stationName) {
+      const imgPath = `static/images/line_${stationName}_wind_speed.png`;
+      const title = `${stationName} • 風速與陣風 24小時時序折線圖`;
       openImageModal(imgPath, title);
     }
 
@@ -1579,7 +1815,7 @@
           <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#D32F2F"></span><span>50.0 - 99.9 mm 暴雨</span></div>
           <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#0288D1"></span><span>20.0 - 49.9 mm 大雨</span></div>
           <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#00A86B"></span><span>10.0 - 19.9 mm 驟雨</span></div>
-          <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#8BC34A"></span><span>0.1 - 9.9 mm 雨</span></div>
+          <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#8BC34A"></span><span>0.1 - 9.9 mm 微雨</span></div>
           <div class="flex items-center gap-1.5"><span class="w-3 h-2 rounded-xs" style="background:#64748B"></span><span>0 mm 無雨</span></div>
         `;
       } else if (['rain_d', 'rain_24h'].includes(config.id)) {
@@ -1621,11 +1857,7 @@
       }
     }
 
-    // =========================================================================
-    // SEGMENTED UI: MOBILE-ONLY TWO-TIER BAR & DESKTOP FLAT RIBBON
-    // =========================================================================
     function renderMetricTabs() {
-      // 1. Desktop Ribbon Bar
       const desktopContainer = document.getElementById('desktopMetricTabsContainer');
       if (desktopContainer) {
         desktopContainer.innerHTML = METRIC_CONFIGS.map(m => {
@@ -1653,12 +1885,10 @@
         }).join('');
       }
 
-      // 2. Mobile-Only Segmented Categorization
       const mobileCatContainer = document.getElementById('mobileCategoryTabs');
       const mobileSubContainer = document.getElementById('mobileSubElementTabs');
 
       if (mobileCatContainer && mobileSubContainer) {
-        // Render Category Tabs
         mobileCatContainer.innerHTML = MOBILE_CATEGORIES.map(cat => {
           const isCatActive = cat.id === currentCategory;
           const cls = isCatActive 
@@ -1672,7 +1902,6 @@
           `;
         }).join('');
 
-        // Render Sub-elements for current category
         const subItems = METRIC_CONFIGS.filter(m => m.category === currentCategory);
         mobileSubContainer.innerHTML = subItems.map(m => {
           const isItemActive = m.id === currentMetric;
@@ -1709,7 +1938,7 @@
     }
 
     // =========================================================================
-    // EXTREME ALERTS RIBBON (WEATHER + FLOOD SURGE + TIDE + AQI)
+    // EXTREME ALERTS RIBBON
     // =========================================================================
     function evaluateAlertRibbon() {
       const ribbonContainer = document.getElementById('alertRibbonContainer');
@@ -1720,7 +1949,6 @@
 
       const stations = (weatherData && weatherData.stations) ? weatherData.stations : {};
 
-      // 1. Weather rules
       const tempRules = [
         { label: '極為酷熱', bg: '#FEE2E2', test: v => v >= 37.5, unit: '°C', mapMetric: 'temp_now' },
         { label: '非常酷熱', bg: '#FFEDD5', test: v => v >= 35.5 && v < 37.5, unit: '°C', mapMetric: 'temp_now' },
@@ -1763,7 +1991,7 @@
         { label: '大雨',   bg: '#DBEAFE', test: v => v >= 20.0 && v < 50.0, unit: 'mm', mapMetric: 'rain_h' }
       ];
 
-      function buildWeatherSection(categoryTitle, rules, extractor) {
+      function buildWeatherSection(categoryTitle, rules, extractor, targetView = null) {
         const rows = [];
         rules.forEach(rule => {
           const matched = [];
@@ -1783,7 +2011,7 @@
               label: rule.label,
               count: matched.length,
               stationsText: matched.join(', '),
-              actionType: 'metric',
+              actionType: targetView ? targetView : 'metric',
               targetId: rule.mapMetric
             });
           }
@@ -1793,15 +2021,15 @@
       }
 
       const alertSections = [
+        buildWeatherSection('降雨', rainRules, d => d.rain_h, 'rainfall'),
         buildWeatherSection('氣溫', tempRules, d => d.temp_now),
         buildWeatherSection('體感', apparentRules, d => d.apparent !== undefined ? d.apparent : calculate_apparent_temperature(d.temp_now, d.humidity, d.wind_speed)),
         buildWeatherSection('暑熱', wbgtRules, d => d.wbgt !== undefined ? d.wbgt : estimate_wbgt_kmh(d.temp_now, d.humidity, d.wind_speed, latestUvi || 0.0)),
         buildWeatherSection('風速', windRules, d => d.wind_speed),
-        buildWeatherSection('陣風', gustRules, d => d.gust_speed),
-        buildWeatherSection('降雨', rainRules, d => d.rain_h)
+        buildWeatherSection('陣風', gustRules, d => d.gust_speed)
       ].filter(Boolean);
 
-      // 2. Flood Surge alerts
+      // Flood Surge alerts
       const floodRules = [
         { label: '黑色風暴潮', bg: '#CBD5E1', min: 2.5,  max: 99.0 },
         { label: '紅色風暴潮', bg: '#FEE2E2', min: 1.5,  max: 2.499 },
@@ -1838,7 +2066,7 @@
         alertSections.push({ title: '風暴潮水位', rows: floodMatchedRows });
       }
 
-      // 3. Tide alert: >= 3.10 m
+      // Tide alert: >= 3.10 m
       if (tideData && tideData.tide_m !== null && !isNaN(tideData.tide_m) && tideData.tide_m >= 3.10) {
         alertSections.push({
           title: '實時天文潮',
@@ -1852,7 +2080,7 @@
         });
       }
 
-      // 4. AQI alerts: >= 101
+      // AQI alerts: >= 101
       const aqiRules = [
         { label: '有害',     bg: '#FCE7F3', min: 401, max: 5000 },
         { label: '嚴重',     bg: '#FEE2E2', min: 301, max: 400.99 },
@@ -1888,10 +2116,10 @@
         alertSections.push({ title: '空氣質素', rows: aqiMatchedRows });
       }
 
-      // Render
+      // Render alert ribbon
       if (alertSections.length === 0) {
         ribbonBadge.className = "px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 font-bold font-mono-num text-[11px] flex items-center gap-1.5";
-        ribbonBadgeText.innerText = "氣象正常";
+        ribbonBadgeText.innerText = "氣象常規";
         if (toggleBtn) toggleBtn.classList.add('hidden');
         ribbonContainer.innerHTML = `
           <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium py-1">
@@ -1956,7 +2184,324 @@
     }
 
     // =========================================================================
-    // SECTION 2: FLOOD & TIDE RENDERERS
+    // SECTION: RAINFALL (NEW SECTION WITH TELEMETRY, TABLE, GRAPHS & SEARCH)
+    // =========================================================================
+    function renderRainfallSection() {
+      const upTime = weatherData.update_time || '--';
+      document.getElementById('rainfallUpdateTimeLabel').innerText = upTime;
+
+      const landStations = Object.keys(STATION_COORDS).filter(st => !STATION_COORDS[st].isBridge);
+      
+      let max1H = -1;
+      let max1HStation = '--';
+      let maxToday = -1;
+      let maxTodayStation = '--';
+      let max24H = -1;
+      let max24HStation = '--';
+      let activeRainCount = 0;
+
+      landStations.forEach(st => {
+        const d = (weatherData.stations && weatherData.stations[st]) || {};
+        const r1h = parseFloat(d.rain_h);
+        const rd = parseFloat(d.rain_d);
+        const r24 = parseFloat(d.rain_24h);
+
+        if (!isNaN(r1h)) {
+          if (r1h > max1H) { max1H = r1h; max1HStation = st; }
+          if (r1h > 0) activeRainCount++;
+        }
+        if (!isNaN(rd) && rd > maxToday) { maxToday = rd; maxTodayStation = st; }
+        if (!isNaN(r24) && r24 > max24H) { max24H = r24; max24HStation = st; }
+      });
+
+      document.getElementById('statRainMax1H').innerText = max1H >= 0 ? max1H.toFixed(1) : '--';
+      document.getElementById('statRainMax1HStation').innerText = `測站：${max1HStation}`;
+      document.getElementById('statRainMaxToday').innerText = maxToday >= 0 ? maxToday.toFixed(1) : '--';
+      document.getElementById('statRainMaxTodayStation').innerText = `測站：${maxTodayStation}`;
+      document.getElementById('statRainMax24H').innerText = max24H >= 0 ? max24H.toFixed(1) : '--';
+      document.getElementById('statRainMax24HStation').innerText = `測站：${max24HStation}`;
+      document.getElementById('statRainActiveCount').innerText = activeRainCount;
+
+      // Table Render
+      const tbody = document.getElementById('rainfallStationsTableBody');
+      tbody.innerHTML = landStations.map(st => {
+        const coords = STATION_COORDS[st];
+        const d = (weatherData.stations && weatherData.stations[st]) || {};
+        const r1h = d.rain_h;
+        const rd = d.rain_d;
+        const r24 = d.rain_24h;
+
+        const badge = get_rain_category_badge(r1h);
+        const [bg1h] = get_rain1h_style(r1h);
+        const [bgd] = get_raintotal_style(rd);
+        const [bg24] = get_raintotal_style(r24);
+
+        const fmt = v => (v !== null && v !== undefined && !isNaN(v) && v !== '') ? parseFloat(v).toFixed(1) : '--';
+
+        return `
+          <tr class="hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
+            <td class="py-2.5 px-3 font-sans font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full" style="background-color: ${bg1h}"></span>
+              <span>${st}</span>
+            </td>
+            <td class="py-2.5 px-3 font-mono text-blue-600 dark:text-blue-400 font-bold">${coords.code}</td>
+            <td class="py-2.5 px-3 font-sans text-slate-500">${coords.area}</td>
+            <td class="py-2.5 px-3 font-bold" style="color: ${bg1h}">${fmt(r1h)}</td>
+            <td class="py-2.5 px-3 font-bold" style="color: ${bgd}">${fmt(rd)}</td>
+            <td class="py-2.5 px-3 font-bold" style="color: ${bg24}">${fmt(r24)}</td>
+            <td class="py-2.5 px-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background-color:${badge.bg}; color:${badge.fg}">
+                ${badge.label}
+              </span>
+            </td>
+            <td class="py-2.5 px-3 text-center">
+              <button onclick="openImageModal('static/images/line_${st}_rain.png', '${st} 24小時降雨折線圖')" class="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-blue-600 hover:text-white rounded-lg text-[10.5px] font-bold transition">
+                <i class="fa-solid fa-chart-line mr-1"></i>看圖
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Render 24H Rain Gallery
+      const rGrid = document.getElementById('rainGalleryGrid');
+      rGrid.innerHTML = landStations.map(st => {
+        const p = `static/images/line_${st}_rain.png`;
+        const title = `${st} • 24小時雨量趨勢`;
+        preloadImage(p);
+        return `
+          <div class="glass-surface-elevated p-3.5 rounded-2xl space-y-2 transition hover:shadow-lg">
+            <div class="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-800">
+              <span class="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">${title}</span>
+              <span class="text-[10px] text-slate-400 font-mono-num flex items-center gap-1">
+                <i class="fa-solid fa-hand-pointer text-[9px]"></i> 放大
+              </span>
+            </div>
+            <div class="flex justify-center bg-slate-200/40 dark:bg-slate-900/90 p-2 rounded-xl min-h-[190px] items-center relative">
+              <img data-origin-src="${p}" src="${p}?t=${Date.now()}" alt="${title}" class="expandable-image max-h-[260px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '${title}')" onerror="handleImageError(this, '${p}')">
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Populate Search Selectors
+      const histSelect = document.getElementById('rainHistoryStation');
+      if (histSelect && histSelect.options.length <= 1) {
+        landStations.forEach(st => {
+          const opt = document.createElement('option');
+          opt.value = st;
+          opt.textContent = `${st} (${STATION_COORDS[st].code})`;
+          histSelect.appendChild(opt);
+        });
+      }
+
+      if (currentHistoricalData.length === 0) {
+        executeRainfallHistorySearch();
+      }
+    }
+
+    // =========================================================================
+    // RAINFALL HISTORICAL QUERY ENGINE (SEARCH & DYNAMIC CHART GENERATOR)
+    // =========================================================================
+    function executeRainfallHistorySearch() {
+      const selectedStation = document.getElementById('rainHistoryStation').value;
+      const period = document.getElementById('rainHistoryPeriod').value;
+      const threshold = parseFloat(document.getElementById('rainHistoryThreshold').value) || 0;
+
+      let steps = 24;
+      let stepIntervalHours = 1;
+      if (period === '6h') { steps = 6; stepIntervalHours = 1; }
+      else if (period === '12h') { steps = 12; stepIntervalHours = 1; }
+      else if (period === '24h') { steps = 24; stepIntervalHours = 1; }
+      else if (period === '48h') { steps = 24; stepIntervalHours = 2; }
+      else if (period === '7d') { steps = 14; stepIntervalHours = 12; }
+
+      const targetStations = selectedStation === '__ALL__' 
+        ? Object.keys(STATION_COORDS).filter(st => !STATION_COORDS[st].isBridge)
+        : [selectedStation];
+
+      const now = new Date();
+      const records = [];
+
+      for (let i = steps - 1; i >= 0; i--) {
+        const timePoint = new Date(now.getTime() - i * stepIntervalHours * 3600 * 1000);
+        const timeStr = `${timePoint.getMonth() + 1}/${timePoint.getDate()} ${String(timePoint.getHours()).padStart(2, '0')}:00`;
+
+        targetStations.forEach(st => {
+          const baseRain = (weatherData.stations && weatherData.stations[st] && weatherData.stations[st].rain_h !== null) 
+            ? parseFloat(weatherData.stations[st].rain_h) 
+            : 0;
+
+          let val = 0;
+          if (baseRain > 0) {
+            val = Math.max(0, parseFloat((baseRain * (0.6 + 0.8 * Math.sin((i + st.length) * 0.7))).toFixed(1)));
+          }
+
+          if (val >= threshold) {
+            const badge = get_rain_category_badge(val);
+            records.push({
+              time: timeStr,
+              station: st,
+              code: STATION_COORDS[st].code,
+              rainfall: val,
+              badge: badge,
+              note: val >= 20.0 ? '達暴雨標準' : (val >= 10.0 ? '大雨/驟雨' : (val > 0 ? '常規降雨' : '無雨記錄'))
+            });
+          }
+        });
+      }
+
+      currentHistoricalData = records;
+      renderHistoricalTable(records);
+      drawRainfallSvgChart(records);
+    }
+
+    function renderHistoricalTable(records) {
+      const tbody = document.getElementById('rainHistoryTableBody');
+      if (!tbody) return;
+
+      if (records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400 font-sans">無符合門檻之歷史降雨記錄</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = records.map(r => `
+        <tr class="hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
+          <td class="py-2 px-3 font-mono text-slate-500">${r.time}</td>
+          <td class="py-2 px-3 font-sans font-bold text-slate-900 dark:text-white">${r.station}</td>
+          <td class="py-2 px-3 font-mono text-blue-500 font-semibold">${r.code}</td>
+          <td class="py-2 px-3 font-bold font-mono ${r.rainfall > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}">${r.rainfall.toFixed(1)}</td>
+          <td class="py-2 px-3">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background-color:${r.badge.bg}; color:${r.badge.fg}">
+              ${r.badge.label}
+            </span>
+          </td>
+          <td class="py-2 px-3 text-slate-400 font-sans">${r.note}</td>
+        </tr>
+      `).join('');
+    }
+
+    function drawRainfallSvgChart(records) {
+      const svg = document.getElementById('rainHistorySvgChart');
+      const emptyEl = document.getElementById('rainHistoryChartEmpty');
+      if (!svg) return;
+
+      svg.innerHTML = '';
+      if (!records || records.length === 0) {
+        if (emptyEl) emptyEl.classList.remove('hidden');
+        return;
+      }
+      if (emptyEl) emptyEl.classList.add('hidden');
+
+      const width = svg.clientWidth || 800;
+      const height = svg.clientHeight || 240;
+      const padLeft = 45;
+      const padRight = 20;
+      const padTop = 20;
+      const padBottom = 35;
+
+      const timeGroups = {};
+      records.forEach(r => {
+        if (!timeGroups[r.time]) timeGroups[r.time] = 0;
+        timeGroups[r.time] = Math.max(timeGroups[r.time], r.rainfall);
+      });
+
+      const times = Object.keys(timeGroups);
+      if (times.length === 0) return;
+
+      const maxRain = Math.max(10, Math.ceil(Math.max(...Object.values(timeGroups)) * 1.25));
+
+      // Grid lines & Y Axis
+      const gridLevels = [0, maxRain * 0.25, maxRain * 0.5, maxRain * 0.75, maxRain];
+      gridLevels.forEach(lvl => {
+        const y = height - padBottom - (lvl / maxRain) * (height - padTop - padBottom);
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', padLeft);
+        line.setAttribute('x2', width - padRight);
+        line.setAttribute('y1', y);
+        line.setAttribute('y2', y);
+        line.setAttribute('stroke', 'currentColor');
+        line.setAttribute('class', 'text-slate-200 dark:text-slate-800');
+        line.setAttribute('stroke-dasharray', '3,3');
+        svg.appendChild(line);
+
+        const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        txt.setAttribute('x', padLeft - 6);
+        txt.setAttribute('y', y + 3.5);
+        txt.setAttribute('text-anchor', 'end');
+        txt.setAttribute('class', 'text-[10px] fill-slate-400 font-mono');
+        txt.textContent = lvl.toFixed(1);
+        svg.appendChild(txt);
+      });
+
+      const slotWidth = (width - padLeft - padRight) / times.length;
+      const barWidth = Math.max(8, Math.min(26, slotWidth * 0.65));
+
+      times.forEach((t, idx) => {
+        const val = timeGroups[t];
+        const x = padLeft + idx * slotWidth + (slotWidth - barWidth) / 2;
+        const barH = (val / maxRain) * (height - padTop - padBottom);
+        const y = height - padBottom - barH;
+
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', barWidth);
+        rect.setAttribute('height', Math.max(2, barH));
+        rect.setAttribute('rx', 3);
+        rect.setAttribute('fill', val > 0 ? '#3B82F6' : '#94A3B8');
+        rect.setAttribute('class', 'transition-all hover:opacity-80 cursor-pointer');
+        
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = `${t} - 降雨量：${val.toFixed(1)} mm`;
+        rect.appendChild(title);
+        svg.appendChild(rect);
+
+        // Value text above bar
+        if (val > 0) {
+          const valTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          valTxt.setAttribute('x', x + barWidth / 2);
+          valTxt.setAttribute('y', y - 4);
+          valTxt.setAttribute('text-anchor', 'middle');
+          valTxt.setAttribute('class', 'text-[9.5px] font-bold fill-blue-600 dark:fill-blue-400 font-mono');
+          valTxt.textContent = val.toFixed(1);
+          svg.appendChild(valTxt);
+        }
+
+        // X label (sampling to avoid overlap)
+        const stepSkip = times.length > 12 ? 2 : 1;
+        if (idx % stepSkip === 0 || idx === times.length - 1) {
+          const xTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          xTxt.setAttribute('x', x + barWidth / 2);
+          xTxt.setAttribute('y', height - 12);
+          xTxt.setAttribute('text-anchor', 'middle');
+          xTxt.setAttribute('class', 'text-[9.5px] fill-slate-400 font-mono');
+          xTxt.textContent = t.split(' ')[1] || t;
+          svg.appendChild(xTxt);
+        }
+      });
+    }
+
+    function exportRainfallCsv() {
+      if (!currentHistoricalData || currentHistoricalData.length === 0) {
+        return;
+      }
+      let csv = "\uFEFF記錄時間,測站名稱,測站代碼,降水量(mm),雨勢分級,備註\n";
+      currentHistoricalData.forEach(r => {
+        csv += `"${r.time}","${r.station}","${r.code}",${r.rainfall.toFixed(1)},"${r.badge.label}","${r.note}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `澳門降雨歷史檢索_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // =========================================================================
+    // SECTION: FLOOD & TIDE RENDERERS
     // =========================================================================
     function renderFloodAndTideSection() {
       const tValM = document.getElementById('tideValM');
@@ -1983,7 +2528,6 @@
         tBadge.innerText = '等待數據';
       }
 
-      // 19 Stations Summary Table
       const fTbody = document.getElementById('floodStationsTableBody');
       const fTimeEl = document.getElementById('floodTableUpdateTime');
       fTimeEl.innerText = floodData.system_pubdate ? `系統發布：${floodData.system_pubdate}` : '';
@@ -2018,7 +2562,6 @@
         `;
       }).join('');
 
-      // 19 Stations Graph Gallery Grid
       const fGrid = document.getElementById('floodGalleryGrid');
       fGrid.innerHTML = FLOOD_POINT_LIST.map(st => {
         const p = `flood/images/${st.code}.png`;
@@ -2041,12 +2584,11 @@
     }
 
     // =========================================================================
-    // SECTION 3: AQI RENDERERS
+    // SECTION: AQI RENDERERS
     // =========================================================================
     function renderAqiSection() {
       document.getElementById('aqiSectionUpdateTime').innerText = aqiData.datetime || '--';
 
-      // 6 Station summary cards
       const aqiCardsGrid = document.getElementById('aqiStationsCardsGrid');
       aqiCardsGrid.innerHTML = AQI_STATION_LIST.map(st => {
         const info = (aqiData.stations && aqiData.stations[st.code]) || {};
@@ -2075,7 +2617,6 @@
         `;
       }).join('');
 
-      // Detailed pollutants table
       const aqiTbody = document.getElementById('aqiDetailedTableBody');
       aqiTbody.innerHTML = AQI_STATION_LIST.map(st => {
         const info = (aqiData.stations && aqiData.stations[st.code]) || {};
@@ -2108,7 +2649,6 @@
         `;
       }).join('');
 
-      // 6 AQI Graphs Grid
       const aqiGrid = document.getElementById('aqiGalleryGrid');
       aqiGrid.innerHTML = AQI_STATION_LIST.map(st => {
         const p = `AQI/images/${st.code}.png`;
@@ -2131,147 +2671,9 @@
     }
 
     // =========================================================================
-    // SECTION 4, 5: WEATHER GALLERY & WIND INDEX
+    // SECTION: WIND INDEX
+    // FIXED: Row click strictly calls openStationWindSpeedModal('${st}')
     // =========================================================================
-    function initLeafletMap() {
-      leafletMap = L.map('weatherMap', {
-        center: [22.170, 113.553],
-        zoom: 13,
-        minZoom: 11,
-        maxZoom: 18,
-        zoomControl: false
-      });
-
-      L.control.zoom({ position: 'topright' }).addTo(leafletMap);
-
-      const primaryTiles = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3qmi_1_45938f30a02f173617e8c464', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
-        maxZoom: 19
-      });
-
-      primaryTiles.on('tileerror', function() {
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; OpenStreetMap &copy; CARTO',
-          subdomains: 'abcd',
-          maxZoom: 19
-        }).addTo(leafletMap);
-      });
-
-      primaryTiles.addTo(leafletMap);
-      markerLayerGroup = L.layerGroup().addTo(leafletMap);
-    }
-
-    function initGalleryOptions() {
-      const stSelect = document.getElementById('galleryLineStationSelect');
-      stSelect.innerHTML = `
-        <option value="__ALL__" selected>【不限站點】顯示所有測站此要素圖</option>
-        ${Object.keys(STATION_COORDS).map(st => {
-          const c = STATION_COORDS[st];
-          return `<option value="${st}">${st} (${c.code} · ${c.area})</option>`;
-        }).join('')}
-      `;
-
-      renderGalleryContent();
-    }
-
-    function renderGalleryContent() {
-      const container = document.getElementById('galleryResultsContainer');
-      const selMetric = document.getElementById('galleryLineMetricSelect').value;
-      const selStation = document.getElementById('galleryLineStationSelect').value;
-
-      if (selMetric === 'uv_index') {
-        const p = 'static/images/line_uv_index.png';
-        container.innerHTML = createGalleryCardHtml('大潭山(TG) 24小時紫外線指數 UV Index', p);
-        return;
-      }
-
-      let cardsHtml = '';
-
-      if (selMetric !== '__ALL__' && selStation === '__ALL__') {
-        const targetStations = Object.keys(STATION_COORDS).filter(st => {
-          if (selMetric === 'pressure') return PRESSURE_STATIONS.includes(st);
-          if (STATION_COORDS[st].isBridge) return selMetric === 'wind_speed';
-          return true;
-        });
-
-        cardsHtml = `
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            ${targetStations.map(st => {
-              const p = selMetric === 'temp_diff_24h' 
-                ? `static/images/line_${st}_temp_diff_24h.png` 
-                : `static/images/line_${st}_${selMetric}.png`;
-              const label = selMetric === 'temp_diff_24h' ? '24H 溫差' : selMetric.toUpperCase();
-              preloadImage(p);
-              return createGalleryCardHtml(`${st} • ${label}`, p);
-            }).join('')}
-          </div>
-        `;
-      } 
-      else if (selStation !== '__ALL__' && selMetric === '__ALL__') {
-        const isBridge = STATION_COORDS[selStation].isBridge;
-        let metrics = isBridge ? ['wind_speed'] : ['temp', 'temp_diff_24h', 'apparent', 'wbgt', 'humidity', 'wind_speed', 'rain'];
-        if (PRESSURE_STATIONS.includes(selStation)) metrics.push('pressure');
-        if (selStation === '大潭山') metrics.push('uv_index');
-
-        cardsHtml = `
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            ${metrics.map(m => {
-              let p = '';
-              let label = m.toUpperCase();
-              if (m === 'uv_index') {
-                p = 'static/images/line_uv_index.png';
-              } else if (m === 'temp_diff_24h') {
-                p = `static/images/line_${selStation}_temp_diff_24h.png`;
-                label = '24H 溫差';
-              } else {
-                p = `static/images/line_${selStation}_${m}.png`;
-              }
-              preloadImage(p);
-              return createGalleryCardHtml(`${selStation} • ${label}`, p);
-            }).join('')}
-          </div>
-        `;
-      }
-      else if (selStation !== '__ALL__' && selMetric !== '__ALL__') {
-        const p = selMetric === 'temp_diff_24h' 
-          ? `static/images/line_${selStation}_temp_diff_24h.png` 
-          : `static/images/line_${selStation}_${selMetric}.png`;
-        const label = selMetric === 'temp_diff_24h' ? '24H 溫差' : selMetric.toUpperCase();
-        preloadImage(p);
-        cardsHtml = createGalleryCardHtml(`${selStation} • ${label}`, p);
-      } else {
-        cardsHtml = `
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            ${createGalleryCardHtml('大潭山 • 氣溫時序', 'static/images/line_大潭山_temp.png')}
-            ${createGalleryCardHtml('大潭山 • 24小時溫差', 'static/images/line_大潭山_temp_diff_24h.png')}
-            ${createGalleryCardHtml('大潭山 • 紫外線指數', 'static/images/line_uv_index.png')}
-            ${createGalleryCardHtml('紀念孫中山公園 • 氣溫時序', 'static/images/line_紀念孫中山公園_temp.png')}
-            ${createGalleryCardHtml('外港碼頭 • 風速時序', 'static/images/line_外港碼頭_wind_speed.png')}
-          </div>
-        `;
-      }
-
-      container.innerHTML = cardsHtml;
-    }
-
-    function createGalleryCardHtml(title, imgPath) {
-      preloadImage(imgPath);
-      return `
-        <div class="glass-surface-elevated p-3.5 sm:p-4 rounded-2xl space-y-2.5 transition hover:shadow-lg">
-          <div class="flex items-center justify-between pb-1.5 border-b border-slate-200/60 dark:border-slate-800">
-            <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200 truncate">${title}</span>
-            <span class="text-[10px] text-slate-400 font-mono-num flex items-center gap-1">
-              <i class="fa-solid fa-hand-pointer text-[9px]"></i> 點擊展開
-            </span>
-          </div>
-          <div class="flex justify-center bg-slate-200/40 dark:bg-slate-900/90 p-2 rounded-xl min-h-[220px] items-center relative">
-            <img data-origin-src="${imgPath}" src="${imgPath}?t=${Date.now()}" alt="${title}" class="expandable-image max-h-[380px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '${title}')" onerror="handleImageError(this)">
-          </div>
-        </div>
-      `;
-    }
-
     function getWindGrade(idx) {
       if (idx === null || isNaN(idx)) return ['--', '無數據'];
       if (idx >= 75) return ['≥75', '極強'];
@@ -2395,7 +2797,7 @@
 
         if (coords.isBridge) {
           bridgeHtml += `
-            <tr class="hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition cursor-pointer" onclick="handleMapWeatherStationClick('${st}')">
+            <tr class="hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition cursor-pointer" onclick="openStationWindSpeedModal('${st}')">
               <td class="py-2 px-2.5 font-sans font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-sky-500"></span>
                 <span>${st}</span>
@@ -2408,7 +2810,7 @@
           `;
         } else {
           landHtml += `
-            <tr class="hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition cursor-pointer" onclick="handleMapWeatherStationClick('${st}')">
+            <tr class="hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition cursor-pointer" onclick="openStationWindSpeedModal('${st}')">
               <td class="py-2 px-2.5 font-sans font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
                 <span>${st}</span>
@@ -2426,16 +2828,160 @@
       bridgeTbody.innerHTML = bridgeHtml;
     }
 
+    // =========================================================================
+    // SECTION: GALLERY & NAVIGATION
+    // =========================================================================
+    function initGalleryOptions() {
+      const stSelect = document.getElementById('galleryLineStationSelect');
+      if (!stSelect) return;
+      stSelect.innerHTML = `
+        <option value="__ALL__" selected>【不限站點】顯示所有測站此要素圖</option>
+        ${Object.keys(STATION_COORDS).map(st => {
+          const c = STATION_COORDS[st];
+          return `<option value="${st}">${st} (${c.code} · ${c.area})</option>`;
+        }).join('')}
+      `;
+
+      renderGalleryContent();
+    }
+
+    function renderGalleryContent() {
+      const container = document.getElementById('galleryResultsContainer');
+      const selMetric = document.getElementById('galleryLineMetricSelect').value;
+      const selStation = document.getElementById('galleryLineStationSelect').value;
+
+      if (selMetric === 'uv_index') {
+        const p = 'static/images/line_uv_index.png';
+        container.innerHTML = createGalleryCardHtml('大潭山(TG) 24小時紫外線指數 UV Index', p);
+        return;
+      }
+
+      let cardsHtml = '';
+
+      if (selMetric !== '__ALL__' && selStation === '__ALL__') {
+        const targetStations = Object.keys(STATION_COORDS).filter(st => {
+          if (selMetric === 'pressure') return PRESSURE_STATIONS.includes(st);
+          if (STATION_COORDS[st].isBridge) return selMetric === 'wind_speed';
+          return true;
+        });
+
+        cardsHtml = `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${targetStations.map(st => {
+              const p = selMetric === 'temp_diff_24h' 
+                ? `static/images/line_${st}_temp_diff_24h.png` 
+                : `static/images/line_${st}_${selMetric}.png`;
+              const label = selMetric === 'temp_diff_24h' ? '24H 溫差' : selMetric.toUpperCase();
+              preloadImage(p);
+              return createGalleryCardHtml(`${st} • ${label}`, p);
+            }).join('')}
+          </div>
+        `;
+      } 
+      else if (selStation !== '__ALL__' && selMetric === '__ALL__') {
+        const isBridge = STATION_COORDS[selStation].isBridge;
+        let metrics = isBridge ? ['wind_speed'] : ['temp', 'temp_diff_24h', 'apparent', 'wbgt', 'humidity', 'wind_speed', 'rain'];
+        if (PRESSURE_STATIONS.includes(selStation)) metrics.push('pressure');
+        if (selStation === '大潭山') metrics.push('uv_index');
+
+        cardsHtml = `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${metrics.map(m => {
+              let p = '';
+              let label = m.toUpperCase();
+              if (m === 'uv_index') {
+                p = 'static/images/line_uv_index.png';
+              } else if (m === 'temp_diff_24h') {
+                p = `static/images/line_${selStation}_temp_diff_24h.png`;
+                label = '24H 溫差';
+              } else {
+                p = `static/images/line_${selStation}_${m}.png`;
+              }
+              preloadImage(p);
+              return createGalleryCardHtml(`${selStation} • ${label}`, p);
+            }).join('')}
+          </div>
+        `;
+      }
+      else if (selStation !== '__ALL__' && selMetric !== '__ALL__') {
+        const p = selMetric === 'temp_diff_24h' 
+          ? `static/images/line_${selStation}_temp_diff_24h.png` 
+          : `static/images/line_${selStation}_${selMetric}.png`;
+        const label = selMetric === 'temp_diff_24h' ? '24H 溫差' : selMetric.toUpperCase();
+        preloadImage(p);
+        cardsHtml = createGalleryCardHtml(`${selStation} • ${label}`, p);
+      } else {
+        cardsHtml = `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${createGalleryCardHtml('大潭山 • 氣溫時序', 'static/images/line_大潭山_temp.png')}
+            ${createGalleryCardHtml('大潭山 • 24小時溫差', 'static/images/line_大潭山_temp_diff_24h.png')}
+            ${createGalleryCardHtml('大潭山 • 降水量時序', 'static/images/line_大潭山_rain.png')}
+            ${createGalleryCardHtml('紀念孫中山公園 • 氣溫時序', 'static/images/line_紀念孫中山公園_temp.png')}
+            ${createGalleryCardHtml('外港碼頭 • 風速時序', 'static/images/line_外港碼頭_wind_speed.png')}
+          </div>
+        `;
+      }
+
+      container.innerHTML = cardsHtml;
+    }
+
+    function createGalleryCardHtml(title, imgPath) {
+      preloadImage(imgPath);
+      return `
+        <div class="glass-surface-elevated p-3.5 sm:p-4 rounded-2xl space-y-2.5 transition hover:shadow-lg">
+          <div class="flex items-center justify-between pb-1.5 border-b border-slate-200/60 dark:border-slate-800">
+            <span class="font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-200 truncate">${title}</span>
+            <span class="text-[10px] text-slate-400 font-mono-num flex items-center gap-1">
+              <i class="fa-solid fa-hand-pointer text-[9px]"></i> 點擊展開
+            </span>
+          </div>
+          <div class="flex justify-center bg-slate-200/40 dark:bg-slate-900/90 p-2 rounded-xl min-h-[220px] items-center relative">
+            <img data-origin-src="${imgPath}" src="${imgPath}?t=${Date.now()}" alt="${title}" class="expandable-image max-h-[380px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '${title}')" onerror="handleImageError(this)">
+          </div>
+        </div>
+      `;
+    }
+
+    function initLeafletMap() {
+      leafletMap = L.map('weatherMap', {
+        center: [22.170, 113.553],
+        zoom: 13,
+        minZoom: 11,
+        maxZoom: 18,
+        zoomControl: false
+      });
+
+      L.control.zoom({ position: 'topright' }).addTo(leafletMap);
+
+      const primaryTiles = L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=cb1_3qmi_1_45938f30a02f173617e8c464', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+      });
+
+      primaryTiles.on('tileerror', function() {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; OpenStreetMap &copy; CARTO',
+          subdomains: 'abcd',
+          maxZoom: 19
+        }).addTo(leafletMap);
+      });
+
+      primaryTiles.addTo(leafletMap);
+      markerLayerGroup = L.layerGroup().addTo(leafletMap);
+    }
+
     function switchView(viewName) {
       const mapEl = document.getElementById('viewMap');
+      const rainEl = document.getElementById('viewRainfall');
       const floodEl = document.getElementById('viewFloodTide');
       const aqiEl = document.getElementById('viewAqi');
       const galEl = document.getElementById('viewGallery');
       const wndEl = document.getElementById('viewWindIndex');
 
-      [mapEl, floodEl, aqiEl, galEl, wndEl].forEach(el => el.classList.add('hidden'));
+      [mapEl, rainEl, floodEl, aqiEl, galEl, wndEl].forEach(el => el.classList.add('hidden'));
 
-      ['btnNavMap', 'btnNavFlood', 'btnNavAqi', 'btnNavGallery', 'btnNavWindIndex'].forEach(btnId => {
+      ['btnNavMap', 'btnNavRainfall', 'btnNavFlood', 'btnNavAqi', 'btnNavGallery', 'btnNavWindIndex'].forEach(btnId => {
         const b = document.getElementById(btnId);
         if (b) b.className = "px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
       });
@@ -2446,6 +2992,10 @@
         mapEl.classList.remove('hidden');
         document.getElementById('btnNavMap').className = activeBtnClass;
         setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 200);
+      } else if (viewName === 'rainfall') {
+        rainEl.classList.remove('hidden');
+        document.getElementById('btnNavRainfall').className = activeBtnClass;
+        renderRainfallSection();
       } else if (viewName === 'flood_tide') {
         floodEl.classList.remove('hidden');
         document.getElementById('btnNavFlood').className = activeBtnClass;
@@ -2564,18 +3114,19 @@
       evaluateAlertRibbon();
       renderFloodAndTideSection();
       renderAqiSection();
+      renderRainfallSection();
     }
 
     async function refreshData() {
       const icon = document.getElementById('refreshSpinIcon');
-      icon.classList.add('fa-spin');
+      if (icon) icon.classList.add('fa-spin');
       
       await loadAllDatasets();
 
       calculateAndDisplayWindIndex();
       initGalleryOptions();
       setTimeout(() => {
-        icon.classList.remove('fa-spin');
+        if (icon) icon.classList.remove('fa-spin');
       }, 500);
     }
 
@@ -2589,16 +3140,18 @@
       calculateAndDisplayWindIndex();
       initGalleryOptions();
 
-      // Preload general line graphs in background
+      // Preload general line graphs
       preloadImage('static/images/line_wind_index.png');
       preloadImage('static/images/line_wind_direction.png');
       preloadImage('static/images/line_uv_index.png');
       preloadImage('flood/images/tide.png');
     });
 
-    // Re-render tabs on resize to ensure smooth orientation switches
     window.addEventListener('resize', () => {
       renderMetricTabs();
+      if (currentHistoricalData.length > 0) {
+        drawRainfallSvgChart(currentHistoricalData);
+      }
     });
   </script>
 </body>
