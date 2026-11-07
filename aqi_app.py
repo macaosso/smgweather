@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import json
 import warnings
@@ -18,11 +17,10 @@ import matplotlib.dates as mdates
 warnings.filterwarnings("ignore")
 
 # 建立輸出目錄
-os.makedirs('AQI', exist_ok=True)
+os.makedirs('AQI/images', exist_ok=True)
 
 DB_PATH = 'AQI/AQIhistory.db'
 JS_PATH = 'AQI/AQIdata.js'
-IMG_PATH = 'AQI/AQI.png'
 
 MACAU_TZ = ZoneInfo('Asia/Macau')
 
@@ -36,12 +34,11 @@ JSON_URL = "https://www.smg.gov.mo/smg/airQuality/latestAirConcentration.json"
 
 GRID_BORDER_COLOR = '#8DA59A'
 TEXT_COLOR = '#334155'
+LINE_COLOR = '#0284C7'
 
 # ==========================================
 # 澳門 AQI 斷點表與等級著色標準
 # ==========================================
-# 0-50 良好 green, 51-100 普通 yellow, 101-200 不良 darker yellow,
-# 201-300 非常不良 orange, 301-400 嚴重 red, 401-500 有害 darker red
 AQI_LEVELS = [
     (0,   50,  "#DCFCE7", "#16A34A", "良好 (0-50)"),
     (50,  100, "#FEF9C3", "#CA8A04", "普通 (51-100)"),
@@ -61,15 +58,6 @@ BREAKPOINTS = {
     'CO':    [0, 5,   10,  17,  34,  46,  57]
 }
 
-STATION_COLORS = {
-    "荷蘭園（路邊）": "#0284C7",     # 藍
-    "九澳（路邊）": "#0D9488",       # 青綠
-    "黑沙環（高密度住宅區）": "#E11D48", # 桃紅
-    "氹仔中心（高密度住宅區）": "#F59E0B", # 琥珀
-    "氹仔高地（一般性）": "#7C3AED",   # 紫
-    "石排灣（一般性）": "#4B5563"     # 灰
-}
-
 # ==========================================
 # 副指數片段式線性內插計算
 # ==========================================
@@ -83,7 +71,6 @@ def calculate_sub_index(c_val, pollutant_key):
     if c_val <= 0:
         return 0.0
 
-    # 查表分段插值
     for k in range(len(c_bps) - 1):
         c_low, c_high = c_bps[k], c_bps[k+1]
         i_low, i_high = i_bps[k], i_bps[k+1]
@@ -94,7 +81,6 @@ def calculate_sub_index(c_val, pollutant_key):
             i_val = ((i_high - i_low) / (c_high - c_low)) * (c_val - c_low) + i_low
             return round(i_val, 1)
 
-    # 若超過最大斷點，依據最後一段線性外推
     c_low, c_high = c_bps[-2], c_bps[-1]
     i_low, i_high = i_bps[-2], i_bps[-1]
     i_val = ((i_high - i_low) / (c_high - c_low)) * (c_val - c_low) + i_low
@@ -167,7 +153,6 @@ def parse_and_compute_aqi(data_json):
     if not data_json:
         return "", 0.0, {}
 
-    # 時間取自 "datetime": "2026-11-07 11:45"
     dt_str = data_json.get('datetime', '').strip()
     try:
         dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M").replace(tzinfo=MACAU_TZ)
@@ -188,7 +173,6 @@ def parse_and_compute_aqi(data_json):
         except (ValueError, TypeError):
             return None
 
-    # 遍歷 JSON 內的所有測站鍵值
     for key, val in data_json.items():
         if not isinstance(val, dict):
             continue
@@ -203,7 +187,6 @@ def parse_and_compute_aqi(data_json):
         c_o3   = parse_float(val.get('HE_O3'))
         c_co   = parse_float(val.get('HE_CO'))
 
-        # 分段線性插值計算副指數
         i_pm10 = calculate_sub_index(c_pm10, 'PM10')
         i_pm25 = calculate_sub_index(c_pm25, 'PM2_5')
         i_so2  = calculate_sub_index(c_so2,  'SO2')
@@ -220,7 +203,6 @@ def parse_and_compute_aqi(data_json):
             'CO': i_co
         }
 
-        # 空氣質量指數 = Max(IPM10, IPM2.5, ISO2, INO2, IO3, ICO)
         valid_indices = {k: v for k, v in sub_indices.items() if v is not None and not np.isnan(v)}
         if valid_indices:
             aqi_val = round(max(valid_indices.values()), 1)
@@ -280,9 +262,9 @@ def insert_nans_on_gap(df, col, max_gap_minutes=70):
     return pd.DataFrame(new_rows).reset_index(drop=True)
 
 # ==========================================
-# 繪製各測站空氣質量指數（AQI）時序趨勢圖
+# 獨立繪製 6 個測站的 AQI 時序圖
 # ==========================================
-def render_aqi_chart(current_time_str, current_timestamp, current_stations_data):
+def render_aqi_charts(current_time_str, current_timestamp, current_stations_data):
     conn = sqlite3.connect(DB_PATH, timeout=10)
     df = pd.read_sql_query("SELECT * FROM aqi_history ORDER BY timestamp ASC", conn)
     conn.close()
@@ -295,105 +277,99 @@ def render_aqi_chart(current_time_str, current_timestamp, current_stations_data)
 
     x_end = datetime.fromtimestamp(current_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
     x_start = x_end - timedelta(hours=24)
+    header_update_text = f"更新時間 Update Time:{current_time_str.replace('-', '/')}"
 
-    df_24h = df[df['datetime'] >= x_start]
-    valid_aqi = df_24h['aqi'].dropna() if not df_24h.empty else df['aqi'].dropna()
-
-    # 動態自適應 Y 軸刻度（不低於 0，預設至少涵蓋良好/普通區間至 100）
-    if not valid_aqi.empty:
-        max_aqi = valid_aqi.max()
-        calc_ymax = max(100.0, max_aqi + 15.0)
-        step = 25.0 if calc_ymax <= 150 else (50.0 if calc_ymax <= 300 else 100.0)
-        plot_ymax = np.ceil(calc_ymax / step) * step
-    else:
-        plot_ymax, step = 100.0, 25.0
-
-    plot_ymin = 0.0
-
-    fig, ax = plt.subplots(figsize=(16, 7.5), dpi=120)
-    fig.patch.set_facecolor('white')
-    ax.set_facecolor('white')
-
-    # 1. 繪製 AQI 等級背景區間與分割線
-    for low, high, bg_c, text_c, label_txt in AQI_LEVELS:
-        if low < plot_ymax and high > plot_ymin:
-            eff_low = max(low, plot_ymin)
-            eff_high = min(high, plot_ymax)
-            ax.axhspan(eff_low, eff_high, facecolor=bg_c, alpha=0.35, zorder=1)
-
-            if eff_low > plot_ymin:
-                ax.axhline(eff_low, color=text_c, linestyle='--', linewidth=0.9, alpha=0.55, zorder=2)
-                ax.text(x_end, eff_low, f" {int(eff_low)}", color=text_c, va='center', ha='left', fontsize=9.5, fontweight='bold')
-
-            mid_y = (eff_low + eff_high) / 2.0
-            ax.text(x_start + timedelta(minutes=15), mid_y, label_txt,
-                    color=text_c, fontsize=10, fontweight='bold', alpha=0.85, va='center', zorder=2)
-
-    # 2. 遍歷測站，僅繪製綜合 AQI 指數曲線
-    default_palette = ['#0284C7', '#0D9488', '#E11D48', '#F59E0B', '#7C3AED', '#4B5563', '#2563EB', '#D97706']
-    color_idx = 0
-
-    unique_stations = df['station_code'].unique()
-    for st_code in unique_stations:
+    for st_code, cur_info in current_stations_data.items():
         st_df = df[df['station_code'] == st_code].copy()
         if st_df.empty:
             continue
 
-        # 優先取得中文站名
-        st_name = current_stations_data.get(st_code, {}).get('station_name')
-        if not st_name:
-            st_name = st_df['station_name'].dropna().iloc[-1] if not st_df['station_name'].dropna().empty else st_code
+        st_name = cur_info.get('station_name')
+        if not st_name or st_name == st_code:
+            valid_names = st_df['station_name'].dropna()
+            valid_names = valid_names[valid_names != st_code]
+            st_name = valid_names.iloc[-1] if not valid_names.empty else st_code
 
-        line_color = STATION_COLORS.get(st_name, default_palette[color_idx % len(default_palette)])
-        color_idx += 1
+        # 動態計算該站專屬 Y 軸刻度（不低於 0，預設至少涵蓋良好/普通區間至 100）
+        st_df_24h = st_df[st_df['datetime'] >= x_start]
+        valid_series = st_df_24h['aqi'].dropna() if not st_df_24h.empty else st_df['aqi'].dropna()
 
+        if not valid_series.empty:
+            max_aqi = valid_series.max()
+            calc_ymax = max(100.0, max_aqi + 15.0)
+            step = 25.0 if calc_ymax <= 150 else (50.0 if calc_ymax <= 300 else 100.0)
+            plot_ymax = np.ceil(calc_ymax / step) * step
+        else:
+            plot_ymax, step = 100.0, 25.0
+
+        plot_ymin = 0.0
+
+        fig, ax = plt.subplots(figsize=(15, 6.5), dpi=120)
+        fig.patch.set_facecolor('white')
+        ax.set_facecolor('white')
+
+        # 1. 繪製 AQI 等級背景區間與分割線
+        for low, high, bg_c, text_c, label_txt in AQI_LEVELS:
+            if low < plot_ymax and high > plot_ymin:
+                eff_low = max(low, plot_ymin)
+                eff_high = min(high, plot_ymax)
+                ax.axhspan(eff_low, eff_high, facecolor=bg_c, alpha=0.35, zorder=1)
+
+                if eff_low > plot_ymin:
+                    ax.axhline(eff_low, color=text_c, linestyle='--', linewidth=0.9, alpha=0.55, zorder=2)
+                    ax.text(x_end, eff_low, f" {int(eff_low)}", color=text_c, va='center', ha='left', fontsize=9.5, fontweight='bold')
+
+                mid_y = (eff_low + eff_high) / 2.0
+                ax.text(x_start + timedelta(minutes=15), mid_y, label_txt,
+                        color=text_c, fontsize=10, fontweight='bold', alpha=0.85, va='center', zorder=2)
+
+        # 2. 繪製該站 AQI 折線
         plot_df = insert_nans_on_gap(st_df, 'aqi', max_gap_minutes=70)
         if not plot_df['aqi'].dropna().empty:
-            ax.plot(plot_df['datetime'], plot_df['aqi'], label=f"{st_name} ({st_code})", 
-                    color=line_color, linewidth=2.0, antialiased=True, zorder=4)
-            ax.scatter(st_df['datetime'], st_df['aqi'], color=line_color, s=16, alpha=0.8, edgecolors='none', zorder=5)
+            ax.plot(plot_df['datetime'], plot_df['aqi'], color=LINE_COLOR, linewidth=2.2, antialiased=True, zorder=4, label='空氣質量指數 AQI')
+            ax.scatter(st_df['datetime'], st_df['aqi'], color='#0369A1', s=18, alpha=0.85, edgecolors='none', zorder=5)
+        else:
+            ax.text(0.5, 0.5, '暫無數據 No Data', transform=ax.transAxes, fontsize=18, color='gray', ha='center', va='center')
 
-    # 3. 坐標軸與標籤格式設置
-    ax.set_xlim(x_start, x_end)
-    ax.set_ylim(bottom=plot_ymin, top=plot_ymax)
-    y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
-    ax.set_yticks(y_ticks)
-    ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=13, color='#1E293B', family='monospace')
+        # 3. 坐標軸與動態刻度設置
+        ax.set_xlim(x_start, x_end)
+        ax.set_ylim(bottom=plot_ymin, top=plot_ymax)
+        y_ticks = np.arange(plot_ymin, plot_ymax + step * 0.1, step)
+        ax.set_yticks(y_ticks)
+        ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=13, color='#1E293B', family='monospace')
 
-    ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-    ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
+        ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+        ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
 
-    def format_hour_ticks(x, pos=None):
-        dt = mdates.num2date(x)
-        hour_str = f"{dt.strftime('%H')}H"
-        return f"{hour_str}\n{dt.strftime('%d %b')}" if dt.hour == 0 else hour_str
+        def format_hour_ticks(x, pos=None):
+            dt = mdates.num2date(x)
+            hour_str = f"{dt.strftime('%H')}H"
+            return f"{hour_str}\n{dt.strftime('%d %b')}" if dt.hour == 0 else hour_str
 
-    ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
-    plt.setp(ax.get_xticklabels(), fontsize=13, color=TEXT_COLOR, family='monospace')
+        ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
+        plt.setp(ax.get_xticklabels(), fontsize=13, color=TEXT_COLOR, family='monospace')
 
-    ax.grid(True, which='major', linestyle=':', linewidth=1.4, color=GRID_BORDER_COLOR, alpha=0.85)
-    ax.tick_params(axis='both', which='major', length=6, width=1.1, color=GRID_BORDER_COLOR, direction='out')
-    ax.tick_params(axis='x', which='minor', length=3, width=0.8, color=GRID_BORDER_COLOR, direction='out')
+        ax.grid(True, which='major', linestyle=':', linewidth=1.4, color=GRID_BORDER_COLOR, alpha=0.85)
+        ax.tick_params(axis='both', which='major', length=6, width=1.1, color=GRID_BORDER_COLOR, direction='out')
+        ax.tick_params(axis='x', which='minor', length=3, width=0.8, color=GRID_BORDER_COLOR, direction='out')
 
-    for spine in ax.spines.values():
-        spine.set_color(GRID_BORDER_COLOR)
-        spine.set_linewidth(1.3)
+        for spine in ax.spines.values():
+            spine.set_color(GRID_BORDER_COLOR)
+            spine.set_linewidth(1.3)
 
-    ax.set_ylabel('空氣質量指數 AQI', fontsize=15, color='#1E293B', labelpad=12)
-    ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
+        ax.set_ylabel('空氣質量指數 AQI', fontsize=15, color='#1E293B', labelpad=12)
+        ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
 
-    header_title = "澳門各站空氣質量指數趨勢 (AQI)"
-    header_update_text = f"更新時間 Update Time:{current_time_str.replace('-', '/')}"
+        header_title = f"{st_name} ({st_code}) 空氣質量指數趨勢"
+        ax.text(0.0, 1.02, header_title, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
+        ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
 
-    ax.text(0.0, 1.02, header_title, transform=ax.transAxes, fontsize=15, va='bottom', ha='left', color=TEXT_COLOR, fontweight='bold')
-    ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
+        plt.tight_layout()
+        img_out = f"AQI/images/{st_code}.png"
+        plt.savefig(img_out, dpi=120, bbox_inches='tight')
+        plt.close(fig)
 
-    ax.legend(loc='upper right', frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=10.5, ncol=3)
-
-    plt.tight_layout()
-    plt.savefig(IMG_PATH, dpi=120, bbox_inches='tight')
-    plt.close(fig)
-    print(f"✅ AQI 時序趨勢圖已儲存至：{IMG_PATH}")
+    print("✅ 全部 6 個測站 AQI 趨勢圖繪製完成！")
 
 # ==========================================
 # 輸出前端 JavaScript 變數檔案 (AQI/AQIdata.js)
@@ -439,9 +415,9 @@ def main():
     # 2. 輸出 AQI/AQIdata.js
     export_aqi_js(current_time_str, current_timestamp, stations_data)
 
-    # 3. 繪製全站 AQI 趨勢圖至 AQI/AQI.png
-    render_aqi_chart(current_time_str, current_timestamp, stations_data)
-    print("🎉 空氣質量指數同步與繪圖流程順利完成！")
+    # 3. 獨立繪製 6 個測站圖表至 AQI/images/{station_code}.png
+    render_aqi_charts(current_time_str, current_timestamp, stations_data)
+    print("🎉 空氣質量指數同步與 6 站繪圖流程順利完成！")
     sys.exit(0)
 
 if __name__ == '__main__':
