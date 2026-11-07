@@ -93,3 +93,6 @@ jobs:
             # 4. 同步更新發布至 gh-pages
             echo "準備同步潮汐檔案至 gh-pages..."
             rm -rf /tmp/gh-pages-deploy
+            echo "更新完畢，等待 1 分鐘..."
+            sleep $INTERVAL
+          done
