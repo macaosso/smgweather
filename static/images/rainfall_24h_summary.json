@@ -7,13 +7,6 @@
     "Past_24H_Total_Rain (mm)":3.0
   },
   {
-    "Station":"外港碼頭",
-    "Code":"PE",
-    "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":2.6
-  },
-  {
     "Station":"澳門大學",
     "Code":"UM",
     "Area":"橫琴澳大校區",
@@ -23,6 +16,13 @@
   {
     "Station":"媽閣",
     "Code":"MM",
+    "Area":"澳門半島",
+    "Current_Hourly_Rain (mm)":0.0,
+    "Past_24H_Total_Rain (mm)":2.4
+  },
+  {
+    "Station":"外港碼頭",
+    "Code":"PE",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
     "Past_24H_Total_Rain (mm)":2.4
