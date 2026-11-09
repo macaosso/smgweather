@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-09 17:17",
-  "timestamp": 1794215820.0,
+  "system_pubdate": "2026-11-09 17:18",
+  "timestamp": 1794215880.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -47,8 +47,8 @@
     "LIV": {
       "station_code": "LIV",
       "station_name": "青洲河邊馬路",
-      "record_time": "2026-11-09 17:18",
-      "timestamp": 1794215894.186407,
+      "record_time": "2026-11-09 17:20",
+      "timestamp": 1794216024.192002,
       "water_level": null
     },
     "LMF": {
