@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-09 09:03",
-  "timestamp": 1794186180.0,
+  "system_pubdate": "2026-11-09 09:06",
+  "timestamp": 1794186360.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -68,9 +68,9 @@
     "LRR": {
       "station_code": "LRR",
       "station_name": "光復街",
-      "record_time": "2026-11-09 09:00",
-      "timestamp": 1794186000.0,
-      "water_level": 0.0
+      "record_time": "2026-11-09 09:06",
+      "timestamp": 1794186407.716602,
+      "water_level": null
     },
     "LTA": {
       "station_code": "LTA",
