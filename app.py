@@ -558,7 +558,7 @@ def plot_two_color_diff_line(ax, dts, values):
         lc = LineCollection(segments, colors=colors, linewidths=1.8, zorder=4)
         ax.add_collection(lc)
 
-def compute_clean_step(data_range, target_ticks=7):
+def compute_clean_step(data_range, target_ticks=6):
     if data_range <= 0:
         return 1.0
     raw_step = data_range / target_ticks
@@ -627,7 +627,7 @@ def render_trend_charts():
     TEXT_COLOR = '#334155'
     header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
 
-    # 更鮮明可辨識的分級背景色 (提升飽和度) 與高對比度分類標準線顏色
+    # 更鮮明可辨識的分級背景色與分類標準線顏色
     TEMP_SPANS = [
         (37.5, 60.0, "#FECACA", "極為酷熱 (≥37.5)", "#991B1B"),
         (35.5, 37.5, "#FED7AA", "非常酷熱 (35.5-37.4)", "#C2410C"),
@@ -667,56 +667,59 @@ def render_trend_charts():
         'temp': {
             'label': '溫度 Temperature(°C)', 'color': '#A23B5A', 'is_bar': False,
             'spans': TEMP_SPANS,
-            'lines': [(37.5, '極為酷熱 37.5', '#991B1B'), (35.5, '非常酷熱 35.5', '#C2410C'), (32.5, '酷熱 32.5', '#B45309'), (7.5, '寒冷 7.5', '#0369A1'), (3.5, '非常寒冷 3.5', '#1D4ED8')]
+            'lines': [(37.5, '#991B1B'), (35.5, '#C2410C'), (32.5, '#B45309'), (7.5, '#0369A1'), (3.5, '#1D4ED8')]
         },
         'temp_diff_24h': {
             'label': '24小時溫差 24H Temp Change(°C)', 'color': '#EF4444', 'is_bar': False,
             'spans': [],
-            'lines': [(0.0, '0℃ 氣溫持平', '#475569')]
+            'lines': [(0.0, '#475569')]
         },
         'apparent': {
             'label': '體感溫度 Apparent Temp(°C)', 'color': '#EA580C', 'is_bar': False,
             'spans': TEMP_SPANS,
-            'lines': [(37.5, '極為酷熱 37.5', '#991B1B'), (35.5, '非常酷熱 35.5', '#C2410C'), (32.5, '酷熱 32.5', '#B45309'), (7.5, '寒冷 7.5', '#0369A1'), (3.5, '非常寒冷 3.5', '#1D4ED8')]
+            'lines': [(37.5, '#991B1B'), (35.5, '#C2410C'), (32.5, '#B45309'), (7.5, '#0369A1'), (3.5, '#1D4ED8')]
         },
         'wbgt': {
             'label': '暑熱指數 WBGT', 'color': '#D97706', 'is_bar': False,
             'spans': WBGT_SPANS,
-            'lines': [(32.5, '極危 32.5', '#991B1B'), (30.5, '危險 30.5', '#DC2626'), (29.5, '警戒 29.5', '#D97706')]
+            'lines': [(32.5, '#991B1B'), (30.5, '#DC2626'), (29.5, '#D97706')]
         },
         'humidity': {
             'label': '相對濕度 Humidity(%)', 'color': '#2A7B9B', 'is_bar': False,
             'spans': HUMIDITY_SPANS,
-            'lines': [(95.0, '95%', '#1D4ED8'), (85.0, '85%', '#0284C7'), (50.0, '50%', '#EA580C'), (30.0, '30%', '#E11D48')]
+            'lines': [(95.0, '#1D4ED8'), (85.0, '#0284C7'), (50.0, '#EA580C'), (30.0, '#E11D48')]
         },
         'wind_speed': {
             'label': '風速 Wind Speed(km/h)', 'color': '#8B3A62', 'is_bar': False,
             'spans': WIND_SPANS,
-            'lines': [(117.5, '颶風 117.5', '#DC2626'), (87.5, '暴風 87.5', '#EA580C'), (62.5, '烈風 62.5', '#D97706'), (40.5, '強風 40.5', '#0284C7')]
+            'lines': [(117.5, '#DC2626'), (87.5, '#EA580C'), (62.5, '#D97706'), (40.5, '#0284C7')]
         },
         'rain': {
             'label': '降水量 Rainfall(mm)', 'color': '#1D4ED8', 'is_bar': True,
             'spans': RAIN_SPANS,
-            'lines': [(20.0, '大雨 20mm', '#2563EB'), (50.0, '暴雨 50mm', '#DC2626'), (100.0, '大暴雨 100mm', '#6D28D9')]
+            'lines': [(20.0, '#2563EB'), (50.0, '#DC2626'), (100.0, '#6D28D9')]
         },
         'pressure': {
             'label': '海平面氣壓 Pressure(hPa)', 'color': '#1E3A8A', 'is_bar': False,
             'spans': PRESSURE_SPANS,
-            'lines': [(1025.0, '高壓 1025', '#DC2626'), (1000.0, '低壓 1000', '#0284C7'), (1013.25, '標準氣壓 1013.25', '#475569')]
+            'lines': [(1025.0, '#DC2626'), (1000.0, '#0284C7'), (1013.25, '#475569')]
         }
     }
 
     x_end = datetime.fromtimestamp(pub_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
     x_start = x_end - timedelta(hours=24)
 
-    # 依據全體觀測數據動態調整 Y 軸（相同要素維持全站統一 Y 軸，無固定寫死間距）
+    # 僅篩選過去 24 小時內之有效資料，依全體各要素真實極值動態計算 Y 軸上下限與刻度
+    df_24h = df[(df['datetime'] >= x_start) & (df['datetime'] <= x_end)].copy()
+    if df_24h.empty:
+        df_24h = df.copy()
+
     UNIFIED_Y_LIMITS = {}
     for col, cfg in METRIC_DEFS.items():
-        sub_df = df.copy()
         if col == 'wind_speed':
-            all_v = pd.concat([sub_df['wind_speed'].dropna(), sub_df['gust_speed'].dropna()])
+            all_v = pd.concat([df_24h['wind_speed'].dropna(), df_24h['gust_speed'].dropna()])
         else:
-            all_v = sub_df[col].dropna()
+            all_v = df_24h[col].dropna()
 
         if all_v.empty:
             UNIFIED_Y_LIMITS[col] = (-2.0, 2.0, 1.0) if col == 'temp_diff_24h' else (0.0, 10.0, 2.0)
@@ -726,33 +729,34 @@ def render_trend_charts():
         y_max = float(all_v.max())
 
         if col == 'temp_diff_24h':
-            abs_max = max(abs(y_min), abs(y_max), 1.0)
-            step = compute_clean_step(abs_max * 2, target_ticks=7)
+            abs_max = max(abs(y_min), abs(y_max), 0.5)
+            step = compute_clean_step(abs_max * 2, target_ticks=6)
             plot_ymax = math.ceil(abs_max / step) * step
             plot_ymin = -plot_ymax
         elif col == 'wind_speed':
             data_max = max(y_max, 5.0)
-            step = compute_clean_step(data_max, target_ticks=6)
+            data_range = data_max - min(0.0, y_min)
+            step = compute_clean_step(data_range, target_ticks=6)
             plot_ymin = -1.0 * step
             plot_ymax = math.ceil(data_max / step) * step
-            if plot_ymax - plot_ymin < step * 3:
+            if (plot_ymax - plot_ymin) < step * 3:
                 plot_ymax = plot_ymin + step * 4
         elif col == 'rain':
-            data_max = max(y_max, 5.0)
-            step = compute_clean_step(data_max, target_ticks=6)
+            data_max = max(y_max, 2.0)
+            step = compute_clean_step(data_max, target_ticks=5)
             plot_ymin = 0.0
             plot_ymax = math.ceil(data_max / step) * step
         elif col == 'humidity':
-            data_range = max(y_max - y_min, 10.0)
-            step = compute_clean_step(data_range, target_ticks=6)
+            span = max(y_max - y_min, 5.0)
+            step = compute_clean_step(span, target_ticks=6)
             plot_ymin = max(0.0, math.floor(y_min / step) * step)
             plot_ymax = min(100.0, math.ceil(y_max / step) * step)
             if plot_ymin >= plot_ymax:
                 plot_ymin = max(0.0, plot_ymin - step)
                 plot_ymax = min(100.0, plot_ymax + step)
         else:
-            data_range = max(y_max - y_min, 2.0)
-            step = compute_clean_step(data_range, target_ticks=6)
+            span = max(y_max - y_min, 1.0)
+            step = compute_clean_step(span, target_ticks=6)
             plot_ymin = math.floor(y_min / step) * step
             plot_ymax = math.ceil(y_max / step) * step
             if plot_ymin == plot_ymax:
@@ -794,14 +798,14 @@ def render_trend_charts():
                 plt.close(fig)
                 continue
 
-            # 背景色塊：提高清晰度與透明度
+            # 背景色塊：清晰醒目背景層
             for span_item in cfg.get('spans', []):
                 low, high, span_color, span_lbl = span_item[0], span_item[1], span_item[2], span_item[3]
                 text_col = span_item[4] if len(span_item) > 4 else '#334155'
                 if low < plot_ymax and high > plot_ymin:
                     eff_low = max(low, plot_ymin)
                     eff_high = min(high, plot_ymax)
-                    ax.axhspan(eff_low, eff_high, facecolor=span_color, alpha=0.34, zorder=1)
+                    ax.axhspan(eff_low, eff_high, facecolor=span_color, alpha=0.36, zorder=1)
                     if (eff_high - eff_low) >= (step * 0.45):
                         mid_y = (eff_low + eff_high) / 2.0
                         ax.text(x_start + pd.Timedelta(minutes=15), mid_y, span_lbl,
@@ -837,13 +841,13 @@ def render_trend_charts():
 
             ax.set_yticklabels([y_fmt(y) for y in y_ticks], fontsize=13, color=cfg['color'], family='monospace')
 
-            # 標準指標線：依背景色對應之主題色加深繪製，並加上加粗標註
+            # 分類標準線：顏色對齊背景主題色，無右側文字標籤
             if 'lines' in cfg:
-                for threshold_val, line_label, line_color in cfg['lines']:
+                for line_def in cfg['lines']:
+                    threshold_val = line_def[0]
+                    line_color = line_def[1] if len(line_def) == 2 else line_def[2]
                     if plot_ymin < threshold_val < plot_ymax:
                         ax.axhline(y=threshold_val, color=line_color, linestyle='--', linewidth=1.4, alpha=0.9, zorder=3)
-                        ax.text(x_end, threshold_val, f" {line_label}", color=line_color, 
-                                va='center', ha='left', fontsize=9.5, fontweight='bold', alpha=0.95, clip_on=False)
 
             if col == 'wind_speed':
                 arrow_df = st_df.dropna(subset=['wind_dir']).copy()
@@ -933,7 +937,7 @@ def render_trend_charts():
             if low < plot_ymax and high > 0:
                 eff_low = max(low, 0)
                 eff_high = min(high, plot_ymax)
-                ax.axhspan(eff_low, eff_high, facecolor=span_color, alpha=0.34, zorder=1)
+                ax.axhspan(eff_low, eff_high, facecolor=span_color, alpha=0.36, zorder=1)
                 mid_y = (eff_low + eff_high) / 2.0
                 ax.text(x_start + pd.Timedelta(minutes=15), mid_y, span_lbl,
                         color=text_col, fontsize=9.5, fontweight='bold', alpha=0.9, va='center', zorder=2)
@@ -952,10 +956,11 @@ def render_trend_charts():
         ax.set_yticks(y_ticks)
         ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=13, color='#8B3A62', family='monospace')
 
-        for threshold_val, line_label, line_color in METRIC_DEFS['wind_speed']['lines']:
+        for line_def in METRIC_DEFS['wind_speed']['lines']:
+            threshold_val = line_def[0]
+            line_color = line_def[1] if len(line_def) == 2 else line_def[2]
             if 0 < threshold_val < plot_ymax:
                 ax.axhline(y=threshold_val, color=line_color, linestyle='--', linewidth=1.4, alpha=0.9, zorder=3)
-                ax.text(x_end, threshold_val, f" {line_label}", color=line_color, va='center', ha='left', fontsize=9.5, fontweight='bold', alpha=0.95)
 
         ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
         ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
@@ -996,7 +1001,12 @@ def render_uv_trend_chart():
     fig.patch.set_facecolor('white')
     ax.set_facecolor('white')
 
-    valid_df = df.dropna(subset=['uvi'])
+    x_end = datetime.fromtimestamp(pub_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
+    x_start = x_end - timedelta(hours=24)
+
+    df_24h = df[(df['datetime'] >= x_start) & (df['datetime'] <= x_end)]
+    valid_df = df_24h.dropna(subset=['uvi']) if not df_24h.empty else df.dropna(subset=['uvi'])
+
     if valid_df.empty:
         ax.text(0.5, 0.5, '暫無紫外線數據 No Data', transform=ax.transAxes, fontsize=20, color='gray', ha='center', va='center')
         ax.set_axis_off()
@@ -1005,15 +1015,13 @@ def render_uv_trend_chart():
         plt.close(fig)
         return
 
-    x_end = datetime.fromtimestamp(pub_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
-    x_start = x_end - timedelta(hours=24)
     ax.set_xlim(x_start, x_end)
 
     max_uv = float(valid_df['uvi'].max())
     step = compute_clean_step(max(max_uv, 3.0), target_ticks=6)
     plot_ymax = math.ceil(max(max_uv, 3.0) / step) * step
-    if plot_ymax < 6.0:
-        plot_ymax = 6.0
+    if plot_ymax < 4.0:
+        plot_ymax = 4.0
 
     y_ticks = np.arange(0, plot_ymax + step * 0.1, step)
     ax.set_ylim(0, plot_ymax)
@@ -1028,10 +1036,9 @@ def render_uv_trend_chart():
     for low, high, uv_bg, uv_lbl, uv_line_color in uv_levels:
         if low < plot_ymax:
             eff_high = min(high, plot_ymax)
-            ax.axhspan(low, eff_high, facecolor=uv_bg, alpha=0.35, zorder=1)
+            ax.axhspan(low, eff_high, facecolor=uv_bg, alpha=0.36, zorder=1)
             if 0 < low < plot_ymax:
                 ax.axhline(low, color=uv_line_color, linestyle='--', linewidth=1.4, alpha=0.9, zorder=2)
-                ax.text(x_end, low, f" {low}", color=uv_line_color, va='center', ha='left', fontsize=9.5, fontweight='bold')
             mid_y = (low + eff_high) / 2.0
             ax.text(x_start + pd.Timedelta(minutes=15), mid_y, uv_lbl,
                     color=uv_line_color, fontsize=10, fontweight='bold', alpha=0.9, va='center', zorder=2)
@@ -1098,7 +1105,7 @@ def render_wind_index_chart():
     x_start = x_end - timedelta(hours=24)
     ax.set_xlim(x_start, x_end)
 
-    df_24h = df[df['datetime'] >= x_start]
+    df_24h = df[(df['datetime'] >= x_start) & (df['datetime'] <= x_end)]
     valid_vals = df_24h['wind_index'].dropna() if not df_24h.empty else df['wind_index'].dropna()
     max_val = float(valid_vals.max()) if not valid_vals.empty else 10.0
 
@@ -1121,7 +1128,6 @@ def render_wind_index_chart():
         ax.axhspan(low, eff_high, facecolor=bg_color, alpha=0.38, zorder=1)
         if 0 < low < plot_ymax:
             ax.axhline(low, color=line_color, linestyle='--', linewidth=1.5, alpha=0.9, zorder=2)
-            ax.text(x_end, low, f" {low}", color=line_color, va='center', ha='left', fontsize=10, fontweight='bold')
         mid_y = (low + eff_high) / 2.0
         if mid_y < plot_ymax:
             ax.text(x_start + pd.Timedelta(minutes=20), mid_y, g_label, 
@@ -1247,7 +1253,6 @@ def render_wind_direction_chart():
             row2 = avg_df.iloc[i + 1]
             diff_min = (row2['datetime'] - row1['datetime']).total_seconds() / 60.0
             
-            # 若時間間隔超過 25 分鐘或跨越 0°/360° (角度突變 > 180°)，不相連
             if diff_min <= 25 and abs(row2['avg_deg'] - row1['avg_deg']) <= 180:
                 x1 = mdates.date2num(row1['datetime'])
                 x2 = mdates.date2num(row2['datetime'])
