@@ -86,15 +86,15 @@ def get_wind_index_color(wind_idx):
     if wind_idx is None or np.isnan(wind_idx):
         return "#64748B"
     if wind_idx <= 13:
-        return "#227722"
+        return "#15803D"
     elif wind_idx <= 24:
-        return "#2255BB"
+        return "#1D4ED8"
     elif wind_idx <= 44:
-        return "#DD2222"
+        return "#DC2626"
     elif wind_idx <= 74:
-        return "#8822BB"
+        return "#7E22CE"
     else:
-        return "#774422"
+        return "#92400E"
 
 # ==========================================
 # 氣象指數數學公式
@@ -154,7 +154,6 @@ def init_wind_index_db():
                   wind_index REAL, grade TEXT,
                   wind_dirs_json TEXT)''')
     
-    # 針對 gh-pages 拉取的舊版資料表進行向下相容檢查與欄位熱遷移
     c.execute("PRAGMA table_info(wind_index_history)")
     columns = [row[1] for row in c.fetchall()]
     if 'wind_dirs_json' not in columns:
@@ -559,6 +558,22 @@ def plot_two_color_diff_line(ax, dts, values):
         lc = LineCollection(segments, colors=colors, linewidths=1.8, zorder=4)
         ax.add_collection(lc)
 
+def compute_clean_step(data_range, target_ticks=7):
+    if data_range <= 0:
+        return 1.0
+    raw_step = data_range / target_ticks
+    power = 10 ** math.floor(math.log10(raw_step))
+    rel_step = raw_step / power
+    if rel_step <= 1.5:
+        chosen = 1.0
+    elif rel_step <= 3.0:
+        chosen = 2.0
+    elif rel_step <= 7.0:
+        chosen = 5.0
+    else:
+        chosen = 10.0
+    return chosen * power
+
 # ==========================================
 # 繪製各測站歷史時序折線圖
 # ==========================================
@@ -612,87 +627,89 @@ def render_trend_charts():
     TEXT_COLOR = '#334155'
     header_update_text = f"更新時間 Update Time:{update_time_str.replace('-', '/')}"
 
+    # 更鮮明可辨識的分級背景色 (提升飽和度) 與高對比度分類標準線顏色
     TEMP_SPANS = [
-        (37.5, 60.0, "#FEE2E2", "極為酷熱 (≥37.5)"),
-        (35.5, 37.5, "#FFEDD5", "非常酷熱 (35.5-37.4)"),
-        (32.5, 35.5, "#FEF3C7", "酷熱 (32.5-35.4)"),
-        (7.5,  12.5, "#E0F2FE", "寒冷 (7.5-12.4)"),
-        (3.5,   7.5, "#DBEAFE", "非常寒冷 (3.5-7.4)"),
-        (-20.0, 3.5, "#EDE9FE", "極為寒冷 (<3.5)")
+        (37.5, 60.0, "#FECACA", "極為酷熱 (≥37.5)", "#991B1B"),
+        (35.5, 37.5, "#FED7AA", "非常酷熱 (35.5-37.4)", "#C2410C"),
+        (32.5, 35.5, "#FDE68A", "酷熱 (32.5-35.4)", "#B45309"),
+        (7.5,  12.5, "#BAE6FD", "寒冷 (7.5-12.4)", "#0369A1"),
+        (3.5,   7.5, "#BFDBFE", "非常寒冷 (3.5-7.4)", "#1D4ED8"),
+        (-20.0, 3.5, "#DDD6FE", "極為寒冷 (<3.5)", "#6D28D9")
     ]
     WBGT_SPANS = [
-        (32.5, 50.0, "#FEE2E2", "極危 (≥32.5)"),     
-        (30.5, 32.5, "#FFEDD5", "危險 (30.5-32.4)"), 
-        (29.5, 30.5, "#FEF3C7", "警戒 (29.5-30.4)")  
+        (32.5, 50.0, "#FECACA", "極危 (≥32.5)", "#991B1B"),     
+        (30.5, 32.5, "#FED7AA", "危險 (30.5-32.4)", "#DC2626"), 
+        (29.5, 30.5, "#FDE68A", "警戒 (29.5-30.4)", "#D97706")  
     ]
     WIND_SPANS = [
-        (117.5, 250.0, "#FEE2E2", "颶風 (≥117.5)"),     
-        (87.5,  117.5, "#FFEDD5", "暴風 (87.5-117.4)"), 
-        (62.5,   87.5, "#FEF3C7", "烈風 (62.5-87.4)"),  
-        (40.5,   62.5, "#E0F2FE", "強風 (40.5-62.4)")   
+        (117.5, 250.0, "#FECACA", "颶風 (≥117.5)", "#DC2626"),     
+        (87.5,  117.5, "#FED7AA", "暴風 (87.5-117.4)", "#EA580C"), 
+        (62.5,   87.5, "#FDE68A", "烈風 (62.5-87.4)", "#D97706"),  
+        (40.5,   62.5, "#BAE6FD", "強風 (40.5-62.4)", "#0284C7")   
     ]
     RAIN_SPANS = [
-        (100.0, 300.0, "#EDE9FE", "大暴雨 (≥100)"),    
-        (50.0,  100.0, "#FEE2E2", "暴雨 (50-99.9)"),   
-        (20.0,   50.0, "#DBEAFE", "大雨 (20-49.9)")    
+        (100.0, 300.0, "#DDD6FE", "大暴雨 (≥100)", "#6D28D9"),    
+        (50.0,  100.0, "#FECACA", "暴雨 (50-99.9)", "#DC2626"),   
+        (20.0,   50.0, "#BFDBFE", "大雨 (20-49.9)", "#2563EB")    
     ]
     PRESSURE_SPANS = [
-        (1025.0, 1080.0, "#FEE2E2", "高壓脊 (≥1025)"), 
-        (800.0,  1000.0, "#E0F2FE", "低壓 (≤1000)")    
+        (1025.0, 1080.0, "#FECACA", "高壓脊 (≥1025)", "#DC2626"), 
+        (800.0,  1000.0, "#BAE6FD", "低壓 (≤1000)", "#0284C7")    
     ]
     HUMIDITY_SPANS = [
-        (95.0, 100.0, "#BFDBFE", "極潮濕 (95-100%)"), 
-        (85.0,  95.0, "#E0F2FE", "潮濕 (85-94%)"),    
-        (31.0,  50.0, "#F7E6DF", "乾燥 (31-50%)"),    
-        (0.0,   31.0, "#EED8CF", "極乾燥 (0-30%)")     
+        (95.0, 100.0, "#93C5FD", "極潮濕 (95-100%)", "#1D4ED8"), 
+        (85.0,  95.0, "#BAE6FD", "潮濕 (85-94%)", "#0284C7"),    
+        (31.0,  50.0, "#FED7AA", "乾燥 (31-50%)", "#EA580C"),    
+        (0.0,   31.0, "#FECDD3", "極乾燥 (0-30%)", "#E11D48")     
     ]
 
     METRIC_DEFS = {
         'temp': {
-            'label': '溫度 Temperature(°C)', 'color': '#A23B5A', 'step': 1.0, 'is_bar': False,
+            'label': '溫度 Temperature(°C)', 'color': '#A23B5A', 'is_bar': False,
             'spans': TEMP_SPANS,
-            'lines': [(37.5, '極為酷熱 37.5', '#800020'), (35.5, '非常酷熱 35.5', '#D32F2F'), (32.5, '酷熱 32.5', '#F44336'), (7.5, '寒冷 7.5', '#0288D1'), (3.5, '非常寒冷 3.5', '#1565C0')]
+            'lines': [(37.5, '極為酷熱 37.5', '#991B1B'), (35.5, '非常酷熱 35.5', '#C2410C'), (32.5, '酷熱 32.5', '#B45309'), (7.5, '寒冷 7.5', '#0369A1'), (3.5, '非常寒冷 3.5', '#1D4ED8')]
         },
         'temp_diff_24h': {
-            'label': '24小時溫差 24H Temp Change(°C)', 'color': '#EF4444', 'step': 1.0, 'is_bar': False,
+            'label': '24小時溫差 24H Temp Change(°C)', 'color': '#EF4444', 'is_bar': False,
             'spans': [],
-            'lines': [(0.0, '0℃ 氣溫持平', '#64748B')]
+            'lines': [(0.0, '0℃ 氣溫持平', '#475569')]
         },
         'apparent': {
-            'label': '體感溫度 Apparent Temp(°C)', 'color': '#EA580C', 'step': 1.0, 'is_bar': False,
+            'label': '體感溫度 Apparent Temp(°C)', 'color': '#EA580C', 'is_bar': False,
             'spans': TEMP_SPANS,
-            'lines': [(37.5, '極為酷熱 37.5', '#800020'), (35.5, '非常酷熱 35.5', '#D32F2F'), (32.5, '酷熱 32.5', '#F44336'), (7.5, '寒冷 7.5', '#0288D1'), (3.5, '非常寒冷 3.5', '#1565C0')]
+            'lines': [(37.5, '極為酷熱 37.5', '#991B1B'), (35.5, '非常酷熱 35.5', '#C2410C'), (32.5, '酷熱 32.5', '#B45309'), (7.5, '寒冷 7.5', '#0369A1'), (3.5, '非常寒冷 3.5', '#1D4ED8')]
         },
         'wbgt': {
-            'label': '暑熱指數 WBGT', 'color': '#D97706', 'step': 1.0, 'is_bar': False,
+            'label': '暑熱指數 WBGT', 'color': '#D97706', 'is_bar': False,
             'spans': WBGT_SPANS,
-            'lines': [(32.5, '極危 32.5', '#991B1B'), (30.5, '危險 30.5', '#DC2626'), (29.5, '警戒 29.5', '#EA580C')]
+            'lines': [(32.5, '極危 32.5', '#991B1B'), (30.5, '危險 30.5', '#DC2626'), (29.5, '警戒 29.5', '#D97706')]
         },
         'humidity': {
-            'label': '相對濕度 Humidity(%)', 'color': '#2A7B9B', 'step': 5.0, 'is_bar': False,
+            'label': '相對濕度 Humidity(%)', 'color': '#2A7B9B', 'is_bar': False,
             'spans': HUMIDITY_SPANS,
-            'lines': [(95.0, '95%', '#3B82F6'), (85.0, '85%', '#0EA5E9'), (50.0, '50%', '#10B981'), (30.0, '30%', '#F59E0B')]
+            'lines': [(95.0, '95%', '#1D4ED8'), (85.0, '85%', '#0284C7'), (50.0, '50%', '#EA580C'), (30.0, '30%', '#E11D48')]
         },
         'wind_speed': {
-            'label': '風速 Wind Speed(km/h)', 'color': '#8B3A62', 'step': 5.0, 'is_bar': False,
+            'label': '風速 Wind Speed(km/h)', 'color': '#8B3A62', 'is_bar': False,
             'spans': WIND_SPANS,
-            'lines': [(117.5, '颶風 117.5', '#EF4444'), (87.5, '暴風 87.5', '#F97316'), (62.5, '烈風 62.5', '#F59E0B'), (40.5, '強風 40.5', '#3B82F6')]
+            'lines': [(117.5, '颶風 117.5', '#DC2626'), (87.5, '暴風 87.5', '#EA580C'), (62.5, '烈風 62.5', '#D97706'), (40.5, '強風 40.5', '#0284C7')]
         },
         'rain': {
-            'label': '降水量 Rainfall(mm)', 'color': '#1D4ED8', 'step': 2.0, 'is_bar': True,
+            'label': '降水量 Rainfall(mm)', 'color': '#1D4ED8', 'is_bar': True,
             'spans': RAIN_SPANS,
-            'lines': [(20.0, '大雨 20mm', '#2563EB'), (50.0, '暴雨 50mm', '#DC2626'), (100.0, '大暴雨 100mm', '#7C3AED')]
+            'lines': [(20.0, '大雨 20mm', '#2563EB'), (50.0, '暴雨 50mm', '#DC2626'), (100.0, '大暴雨 100mm', '#6D28D9')]
         },
         'pressure': {
-            'label': '海平面氣壓 Pressure(hPa)', 'color': '#1E3A8A', 'step': 1.0, 'is_bar': False,
+            'label': '海平面氣壓 Pressure(hPa)', 'color': '#1E3A8A', 'is_bar': False,
             'spans': PRESSURE_SPANS,
-            'lines': [(1025.0, '高壓 1025', '#DC2626'), (1000.0, '低壓 1000', '#0288D1'), (1013.25, '標準氣壓 1013.25', '#64748B')]
+            'lines': [(1025.0, '高壓 1025', '#DC2626'), (1000.0, '低壓 1000', '#0284C7'), (1013.25, '標準氣壓 1013.25', '#475569')]
         }
     }
 
     x_end = datetime.fromtimestamp(pub_timestamp, tz=MACAU_TZ).replace(tzinfo=None)
     x_start = x_end - timedelta(hours=24)
 
+    # 依據全體觀測數據動態調整 Y 軸（相同要素維持全站統一 Y 軸，無固定寫死間距）
     UNIFIED_Y_LIMITS = {}
     for col, cfg in METRIC_DEFS.items():
         sub_df = df.copy()
@@ -702,38 +719,45 @@ def render_trend_charts():
             all_v = sub_df[col].dropna()
 
         if all_v.empty:
-            UNIFIED_Y_LIMITS[col] = (-2, 2, 1.0) if col == 'temp_diff_24h' else (0, 10, cfg['step'])
+            UNIFIED_Y_LIMITS[col] = (-2.0, 2.0, 1.0) if col == 'temp_diff_24h' else (0.0, 10.0, 2.0)
             continue
 
-        y_min, y_max = all_v.min(), all_v.max()
+        y_min = float(all_v.min())
+        y_max = float(all_v.max())
 
-        if col == 'wind_speed':
-            v_range = y_max - y_min
-            step = 10.0 if v_range > 80 else (5.0 if v_range > 40 else (4.0 if v_range > 20 else 2.0))
-            cfg['step'] = step
+        if col == 'temp_diff_24h':
+            abs_max = max(abs(y_min), abs(y_max), 1.0)
+            step = compute_clean_step(abs_max * 2, target_ticks=7)
+            plot_ymax = math.ceil(abs_max / step) * step
+            plot_ymin = -plot_ymax
+        elif col == 'wind_speed':
+            data_max = max(y_max, 5.0)
+            step = compute_clean_step(data_max, target_ticks=6)
             plot_ymin = -1.0 * step
-            plot_ymax = int(np.ceil(y_max / step) * step + step)
-            if plot_ymax < 20: plot_ymax = 20
-        elif col == 'temp_diff_24h':
-            step = 1.0
-            plot_ymin = np.floor(min(-1.0, y_min)) - 1
-            plot_ymax = np.ceil(max(1.0, y_max)) + 1
-        elif col in ['temp', 'apparent', 'wbgt', 'pressure']:
-            step = cfg['step']
-            plot_ymin = np.floor(y_min) - 1
-            plot_ymax = np.ceil(y_max) + 1
+            plot_ymax = math.ceil(data_max / step) * step
+            if plot_ymax - plot_ymin < step * 3:
+                plot_ymax = plot_ymin + step * 4
+        elif col == 'rain':
+            data_max = max(y_max, 5.0)
+            step = compute_clean_step(data_max, target_ticks=6)
+            plot_ymin = 0.0
+            plot_ymax = math.ceil(data_max / step) * step
         elif col == 'humidity':
-            step = 5.0
-            plot_ymin = max(0, np.floor(y_min / 5.0) * 5 - 5)
-            plot_ymax = min(100, np.ceil(y_max / 5.0) * 5 + 5)
+            data_range = max(y_max - y_min, 10.0)
+            step = compute_clean_step(data_range, target_ticks=6)
+            plot_ymin = max(0.0, math.floor(y_min / step) * step)
+            plot_ymax = min(100.0, math.ceil(y_max / step) * step)
+            if plot_ymin >= plot_ymax:
+                plot_ymin = max(0.0, plot_ymin - step)
+                plot_ymax = min(100.0, plot_ymax + step)
         else:
-            step = cfg['step']
-            plot_ymin = max(0, np.floor(y_min / step) * step - step)
-            plot_ymax = np.ceil(y_max / step) * step + step
-
-        if plot_ymin >= plot_ymax:
-            plot_ymin -= 1
-            plot_ymax += 1
+            data_range = max(y_max - y_min, 2.0)
+            step = compute_clean_step(data_range, target_ticks=6)
+            plot_ymin = math.floor(y_min / step) * step
+            plot_ymax = math.ceil(y_max / step) * step
+            if plot_ymin == plot_ymax:
+                plot_ymin -= step
+                plot_ymax += step
 
         UNIFIED_Y_LIMITS[col] = (plot_ymin, plot_ymax, step)
 
@@ -770,15 +794,18 @@ def render_trend_charts():
                 plt.close(fig)
                 continue
 
-            for low, high, span_color, span_lbl in cfg.get('spans', []):
+            # 背景色塊：提高清晰度與透明度
+            for span_item in cfg.get('spans', []):
+                low, high, span_color, span_lbl = span_item[0], span_item[1], span_item[2], span_item[3]
+                text_col = span_item[4] if len(span_item) > 4 else '#334155'
                 if low < plot_ymax and high > plot_ymin:
                     eff_low = max(low, plot_ymin)
                     eff_high = min(high, plot_ymax)
-                    ax.axhspan(eff_low, eff_high, facecolor=span_color, alpha=0.15, zorder=1)
-                    if (eff_high - eff_low) >= (step * 0.7):
+                    ax.axhspan(eff_low, eff_high, facecolor=span_color, alpha=0.34, zorder=1)
+                    if (eff_high - eff_low) >= (step * 0.45):
                         mid_y = (eff_low + eff_high) / 2.0
                         ax.text(x_start + pd.Timedelta(minutes=15), mid_y, span_lbl,
-                                color='#64748B', fontsize=8.5, fontweight='bold', alpha=0.8, va='center', zorder=2)
+                                color=text_col, fontsize=9.5, fontweight='bold', alpha=0.9, va='center', zorder=2)
 
             plot_df = insert_nans_on_gap(st_df, col, max_gap_minutes=25)
 
@@ -786,15 +813,15 @@ def render_trend_charts():
                 ax.bar(plot_df['datetime'], plot_df[col], width=pd.Timedelta(minutes=8), color=cfg['color'], alpha=0.85, edgecolor='none', zorder=4)
             elif col == 'temp_diff_24h':
                 plot_two_color_diff_line(ax, plot_df['datetime'], plot_df[col])
-                ax.fill_between(plot_df['datetime'], plot_df[col], 0, where=(plot_df[col] >= 0), color='#EF4444', alpha=0.25, interpolate=True, zorder=3)
-                ax.fill_between(plot_df['datetime'], plot_df[col], 0, where=(plot_df[col] < 0), color='#3B82F6', alpha=0.25, interpolate=True, zorder=3)
+                ax.fill_between(plot_df['datetime'], plot_df[col], 0, where=(plot_df[col] >= 0), color='#EF4444', alpha=0.30, interpolate=True, zorder=3)
+                ax.fill_between(plot_df['datetime'], plot_df[col], 0, where=(plot_df[col] < 0), color='#3B82F6', alpha=0.30, interpolate=True, zorder=3)
             else:
-                ax.plot(plot_df['datetime'], plot_df[col], color=cfg['color'], linewidth=1.7, antialiased=True, zorder=4, label=col.capitalize() if col != 'wind_speed' else 'Wind Speed')
+                ax.plot(plot_df['datetime'], plot_df[col], color=cfg['color'], linewidth=1.8, antialiased=True, zorder=4, label=col.capitalize() if col != 'wind_speed' else 'Wind Speed')
 
             if col == 'wind_speed':
                 gust_valid = st_df.dropna(subset=['gust_speed'])
                 if not gust_valid.empty:
-                    ax.scatter(gust_valid['datetime'], gust_valid['gust_speed'], color='#C0567A', s=16, alpha=0.75, edgecolors='none', label='Gust', zorder=5)
+                    ax.scatter(gust_valid['datetime'], gust_valid['gust_speed'], color='#C0567A', s=16, alpha=0.8, edgecolors='none', label='Gust', zorder=5)
                 leg = ax.legend(loc='upper left', frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=11)
                 leg.get_frame().set_linewidth(1.0)
 
@@ -808,14 +835,15 @@ def render_trend_charts():
                 if col == 'temp_diff_24h' and v > 0: return f"+{int(v)}" if float(v).is_integer() else f"+{v:.1f}"
                 return f"{int(v)}" if float(v).is_integer() else f"{v:.1f}"
 
-            ax.set_yticklabels([y_fmt(y) for y in y_ticks], fontsize=14, color=cfg['color'], family='monospace')
+            ax.set_yticklabels([y_fmt(y) for y in y_ticks], fontsize=13, color=cfg['color'], family='monospace')
 
+            # 標準指標線：依背景色對應之主題色加深繪製，並加上加粗標註
             if 'lines' in cfg:
                 for threshold_val, line_label, line_color in cfg['lines']:
                     if plot_ymin < threshold_val < plot_ymax:
-                        ax.axhline(y=threshold_val, color=line_color, linestyle='--', linewidth=0.9, alpha=0.6, zorder=2)
+                        ax.axhline(y=threshold_val, color=line_color, linestyle='--', linewidth=1.4, alpha=0.9, zorder=3)
                         ax.text(x_end, threshold_val, f" {line_label}", color=line_color, 
-                                va='center', ha='left', fontsize=9.5, alpha=0.85, clip_on=True)
+                                va='center', ha='left', fontsize=9.5, fontweight='bold', alpha=0.95, clip_on=False)
 
             if col == 'wind_speed':
                 arrow_df = st_df.dropna(subset=['wind_dir']).copy()
@@ -862,7 +890,7 @@ def render_trend_charts():
             ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
             plt.setp(ax.get_xticklabels(), fontsize=13, color=TEXT_COLOR, family='monospace')
 
-            ax.grid(True, which='major', linestyle=':', linewidth=1.6, color=GRID_BORDER_COLOR, alpha=0.95)
+            ax.grid(True, which='major', linestyle=':', linewidth=1.4, color=GRID_BORDER_COLOR, alpha=0.9)
             ax.tick_params(axis='both', which='major', length=6, width=1.1, color=GRID_BORDER_COLOR, direction='out')
             ax.tick_params(axis='x', which='minor', length=3, width=0.8, color=GRID_BORDER_COLOR, direction='out')
 
@@ -881,6 +909,7 @@ def render_trend_charts():
             plt.savefig(f"static/images/line_{station_name}_{col}.png", dpi=120, bbox_inches='tight')
             plt.close(fig)
 
+    # 跨海大橋專用風速趨勢圖
     bridge_colors = {
         "友誼大橋北": "#1E40AF", "友誼大橋南": "#3B82F6",
         "澳門大橋北": "#047857", "澳門大橋南": "#10B981",
@@ -898,14 +927,16 @@ def render_trend_charts():
 
         plot_ymin, plot_ymax, step = UNIFIED_Y_LIMITS['wind_speed']
 
-        for low, high, span_color, span_lbl in WIND_SPANS:
+        for span_item in WIND_SPANS:
+            low, high, span_color, span_lbl = span_item[0], span_item[1], span_item[2], span_item[3]
+            text_col = span_item[4] if len(span_item) > 4 else '#334155'
             if low < plot_ymax and high > 0:
                 eff_low = max(low, 0)
                 eff_high = min(high, plot_ymax)
-                ax.axhspan(eff_low, eff_high, facecolor=span_color, alpha=0.15, zorder=1)
+                ax.axhspan(eff_low, eff_high, facecolor=span_color, alpha=0.34, zorder=1)
                 mid_y = (eff_low + eff_high) / 2.0
                 ax.text(x_start + pd.Timedelta(minutes=15), mid_y, span_lbl,
-                        color='#64748B', fontsize=9, fontweight='bold', alpha=0.8, va='center', zorder=2)
+                        color=text_col, fontsize=9.5, fontweight='bold', alpha=0.9, va='center', zorder=2)
 
         for b_st in BRIDGE_STATIONS:
             b_df = df[df['station'] == b_st].dropna(subset=[b_type])
@@ -919,19 +950,19 @@ def render_trend_charts():
         y_ticks = np.arange(0, plot_ymax + step * 0.1, step)
         ax.set_ylim(0, plot_ymax)
         ax.set_yticks(y_ticks)
-        ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=14, color='#8B3A62', family='monospace')
+        ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=13, color='#8B3A62', family='monospace')
 
         for threshold_val, line_label, line_color in METRIC_DEFS['wind_speed']['lines']:
             if 0 < threshold_val < plot_ymax:
-                ax.axhline(y=threshold_val, color=line_color, linestyle='--', linewidth=0.9, alpha=0.6, zorder=2)
-                ax.text(x_end, threshold_val, f" {line_label}", color=line_color, va='center', ha='left', fontsize=9.5, alpha=0.85)
+                ax.axhline(y=threshold_val, color=line_color, linestyle='--', linewidth=1.4, alpha=0.9, zorder=3)
+                ax.text(x_end, threshold_val, f" {line_label}", color=line_color, va='center', ha='left', fontsize=9.5, fontweight='bold', alpha=0.95)
 
         ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
         ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
         ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
         plt.setp(ax.get_xticklabels(), fontsize=13, color=TEXT_COLOR, family='monospace')
 
-        ax.grid(True, which='major', linestyle=':', linewidth=1.6, color=GRID_BORDER_COLOR, alpha=0.95)
+        ax.grid(True, which='major', linestyle=':', linewidth=1.4, color=GRID_BORDER_COLOR, alpha=0.9)
         ax.set_ylabel(type_label, fontsize=15, color='#8B3A62', labelpad=12)
         ax.set_xlabel('澳門時間(時) Local Time (Hour)', fontsize=15, color=TEXT_COLOR, labelpad=14)
 
@@ -978,31 +1009,38 @@ def render_uv_trend_chart():
     x_start = x_end - timedelta(hours=24)
     ax.set_xlim(x_start, x_end)
 
-    max_uv = valid_df['uvi'].max()
-    plot_ymax = max(11, int(np.ceil(max_uv)) + 1)
-    y_ticks = np.arange(0, plot_ymax + 1, 2)
+    max_uv = float(valid_df['uvi'].max())
+    step = compute_clean_step(max(max_uv, 3.0), target_ticks=6)
+    plot_ymax = math.ceil(max(max_uv, 3.0) / step) * step
+    if plot_ymax < 6.0:
+        plot_ymax = 6.0
+
+    y_ticks = np.arange(0, plot_ymax + step * 0.1, step)
     ax.set_ylim(0, plot_ymax)
 
     uv_levels = [
-        (11.0, plot_ymax + 5, "#EDE9FE", "極高 11+"),
-        (8.0,  11.0,         "#FEE2E2", "甚高 8-10"),
-        (6.0,  8.0,          "#FFEDD5", "高 6-7"),
-        (3.0,  6.0,          "#FEF9C3", "中 3-5"),
-        (0.0,  3.0,          "#DCFCE7", "低 0-2")
+        (11.0, 50.0, "#DDD6FE", "極高 11+", "#6D28D9"),
+        (8.0,  11.0, "#FECACA", "甚高 8-10", "#DC2626"),
+        (6.0,  8.0,  "#FED7AA", "高 6-7", "#EA580C"),
+        (3.0,  6.0,  "#FEF08A", "中 3-5", "#CA8A04"),
+        (0.0,  3.0,  "#BBF7D0", "低 0-2", "#16A34A")
     ]
-    for low, high, uv_bg, uv_lbl in uv_levels:
+    for low, high, uv_bg, uv_lbl, uv_line_color in uv_levels:
         if low < plot_ymax:
             eff_high = min(high, plot_ymax)
-            ax.axhspan(low, eff_high, facecolor=uv_bg, alpha=0.25, zorder=1)
+            ax.axhspan(low, eff_high, facecolor=uv_bg, alpha=0.35, zorder=1)
+            if 0 < low < plot_ymax:
+                ax.axhline(low, color=uv_line_color, linestyle='--', linewidth=1.4, alpha=0.9, zorder=2)
+                ax.text(x_end, low, f" {low}", color=uv_line_color, va='center', ha='left', fontsize=9.5, fontweight='bold')
             mid_y = (low + eff_high) / 2.0
             ax.text(x_start + pd.Timedelta(minutes=15), mid_y, uv_lbl,
-                    color='#64748B', fontsize=9, fontweight='bold', alpha=0.8, va='center', zorder=2)
+                    color=uv_line_color, fontsize=10, fontweight='bold', alpha=0.9, va='center', zorder=2)
 
     plot_df = insert_nans_on_gap(valid_df, 'uvi', max_gap_minutes=25)
     ax.plot(plot_df['datetime'], plot_df['uvi'], color=UV_COLOR, linewidth=1.8, marker='o', markersize=3.5, antialiased=True, zorder=4)
 
     ax.set_yticks(y_ticks)
-    ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=14, color=UV_COLOR, family='monospace')
+    ax.set_yticklabels([str(int(y)) if float(y).is_integer() else f"{y:.1f}" for y in y_ticks], fontsize=13, color=UV_COLOR, family='monospace')
 
     ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
     ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
@@ -1015,7 +1053,7 @@ def render_uv_trend_chart():
     ax.xaxis.set_major_formatter(plt.FuncFormatter(format_hour_ticks))
     plt.setp(ax.get_xticklabels(), fontsize=13, color=TEXT_COLOR, family='monospace')
 
-    ax.grid(True, which='major', linestyle=':', linewidth=1.6, color=GRID_BORDER_COLOR, alpha=0.95)
+    ax.grid(True, which='major', linestyle=':', linewidth=1.4, color=GRID_BORDER_COLOR, alpha=0.9)
     ax.tick_params(axis='both', which='major', length=6, width=1.1, color=GRID_BORDER_COLOR, direction='out')
     ax.tick_params(axis='x', which='minor', length=3, width=0.8, color=GRID_BORDER_COLOR, direction='out')
 
@@ -1062,47 +1100,39 @@ def render_wind_index_chart():
 
     df_24h = df[df['datetime'] >= x_start]
     valid_vals = df_24h['wind_index'].dropna() if not df_24h.empty else df['wind_index'].dropna()
-    max_val = valid_vals.max() if not valid_vals.empty else 10.0
+    max_val = float(valid_vals.max()) if not valid_vals.empty else 10.0
 
-    if max_val <= 20:
-        step = 5
-        plot_ymax = max(15, int(np.ceil(max_val / 5.0) * 5 + 5))
-    elif max_val <= 50:
-        step = 10
-        plot_ymax = int(np.ceil(max_val / 10.0) * 10 + 10)
-    else:
-        step = 10
-        plot_ymax = int(np.ceil(max_val / 10.0) * 10 + 10)
-
+    step = compute_clean_step(max(max_val, 15.0), target_ticks=6)
+    plot_ymax = math.ceil(max(max_val, 15.0) / step) * step
     ax.set_ylim(0, plot_ymax)
 
     grades = [
-        (0, 13, "輕微 (≤13)", "#E7F2D4", "#227722"),
-        (13, 24, "清勁 (14-24)", "#E1ECF9", "#2255BB"),
-        (24, 44, "強勁 (25-44)", "#FCE8D8", "#DD2222"),
-        (44, 74, "強烈 (45-74)", "#F9D8F2", "#8822BB"),
-        (74, 150, "極強 (≥75)", "#E6D9BC", "#774422")
+        (0, 13, "輕微 (≤13)", "#BBF7D0", "#15803D"),
+        (13, 24, "清勁 (14-24)", "#BFDBFE", "#1D4ED8"),
+        (24, 44, "強勁 (25-44)", "#FECACA", "#DC2626"),
+        (44, 74, "強烈 (45-74)", "#DDD6FE", "#7E22CE"),
+        (74, 150, "極強 (≥75)", "#FED7AA", "#92400E")
     ]
 
     for low, high, g_label, bg_color, line_color in grades:
         if low >= plot_ymax:
             continue
         eff_high = min(high, plot_ymax)
-        ax.axhspan(low, eff_high, facecolor=bg_color, alpha=0.30, zorder=1)
+        ax.axhspan(low, eff_high, facecolor=bg_color, alpha=0.38, zorder=1)
         if 0 < low < plot_ymax:
-            ax.axhline(low, color=line_color, linestyle='--', linewidth=1.1, alpha=0.7, zorder=2)
-            ax.text(x_end, low, f" {low}", color=line_color, va='center', ha='left', fontsize=9.5, fontweight='bold')
+            ax.axhline(low, color=line_color, linestyle='--', linewidth=1.5, alpha=0.9, zorder=2)
+            ax.text(x_end, low, f" {low}", color=line_color, va='center', ha='left', fontsize=10, fontweight='bold')
         mid_y = (low + eff_high) / 2.0
         if mid_y < plot_ymax:
             ax.text(x_start + pd.Timedelta(minutes=20), mid_y, g_label, 
-                    color=line_color, fontsize=11, fontweight='bold', alpha=0.85, va='center', zorder=2)
+                    color=line_color, fontsize=11, fontweight='bold', alpha=0.9, va='center', zorder=2)
 
     ax.plot(plot_df['datetime'], plot_df['wind_index'], color='#1E293B', linewidth=2.2, label='風力指數 Wind Index', zorder=4)
     ax.scatter(df['datetime'], df['wind_index'], color='#0F172A', s=20, alpha=0.85, zorder=5)
 
-    y_ticks = np.arange(0, plot_ymax + 1, step)
+    y_ticks = np.arange(0, plot_ymax + step * 0.1, step)
     ax.set_yticks(y_ticks)
-    ax.set_yticklabels([str(int(y)) for y in y_ticks], fontsize=13, color='#1E293B', family='monospace')
+    ax.set_yticklabels([str(int(y)) if float(y).is_integer() else f"{y:.1f}" for y in y_ticks], fontsize=13, color='#1E293B', family='monospace')
 
     ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
     ax.xaxis.set_minor_locator(mdates.MinuteLocator(byminute=[15, 30, 45]))
@@ -1263,11 +1293,11 @@ def render_wind_direction_chart():
     ax.text(1.0, 1.02, header_update_text, transform=ax.transAxes, fontsize=15, va='bottom', ha='right', color=TEXT_COLOR)
 
     legend_handles = [
-        plt.Line2D([0], [0], marker='o', color='w', label='輕微 (≤13)', markerfacecolor='#227722', markersize=8),
-        plt.Line2D([0], [0], marker='o', color='w', label='清勁 (14-24)', markerfacecolor='#2255BB', markersize=8),
-        plt.Line2D([0], [0], marker='o', color='w', label='強勁 (25-44)', markerfacecolor='#DD2222', markersize=8),
-        plt.Line2D([0], [0], marker='o', color='w', label='強烈 (45-74)', markerfacecolor='#8822BB', markersize=8),
-        plt.Line2D([0], [0], marker='o', color='w', label='極強 (≥75)', markerfacecolor='#774422', markersize=8),
+        plt.Line2D([0], [0], marker='o', color='w', label='輕微 (≤13)', markerfacecolor='#15803D', markersize=8),
+        plt.Line2D([0], [0], marker='o', color='w', label='清勁 (14-24)', markerfacecolor='#1D4ED8', markersize=8),
+        plt.Line2D([0], [0], marker='o', color='w', label='強勁 (25-44)', markerfacecolor='#DC2626', markersize=8),
+        plt.Line2D([0], [0], marker='o', color='w', label='強烈 (45-74)', markerfacecolor='#7E22CE', markersize=8),
+        plt.Line2D([0], [0], marker='o', color='w', label='極強 (≥75)', markerfacecolor='#92400E', markersize=8),
     ]
     ax.legend(handles=legend_handles, loc='upper right', frameon=True, facecolor='white', edgecolor=GRID_BORDER_COLOR, fontsize=10, ncol=5)
 
@@ -1287,7 +1317,6 @@ def generate_24h_rainfall_summary(stations_data=None):
 
     try:
         conn = sqlite3.connect(DB_PATH, timeout=10)
-        # Only pull the last 26 hours to keep memory usage low and fast
         df = pd.read_sql_query("SELECT * FROM weather_history ORDER BY timestamp ASC", conn)
         conn.close()
     except Exception as e:
@@ -1312,19 +1341,15 @@ def generate_24h_rainfall_summary(stations_data=None):
                     latest_time = latest_row['datetime']
                     current_h_rain = latest_row['rain'] if pd.notnull(latest_row['rain']) else 0.0
 
-                    # Generate the 24 exact hourly target timestamps:
-                    # t_0 = latest_time, t_1 = latest_time - 1h, ..., t_23 = latest_time - 23h
                     target_times = [latest_time - timedelta(hours=i) for i in range(24)]
                     
                     hourly_readings = []
                     for target in target_times:
-                        # Find readings within ±7 minutes of the target timestamp
                         window = st_data[
                             (st_data['datetime'] >= target - timedelta(minutes=7)) &
                             (st_data['datetime'] <= target + timedelta(minutes=7))
                         ]
                         if not window.empty:
-                            # Pick the point closest to the exact target minute
                             closest_idx = (window['datetime'] - target).abs().idxmin()
                             val = window.loc[closest_idx, 'rain']
                             if pd.notnull(val):
