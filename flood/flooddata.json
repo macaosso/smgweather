@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-10 09:08",
-  "timestamp": 1794272880.0,
+  "system_pubdate": "2026-11-10 09:10",
+  "timestamp": 1794273000.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -96,8 +96,8 @@
     "LAO": {
       "station_code": "LAO",
       "station_name": "柯維納馬路",
-      "record_time": "2026-11-10 09:08",
-      "timestamp": 1794272937.758899,
+      "record_time": "2026-11-10 09:12",
+      "timestamp": 1794273133.524556,
       "water_level": null
     },
     "LIL": {
