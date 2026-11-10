@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-10 14:49",
-  "timestamp": 1794293340.0,
+  "system_pubdate": "2026-11-10 14:52",
+  "timestamp": 1794293520.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -131,8 +131,8 @@
     "LCL": {
       "station_code": "LCL",
       "station_name": "聖方濟各堂",
-      "record_time": "2026-11-10 14:51",
-      "timestamp": 1794293462.122351,
+      "record_time": "2026-11-10 14:54",
+      "timestamp": 1794293643.154122,
       "water_level": null
     }
   }
