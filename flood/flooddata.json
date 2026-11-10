@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-10 16:08",
-  "timestamp": 1794298080.0,
+  "system_pubdate": "2026-11-10 16:11",
+  "timestamp": 1794298260.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -124,15 +124,15 @@
     "LSP": {
       "station_code": "LSP",
       "station_name": "石排灣",
-      "record_time": "2026-11-10 16:09",
-      "timestamp": 1794298152.544308,
+      "record_time": "2026-11-10 16:12",
+      "timestamp": 1794298331.093408,
       "water_level": null
     },
     "LCL": {
       "station_code": "LCL",
       "station_name": "聖方濟各堂",
-      "record_time": "2026-11-10 16:09",
-      "timestamp": 1794298152.544345,
+      "record_time": "2026-11-10 16:12",
+      "timestamp": 1794298331.093445,
       "water_level": null
     }
   }
