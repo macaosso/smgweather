@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-10 10:28",
-  "timestamp": 1794277680.0,
+  "system_pubdate": "2026-11-10 10:31",
+  "timestamp": 1794277860.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -89,15 +89,15 @@
     "LCH": {
       "station_code": "LCH",
       "station_name": "沙維斯街",
-      "record_time": "2026-11-10 10:29",
-      "timestamp": 1794277769.363994,
+      "record_time": "2026-11-10 10:32",
+      "timestamp": 1794277947.465556,
       "water_level": null
     },
     "LAO": {
       "station_code": "LAO",
       "station_name": "柯維納馬路",
-      "record_time": "2026-11-10 10:29",
-      "timestamp": 1794277769.364034,
+      "record_time": "2026-11-10 10:32",
+      "timestamp": 1794277947.465594,
       "water_level": null
     },
     "LIL": {
