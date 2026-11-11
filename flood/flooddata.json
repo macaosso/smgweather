@@ -1,138 +1,138 @@
 {
-  "system_pubdate": "2026-11-12 06:55",
-  "timestamp": 1794437700.0,
+  "system_pubdate": "2026-11-12 06:59",
+  "timestamp": 1794437940.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
       "station_name": "內港北",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LPI": {
       "station_code": "LPI",
       "station_name": "內港",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LHK": {
       "station_code": "LHK",
       "station_name": "康公廟",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LPH": {
       "station_code": "LPH",
       "station_name": "司打口",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LPF": {
       "station_code": "LPF",
       "station_name": "內港南",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LPM": {
       "station_code": "LPM",
       "station_name": "下環街",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LIV": {
       "station_code": "LIV",
       "station_name": "青洲河邊馬路",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LMF": {
       "station_code": "LMF",
       "station_name": "花地瑪教會街",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LMM": {
       "station_code": "LMM",
       "station_name": "紅街市",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LRR": {
       "station_code": "LRR",
       "station_name": "光復街",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LTA": {
       "station_code": "LTA",
       "station_name": "永樂戲院",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.02
     },
     "LHO": {
       "station_code": "LHO",
       "station_name": "菜園路",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LCH": {
       "station_code": "LCH",
       "station_name": "沙維斯街",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LAO": {
       "station_code": "LAO",
       "station_name": "柯維納馬路",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LIL": {
       "station_code": "LIL",
       "station_name": "益隆",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LCS": {
       "station_code": "LCS",
       "station_name": "松樹尾",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LPN": {
       "station_code": "LPN",
       "station_name": "黑橋街",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LSP": {
       "station_code": "LSP",
       "station_name": "石排灣",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.0
     },
     "LCL": {
       "station_code": "LCL",
       "station_name": "聖方濟各堂",
-      "record_time": "2026-11-12 06:50",
-      "timestamp": 1794437400.0,
+      "record_time": "2026-11-12 06:55",
+      "timestamp": 1794437700.0,
       "water_level": 0.01
     }
   }
