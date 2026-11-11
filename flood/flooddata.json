@@ -1,12 +1,12 @@
 {
-  "system_pubdate": "2026-11-11 09:59",
-  "timestamp": 1794362340.0,
+  "system_pubdate": "2026-11-11 10:02",
+  "timestamp": 1794362520.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
       "station_name": "內港北",
-      "record_time": "2026-11-11 10:00",
-      "timestamp": 1794362431.854178,
+      "record_time": "2026-11-11 10:03",
+      "timestamp": 1794362637.536588,
       "water_level": null
     },
     "LPI": {
