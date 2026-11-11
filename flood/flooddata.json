@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-11 16:03",
-  "timestamp": 1794384180.0,
+  "system_pubdate": "2026-11-11 16:07",
+  "timestamp": 1794384420.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -26,8 +26,8 @@
     "LPH": {
       "station_code": "LPH",
       "station_name": "司打口",
-      "record_time": "2026-11-11 16:03",
-      "timestamp": 1794384235.617364,
+      "record_time": "2026-11-11 16:08",
+      "timestamp": 1794384515.354978,
       "water_level": null
     },
     "LPF": {
@@ -61,8 +61,8 @@
     "LMM": {
       "station_code": "LMM",
       "station_name": "紅街市",
-      "record_time": "2026-11-11 16:03",
-      "timestamp": 1794384235.617431,
+      "record_time": "2026-11-11 16:08",
+      "timestamp": 1794384515.35505,
       "water_level": null
     },
     "LRR": {
