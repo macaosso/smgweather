@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-11 15:13",
-  "timestamp": 1794381180.0,
+  "system_pubdate": "2026-11-11 15:17",
+  "timestamp": 1794381420.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -61,8 +61,8 @@
     "LMM": {
       "station_code": "LMM",
       "station_name": "紅街市",
-      "record_time": "2026-11-11 15:14",
-      "timestamp": 1794381241.862216,
+      "record_time": "2026-11-11 15:18",
+      "timestamp": 1794381513.153599,
       "water_level": null
     },
     "LRR": {
