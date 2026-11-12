@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-12 17:27",
-  "timestamp": 1794475620.0,
+  "system_pubdate": "2026-11-12 17:30",
+  "timestamp": 1794475800.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -19,8 +19,8 @@
     "LHK": {
       "station_code": "LHK",
       "station_name": "康公廟",
-      "record_time": "2026-11-12 17:27",
-      "timestamp": 1794475663.094979,
+      "record_time": "2026-11-12 17:31",
+      "timestamp": 1794475903.043931,
       "water_level": null
     },
     "LPH": {
@@ -40,8 +40,8 @@
     "LPM": {
       "station_code": "LPM",
       "station_name": "下環街",
-      "record_time": "2026-11-12 17:27",
-      "timestamp": 1794475663.095048,
+      "record_time": "2026-11-12 17:31",
+      "timestamp": 1794475903.043999,
       "water_level": null
     },
     "LIV": {
