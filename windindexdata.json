@@ -1,15 +1,15 @@
 {
-  "update_time": "2026-11-12 09:25",
-  "timestamp": 1794446700.0,
+  "update_time": "2026-11-12 09:30",
+  "timestamp": 1794447000.0,
   "wind_index": 15.4,
   "grade": "清勁",
   "land": {
-    "avg_wind_speed": 10.73,
-    "avg_wind_gust": 19.68
+    "avg_wind_speed": 10.96,
+    "avg_wind_gust": 19.43
   },
   "bridge": {
-    "avg_wind_speed": 19.39,
-    "avg_wind_gust": 27.54
+    "avg_wind_speed": 19.03,
+    "avg_wind_gust": 26.71
   },
   "stations": {
     "紀念孫中山公園": {
@@ -20,113 +20,113 @@
       "code": "DP"
     },
     "黑沙環": {
-      "wind_speed": 9.7,
-      "gust_speed": 14.8,
+      "wind_speed": 8.3,
+      "gust_speed": 13.7,
       "wind_dir": "N",
       "is_bridge": false,
       "code": "EM"
     },
     "大炮台": {
       "wind_speed": 10.1,
-      "gust_speed": 22.3,
+      "gust_speed": 19.8,
       "wind_dir": "NE",
       "is_bridge": false,
       "code": "FM"
     },
     "外港碼頭": {
-      "wind_speed": 14.0,
+      "wind_speed": 13.7,
       "gust_speed": 22.3,
       "wind_dir": "N",
       "is_bridge": false,
       "code": "PE"
     },
     "媽閣": {
-      "wind_speed": 9.0,
-      "gust_speed": 18.0,
-      "wind_dir": "NNE",
+      "wind_speed": 9.4,
+      "gust_speed": 17.6,
+      "wind_dir": "NE",
       "is_bridge": false,
       "code": "MM"
     },
     "大潭山": {
-      "wind_speed": 13.7,
+      "wind_speed": 16.6,
       "gust_speed": 26.6,
       "wind_dir": "NNE",
       "is_bridge": false,
       "code": "TG"
     },
     "東亞運大馬路": {
-      "wind_speed": 7.2,
-      "gust_speed": 14.4,
+      "wind_speed": 8.3,
+      "gust_speed": 16.2,
       "wind_dir": "NNW",
       "is_bridge": false,
       "code": "JA"
     },
     "澳門大學": {
-      "wind_speed": 13.0,
+      "wind_speed": 13.7,
       "gust_speed": 23.0,
       "wind_dir": "NNE",
       "is_bridge": false,
       "code": "UM"
     },
     "九澳": {
-      "wind_speed": 18.0,
-      "gust_speed": 27.0,
+      "wind_speed": 16.9,
+      "gust_speed": 25.2,
       "wind_dir": "NNE",
       "is_bridge": false,
       "code": "KV"
     },
     "路環": {
       "wind_speed": 6.1,
-      "gust_speed": 13.3,
+      "gust_speed": 14.8,
       "wind_dir": "ENE",
       "is_bridge": false,
       "code": "DC"
     },
     "友誼大橋北": {
-      "wind_speed": 18.7,
+      "wind_speed": 18.4,
       "gust_speed": 25.9,
       "wind_dir": "NNE",
       "is_bridge": true,
       "code": "PN"
     },
     "友誼大橋南": {
-      "wind_speed": 19.8,
-      "gust_speed": 25.9,
+      "wind_speed": 20.9,
+      "gust_speed": 28.1,
       "wind_dir": "NNE",
       "is_bridge": true,
       "code": "PS"
     },
     "澳門大橋北": {
-      "wind_speed": 21.2,
-      "gust_speed": 30.2,
+      "wind_speed": 21.6,
+      "gust_speed": 31.0,
       "wind_dir": "NNE",
       "is_bridge": true,
       "code": "MN"
     },
     "澳門大橋南": {
-      "wind_speed": 25.9,
-      "gust_speed": 31.3,
+      "wind_speed": 27.0,
+      "gust_speed": 32.8,
       "wind_dir": "NNE",
       "is_bridge": true,
       "code": "MS"
     },
     "嘉樂庇總督大橋": {
-      "wind_speed": 16.6,
-      "gust_speed": 28.8,
+      "wind_speed": 14.0,
+      "gust_speed": 22.0,
       "wind_dir": "NE",
       "is_bridge": true,
       "code": "PG"
     },
     "西灣大橋": {
-      "wind_speed": 15.5,
-      "gust_speed": 24.8,
-      "wind_dir": "NNE",
+      "wind_speed": 14.4,
+      "gust_speed": 22.7,
+      "wind_dir": "NE",
       "is_bridge": true,
       "code": "PV"
     },
     "蓮花大橋": {
-      "wind_speed": 18.0,
-      "gust_speed": 25.9,
+      "wind_speed": 16.9,
+      "gust_speed": 24.5,
       "wind_dir": "N",
       "is_bridge": true,
       "code": "PL"
