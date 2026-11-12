@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-12 15:01",
-  "timestamp": 1794466860.0,
+  "system_pubdate": "2026-11-12 15:05",
+  "timestamp": 1794467100.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -19,8 +19,8 @@
     "LHK": {
       "station_code": "LHK",
       "station_name": "康公廟",
-      "record_time": "2026-11-12 15:02",
-      "timestamp": 1794466968.727037,
+      "record_time": "2026-11-12 15:06",
+      "timestamp": 1794467206.992448,
       "water_level": null
     },
     "LPH": {
