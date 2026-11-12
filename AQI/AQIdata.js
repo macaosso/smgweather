@@ -1,12 +1,12 @@
 window.AQIData = {
-  "datetime": "2026-11-13 04:35",
-  "timestamp": 1794515700.0,
+  "datetime": "2026-11-13 04:45",
+  "timestamp": 1794516300.0,
   "stations": {
     "PO": {
       "station_code": "PO",
       "station_name": "荷蘭園（路邊）",
-      "record_time": "2026-11-13 04:35",
-      "timestamp": 1794515700.0,
+      "record_time": "2026-11-13 04:45",
+      "timestamp": 1794516300.0,
       "aqi": 50.0,
       "primary_pollutant": "PM2.5",
       "i_pm10": 26.0,
@@ -27,8 +27,8 @@ window.AQIData = {
     "KH": {
       "station_code": "KH",
       "station_name": "九澳（路邊）",
-      "record_time": "2026-11-13 04:35",
-      "timestamp": 1794515700.0,
+      "record_time": "2026-11-13 04:45",
+      "timestamp": 1794516300.0,
       "aqi": 40.0,
       "primary_pollutant": "PM10",
       "i_pm10": 40.0,
@@ -49,8 +49,8 @@ window.AQIData = {
     "EN": {
       "station_code": "EN",
       "station_name": "台山（高密度住宅區）",
-      "record_time": "2026-11-13 04:35",
-      "timestamp": 1794515700.0,
+      "record_time": "2026-11-13 04:45",
+      "timestamp": 1794516300.0,
       "aqi": 47.0,
       "primary_pollutant": "PM10",
       "i_pm10": 47.0,
@@ -71,8 +71,8 @@ window.AQIData = {
     "TC": {
       "station_code": "TC",
       "station_name": "氹仔中心區（高密度住宅區）",
-      "record_time": "2026-11-13 04:35",
-      "timestamp": 1794515700.0,
+      "record_time": "2026-11-13 04:45",
+      "timestamp": 1794516300.0,
       "aqi": 37.0,
       "primary_pollutant": "PM10",
       "i_pm10": 37.0,
@@ -93,8 +93,8 @@ window.AQIData = {
     "TG": {
       "station_code": "TG",
       "station_name": "大潭山（一般性）",
-      "record_time": "2026-11-13 04:35",
-      "timestamp": 1794515700.0,
+      "record_time": "2026-11-13 04:45",
+      "timestamp": 1794516300.0,
       "aqi": 51.0,
       "primary_pollutant": "PM10",
       "i_pm10": 51.0,
@@ -115,8 +115,8 @@ window.AQIData = {
     "CD": {
       "station_code": "CD",
       "station_name": "石排灣（一般性）",
-      "record_time": "2026-11-13 04:35",
-      "timestamp": 1794515700.0,
+      "record_time": "2026-11-13 04:45",
+      "timestamp": 1794516300.0,
       "aqi": 29.9,
       "primary_pollutant": "O3",
       "i_pm10": 28.0,
