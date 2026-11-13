@@ -24,7 +24,8 @@ jobs:
       - name: 檢出主分支代碼
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: main
+          fetch-depth: 1
 
       - name: 配置 Python 3.10
         uses: actions/setup-python@v5
@@ -63,14 +64,14 @@ jobs:
 
             cd "$GITHUB_WORKSPACE"
 
-            # 1. 同步最新 main 分支代碼
-            git fetch origin main
+            # 1. 淺層同步最新 main 分支代碼
+            git fetch --depth 1 origin main
             git reset --hard origin/main
 
             # 2. 拉取 gh-pages 分支狀態資料庫，避免重複繪製相同預報期數
             mkdir -p rain_nowcast/images
             rm -rf /tmp/gh-pages-rain-nowcast-fetch
-            if git clone --depth 1 --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/gh-pages-rain-nowcast-fetch 2>/dev/null; then
+            if git clone --depth 1 --single-branch --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/gh-pages-rain-nowcast-fetch 2>/dev/null; then
               cp -f /tmp/gh-pages-rain-nowcast-fetch/rain_nowcast/nowcast_meta.db ./rain_nowcast/nowcast_meta.db 2>/dev/null || true
               rm -rf /tmp/gh-pages-rain-nowcast-fetch
             fi
@@ -96,7 +97,7 @@ jobs:
             rm -rf /tmp/gh-pages-deploy
             REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
-            if ! git clone --single-branch --branch gh-pages "$REPO_URL" /tmp/gh-pages-deploy 2>/dev/null; then
+            if ! git clone --depth 1 --single-branch --branch gh-pages "$REPO_URL" /tmp/gh-pages-deploy 2>/dev/null; then
               mkdir -p /tmp/gh-pages-deploy
               cd /tmp/gh-pages-deploy
               git init
