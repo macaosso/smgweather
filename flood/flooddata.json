@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-13 12:08",
-  "timestamp": 1794542880.0,
+  "system_pubdate": "2026-11-13 12:13",
+  "timestamp": 1794543180.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -54,8 +54,8 @@
     "LMF": {
       "station_code": "LMF",
       "station_name": "花地瑪教會街",
-      "record_time": "2026-11-13 12:09",
-      "timestamp": 1794542982.318483,
+      "record_time": "2026-11-13 12:15",
+      "timestamp": 1794543320.321908,
       "water_level": null
     },
     "LMM": {
@@ -103,8 +103,8 @@
     "LIL": {
       "station_code": "LIL",
       "station_name": "益隆",
-      "record_time": "2026-11-13 12:09",
-      "timestamp": 1794542982.318617,
+      "record_time": "2026-11-13 12:15",
+      "timestamp": 1794543320.322058,
       "water_level": null
     },
     "LCS": {
