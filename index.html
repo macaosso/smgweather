@@ -194,8 +194,12 @@
       const placeholder = container.querySelector('.error-placeholder');
       if (placeholder) placeholder.remove();
       if (originalImg) {
-        const rawSrc = originalImg.getAttribute('data-origin-src') || originalImg.src.split('?')[0];
+        const rawSrc = (originalImg.getAttribute('data-origin-src') || originalImg.src || '').split('?')[0];
+        if (!rawSrc) return;
         originalImg.style.display = 'block';
+        originalImg.onerror = function() {
+          window.handleImageError(originalImg, rawSrc);
+        };
         originalImg.src = rawSrc + '?t=' + Date.now();
       }
     };
@@ -320,6 +324,22 @@
           </span>
         </div>
 
+        <!-- Flood Mode Quick Zoom Controls (Macau / Cotai) -->
+        <div id="floodZoomControls" class="hidden absolute top-14 left-3 z-[400] glass-surface-elevated p-1 rounded-xl shadow-lg pointer-events-auto flex items-center gap-1 border border-cyan-500/30">
+          <button onclick="zoomMapRegion('all')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-200/80 dark:bg-slate-800 hover:bg-cyan-500 hover:text-white text-slate-700 dark:text-slate-200 transition flex items-center gap-1">
+            <i class="fa-solid fa-expand text-[10px]"></i>
+            <span>全澳</span>
+          </button>
+          <button onclick="zoomMapRegion('macau')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/15 hover:bg-cyan-500 hover:text-white text-cyan-700 dark:text-cyan-300 transition flex items-center gap-1">
+            <i class="fa-solid fa-location-crosshairs text-[10px]"></i>
+            <span>澳門半島</span>
+          </button>
+          <button onclick="zoomMapRegion('cotai')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/15 hover:bg-cyan-500 hover:text-white text-cyan-700 dark:text-cyan-300 transition flex items-center gap-1">
+            <i class="fa-solid fa-location-crosshairs text-[10px]"></i>
+            <span>氹仔 / 路氹</span>
+          </button>
+        </div>
+
         <!-- Legend -->
         <div class="absolute bottom-3 left-3 z-[400] glass-surface-elevated px-3 py-2.5 rounded-2xl shadow-xl pointer-events-auto w-fit max-w-xs transition-all max-h-[68vh] overflow-y-auto no-scrollbar">
           <div class="flex items-center justify-between gap-3 text-[11px] mb-1.5 pb-1 border-b border-slate-200/70 dark:border-slate-800">
@@ -334,7 +354,7 @@
       </div>
     </div>
 
-    <!-- ================= VIEW 2: RAINFALL SECTION (NEW!) ================= -->
+    <!-- ================= VIEW 2: RAINFALL SECTION ================= -->
     <div id="viewRainfall" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
       <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
@@ -344,10 +364,10 @@
             <div>
               <h2 class="text-sm sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <i class="fa-solid fa-cloud-showers-heavy text-blue-500"></i>
-                澳門降雨即時監測與歷史查詢 (Rainfall Telemetry)
+                澳門降雨即時監測與臨近預報 (Rainfall Telemetry & Nowcast)
               </h2>
               <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                整合全澳自動氣象站實時雨量、日累積降雨、24小時降雨折線圖庫與降雨歷史記錄動態查詢。
+                整合全澳自動氣象站實時雨量、未來2小時網格降雨預報圖與表格、24小時降雨折線圖庫及歷史查詢。
               </p>
             </div>
             <div class="flex items-center gap-2 text-xs font-mono-num">
@@ -408,6 +428,41 @@
             </div>
             <p id="statRainActiveDesc" class="text-[10px] text-slate-400 mt-1">現時降雨中測站</p>
           </div>
+        </div>
+
+        <!-- HKO Gridded Rainfall Nowcast (Table + 4 Forecast Images) -->
+        <div class="glass-surface-elevated rounded-2xl p-4 sm:p-5 space-y-4 border-l-4 border-sky-500">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60 dark:border-slate-800">
+            <div>
+              <h3 class="font-bold text-slate-900 dark:text-white text-xs sm:text-base flex items-center gap-2">
+                <i class="fa-solid fa-radar text-sky-500"></i>
+                未來 2 小時臨近降雨預報 (HKO Gridded Nowcast)
+              </h3>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                每 30 分鐘一幀，涵蓋澳門及珠江口鄰近海域降雨率預報（點擊預報圖可全屏放大）。
+              </p>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono" id="rainForecastUpdateLabel">資料來源：HKO F3 CSV</span>
+          </div>
+
+          <!-- Forecast Summary Table -->
+          <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full text-left text-xs border-collapse font-mono-num">
+              <thead class="bg-slate-100 dark:bg-slate-900 text-slate-500 uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3 font-sans">預報時段</th>
+                  <th class="py-2.5 px-3 font-sans">澳門鄰近預測 (mm/h)</th>
+                  <th class="py-2.5 px-3 font-sans">區域峰值預測 (mm/h)</th>
+                  <th class="py-2.5 px-3 font-sans">雨勢預測分級</th>
+                  <th class="py-2.5 px-3 text-center font-sans">預報圖</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200/60 dark:divide-slate-800/80 text-[11px]" id="rainForecastTableBody"></tbody>
+            </table>
+          </div>
+
+          <!-- 4 Forecast Map Images -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5" id="rainForecastImagesGrid"></div>
         </div>
 
         <!-- Real-time Rainfall Stations Table -->
@@ -711,7 +766,7 @@
       </div>
     </div>
 
-    <!-- ================= VIEW 5: WIND INDEX (FIXED TO WIND_SPEED.PNG) ================= -->
+    <!-- ================= VIEW 5: WIND INDEX ================= -->
     <div id="viewWindIndex" class="absolute inset-0 z-10 bg-slate-50 dark:bg-slate-950 overflow-y-auto p-3 sm:p-6 hidden">
       <div class="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         
@@ -976,7 +1031,7 @@
           <span class="text-xs font-mono">載入高解析圖表中...</span>
         </div>
 
-        <img id="lightboxModalImg" src="" alt="放大預覽" class="max-w-full max-h-full object-contain rounded-lg shadow-lg pointer-events-none transition-transform duration-75 ease-out select-none opacity-0" onerror="handleImageError(this, '無法載入此圖片')">
+        <img id="lightboxModalImg" alt="放大預覽" class="max-w-full max-h-full object-contain rounded-lg shadow-lg pointer-events-none transition-transform duration-75 ease-out select-none opacity-0">
         
         <div class="absolute bottom-3 right-3 px-2 py-1 rounded-lg bg-black/60 text-white/80 text-[10px] font-mono pointer-events-none backdrop-blur-xs">
           雙指捏合縮放 / 拖拽平移
@@ -1283,6 +1338,7 @@
     let floodData = { system_pubdate: '', timestamp: 0, stations: {} };
     let tideData = { update_time: '', timestamp: 0, tide_m: null, tide_cm: null };
     let aqiData = { datetime: '', timestamp: 0, stations: {} };
+    let hkoNowcastFrames = [];
 
     let latestUvi = null;
     let leafletMap = null;
@@ -1314,32 +1370,44 @@
     function openImageModal(imgSrc, title = '時序折線圖檢視') {
       const modal = document.getElementById('imageLightboxModal');
       const img = document.getElementById('lightboxModalImg');
+      const viewport = document.getElementById('lightboxViewport');
       const titleEl = document.getElementById('lightboxModalTitle');
       const openBtn = document.getElementById('lightboxOpenNewTabBtn');
       const spinner = document.getElementById('lightboxSpinner');
 
+      if (!modal || !img || !imgSrc) return;
+
+      // Clean up any previous error placeholder and reset visibility
+      if (viewport) {
+        const oldPlaceholder = viewport.querySelector('.error-placeholder');
+        if (oldPlaceholder) oldPlaceholder.remove();
+      }
+
+      const rawBaseSrc = imgSrc.split('?')[0];
       titleEl.innerText = title;
-      openBtn.href = imgSrc;
-      
+      openBtn.href = rawBaseSrc;
+
       resetLightboxZoom();
       modal.classList.remove('hidden');
 
+      img.onerror = null;
+      img.setAttribute('data-origin-src', rawBaseSrc);
+      img.style.display = 'block';
       img.style.opacity = '0';
       if (spinner) spinner.style.display = 'flex';
 
-      const cacheBustSrc = imgSrc.includes('?') ? `${imgSrc}&_t=${Date.now()}` : `${imgSrc}?_t=${Date.now()}`;
-      
+      const cacheBustSrc = `${rawBaseSrc}?_t=${Date.now()}`;
+
       const tempImg = new Image();
       tempImg.onload = function() {
         img.src = cacheBustSrc;
+        img.style.display = 'block';
         img.style.opacity = '1';
         if (spinner) spinner.style.display = 'none';
       };
       tempImg.onerror = function() {
-        img.src = cacheBustSrc;
-        img.style.opacity = '1';
         if (spinner) spinner.style.display = 'none';
-        window.handleImageError(img, '圖檔生成中或暫無數據');
+        window.handleImageError(img, rawBaseSrc);
       };
       tempImg.src = cacheBustSrc;
 
@@ -1348,8 +1416,20 @@
 
     function closeImageModal() {
       const modal = document.getElementById('imageLightboxModal');
-      modal.classList.add('hidden');
-      document.getElementById('lightboxModalImg').src = '';
+      const img = document.getElementById('lightboxModalImg');
+      const viewport = document.getElementById('lightboxViewport');
+
+      if (img) {
+        img.onerror = null;
+        img.removeAttribute('src');
+        img.style.opacity = '0';
+        img.style.display = 'block';
+      }
+      if (viewport) {
+        const oldPlaceholder = viewport.querySelector('.error-placeholder');
+        if (oldPlaceholder) oldPlaceholder.remove();
+      }
+      if (modal) modal.classList.add('hidden');
       resetLightboxZoom();
     }
 
@@ -1457,6 +1537,17 @@
       });
     }
 
+    function zoomMapRegion(region) {
+      if (!leafletMap) return;
+      if (region === 'macau') {
+        leafletMap.flyTo([22.199, 113.541], 15, { duration: 0.6 });
+      } else if (region === 'cotai') {
+        leafletMap.flyTo([22.155, 113.555], 15, { duration: 0.6 });
+      } else {
+        leafletMap.flyTo([22.170, 113.553], 13, { duration: 0.6 });
+      }
+    }
+
     function toggleAlertRibbonExpansion() {
       isAlertRibbonExpanded = !isAlertRibbonExpanded;
       const icon = document.getElementById('alertToggleIcon');
@@ -1527,15 +1618,10 @@
       `;
     }
 
-    // =========================================================================
-    // MAP MARKERS & DIRECT ELEMENT GRAPH CLICK HANDLER
-    // FIXED: gust_speed, wind_dir, wind_speed all open line_${st}_wind_speed.png
-    // =========================================================================
     function handleMapWeatherStationClick(stationName) {
       const cfg = METRIC_CONFIGS.find(m => m.id === currentMetric) || METRIC_CONFIGS[0];
       let metricKey = cfg.chartMetric || 'temp';
       
-      // Strict rule: if metric is gust_speed or wind_dir, open wind_speed.png
       if (currentMetric === 'gust_speed' || currentMetric === 'wind_dir' || currentMetric === 'wind_speed') {
         metricKey = 'wind_speed';
       }
@@ -1554,7 +1640,6 @@
       openImageModal(imgPath, title);
     }
 
-    // Direct Wind Speed Modal for Wind Index Section (Stations)
     function openStationWindSpeedModal(stationName) {
       const imgPath = `static/images/line_${stationName}_wind_speed.png`;
       const title = `${stationName} • 風速與陣風 24小時時序折線圖`;
@@ -1572,6 +1657,15 @@
     function updateMapPillMarkers() {
       if (!markerLayerGroup) return;
       markerLayerGroup.clearLayers();
+
+      const floodZoomEl = document.getElementById('floodZoomControls');
+      if (floodZoomEl) {
+        if (currentMetric === 'mode_flood') {
+          floodZoomEl.classList.remove('hidden');
+        } else {
+          floodZoomEl.classList.add('hidden');
+        }
+      }
 
       const config = METRIC_CONFIGS.find(m => m.id === currentMetric) || METRIC_CONFIGS[0];
       updateLegendRibbon(config);
@@ -2184,7 +2278,144 @@
     }
 
     // =========================================================================
-    // SECTION: RAINFALL (NEW SECTION WITH TELEMETRY, TABLE, GRAPHS & SEARCH)
+    // HKO RAINFALL NOWCAST PARSER & RENDERER (4 FORECAST IMAGES + TABLE)
+    // =========================================================================
+    async function loadHkoRainForecast() {
+      try {
+        const res = await fetch(`https://data.weather.gov.hk/weatherAPI/hko_data/F3/Gridded_rainfall_nowcast_tc.csv?_nocache=${Date.now()}`);
+        if (!res.ok) return;
+        const csvText = await res.text();
+        const lines = csvText.trim().split(/\r?\n/);
+        if (lines.length < 2) return;
+
+        const headers = lines[0].replace(/^\uFEFF/, '').split(',').map(h => h.trim());
+        const latIdx = headers.findIndex(h => h.includes('緯度'));
+        const lonIdx = headers.findIndex(h => h.includes('經度'));
+        const rainIdx = headers.findIndex(h => h.includes('雨量'));
+        const timeIdx = headers.findIndex(h => h.includes('時間') && (h.includes('完結') || h.includes('結束')));
+
+        if (latIdx === -1 || lonIdx === -1 || rainIdx === -1 || timeIdx === -1) return;
+
+        const MACAU_LAT = 22.1595;
+        const MACAU_LON = 113.5685;
+        const frameMap = {};
+
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(',');
+          if (cols.length <= Math.max(latIdx, lonIdx, rainIdx, timeIdx)) continue;
+
+          const lat = parseFloat(cols[latIdx]);
+          const lon = parseFloat(cols[lonIdx]);
+          const rain = parseFloat(cols[rainIdx]);
+          const ts = cols[timeIdx].trim();
+
+          if (isNaN(lat) || isNaN(lon) || isNaN(rain) || !ts) continue;
+
+          if (!frameMap[ts]) {
+            frameMap[ts] = {
+              ts,
+              nearestDist: Infinity,
+              macauRain: 0,
+              peakRain: 0
+            };
+          }
+
+          const f = frameMap[ts];
+          if (lon >= 113.0 && lon <= 114.4 && lat >= 21.5 && lat <= 22.75) {
+            if (rain > f.peakRain) f.peakRain = rain;
+          }
+
+          const dist = Math.hypot(lat - MACAU_LAT, lon - MACAU_LON);
+          if (dist < f.nearestDist) {
+            f.nearestDist = dist;
+            f.macauRain = rain;
+          }
+        }
+
+        hkoNowcastFrames = Object.values(frameMap)
+          .sort((a, b) => a.ts.localeCompare(b.ts))
+          .slice(0, 4);
+      } catch (e) {
+        hkoNowcastFrames = [];
+      }
+    }
+
+    function formatNowcastTs(tsStr) {
+      if (!tsStr || tsStr.length !== 12) return tsStr || '--';
+      return `${tsStr.slice(0, 4)}-${tsStr.slice(4, 6)}-${tsStr.slice(6, 8)} ${tsStr.slice(8, 10)}:${tsStr.slice(10, 12)}`;
+    }
+
+    function renderRainForecastBlock() {
+      const tbody = document.getElementById('rainForecastTableBody');
+      const grid = document.getElementById('rainForecastImagesGrid');
+      const updateLabel = document.getElementById('rainForecastUpdateLabel');
+
+      const frames = [1, 2, 3, 4].map((idx) => {
+        const f = hkoNowcastFrames[idx - 1] || null;
+        return {
+          idx,
+          label: f ? formatNowcastTs(f.ts) : `預報時段 +${idx * 30} 分鐘`,
+          macauRain: f ? f.macauRain : null,
+          peakRain: f ? f.peakRain : null,
+          imgPath: `rain_nowcast/images/rain_nowcast_${idx}.png`
+        };
+      });
+
+      if (updateLabel && hkoNowcastFrames.length > 0) {
+        updateLabel.innerText = `預報範圍：${formatNowcastTs(hkoNowcastFrames[0].ts)} ~ ${formatNowcastTs(hkoNowcastFrames[hkoNowcastFrames.length - 1].ts)}`;
+      }
+
+      if (tbody) {
+        tbody.innerHTML = frames.map(item => {
+          const macauVal = item.macauRain !== null ? item.macauRain.toFixed(1) : '--';
+          const peakVal = item.peakRain !== null ? item.peakRain.toFixed(1) : '--';
+          const badge = get_rain_category_badge(item.macauRain);
+          const [mColor] = get_rain1h_style(item.macauRain);
+          const [pColor] = get_rain1h_style(item.peakRain);
+
+          return `
+            <tr class="hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition">
+              <td class="py-2.5 px-3 font-mono font-bold text-slate-900 dark:text-white">${item.label}</td>
+              <td class="py-2.5 px-3 font-bold" style="color: ${mColor}">${macauVal}</td>
+              <td class="py-2.5 px-3 font-bold" style="color: ${pColor}">${peakVal}</td>
+              <td class="py-2.5 px-3">
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background-color:${badge.bg}; color:${badge.fg}">
+                  ${badge.label}
+                </span>
+              </td>
+              <td class="py-2.5 px-3 text-center">
+                <button onclick="openImageModal('${item.imgPath}', '臨近降雨預報 • ${item.label}')" class="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-sky-600 hover:text-white rounded-lg text-[10.5px] font-bold transition">
+                  <i class="fa-solid fa-map mr-1"></i>看圖
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      if (grid) {
+        grid.innerHTML = frames.map(item => {
+          const title = `臨近降雨預報 • ${item.label}`;
+          preloadImage(item.imgPath);
+          return `
+            <div class="bg-slate-100/70 dark:bg-slate-900/70 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2 transition hover:shadow-lg">
+              <div class="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-800">
+                <span class="font-bold text-xs text-slate-800 dark:text-slate-200 truncate">${item.label}</span>
+                <span class="text-[10px] text-slate-400 font-mono-num flex items-center gap-1">
+                  <i class="fa-solid fa-hand-pointer text-[9px]"></i> 放大
+                </span>
+              </div>
+              <div class="flex justify-center bg-slate-900/90 p-2 rounded-xl min-h-[180px] items-center relative">
+                <img data-origin-src="${item.imgPath}" src="${item.imgPath}?t=${Date.now()}" alt="${title}" class="expandable-image max-h-[240px] w-auto max-w-full object-contain rounded-lg shadow-sm" onclick="openImageModal(this.src, '${title}')" onerror="handleImageError(this, '${item.imgPath}')">
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+
+    // =========================================================================
+    // SECTION: RAINFALL
     // =========================================================================
     function renderRainfallSection() {
       const upTime = weatherData.update_time || '--';
@@ -2221,6 +2452,8 @@
       document.getElementById('statRainMax24H').innerText = max24H >= 0 ? max24H.toFixed(1) : '--';
       document.getElementById('statRainMax24HStation').innerText = `測站：${max24HStation}`;
       document.getElementById('statRainActiveCount').innerText = activeRainCount;
+
+      renderRainForecastBlock();
 
       // Table Render
       const tbody = document.getElementById('rainfallStationsTableBody');
@@ -2411,7 +2644,6 @@
 
       const maxRain = Math.max(10, Math.ceil(Math.max(...Object.values(timeGroups)) * 1.25));
 
-      // Grid lines & Y Axis
       const gridLevels = [0, maxRain * 0.25, maxRain * 0.5, maxRain * 0.75, maxRain];
       gridLevels.forEach(lvl => {
         const y = height - padBottom - (lvl / maxRain) * (height - padTop - padBottom);
@@ -2457,7 +2689,6 @@
         rect.appendChild(title);
         svg.appendChild(rect);
 
-        // Value text above bar
         if (val > 0) {
           const valTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           valTxt.setAttribute('x', x + barWidth / 2);
@@ -2468,7 +2699,6 @@
           svg.appendChild(valTxt);
         }
 
-        // X label (sampling to avoid overlap)
         const stepSkip = times.length > 12 ? 2 : 1;
         if (idx % stepSkip === 0 || idx === times.length - 1) {
           const xTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -2672,7 +2902,6 @@
 
     // =========================================================================
     // SECTION: WIND INDEX
-    // FIXED: Row click strictly calls openStationWindSpeedModal('${st}')
     // =========================================================================
     function getWindGrade(idx) {
       if (idx === null || isNaN(idx)) return ['--', '無數據'];
@@ -3040,7 +3269,7 @@
     }
 
     // =========================================================================
-    // PARALLEL DATA LOADER (WEATHER, 24H RAIN SUMMARY, FLOOD, TIDE, AQI)
+    // PARALLEL DATA LOADER (WEATHER, 24H RAIN SUMMARY, HKO NOWCAST, FLOOD, TIDE, AQI)
     // =========================================================================
     async function loadAllDatasets() {
       // 1. Weather Data JSON
@@ -3107,7 +3336,10 @@
         } catch (e) {}
       })();
 
-      await Promise.all([pWeather, pRain24h, pFlood, pTide, pAqi]);
+      // 6. HKO Gridded Rain Nowcast CSV
+      const pHkoRain = loadHkoRainForecast();
+
+      await Promise.all([pWeather, pRain24h, pFlood, pTide, pAqi, pHkoRain]);
 
       updateMapPillMarkers();
       calculateAndDisplayWindIndex();
