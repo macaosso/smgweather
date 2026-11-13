@@ -3,50 +3,50 @@
     "Station":"九澳",
     "Code":"KV",
     "Area":"路環",
-    "Current_Hourly_Rain (mm)":2.2,
-    "Past_24H_Total_Rain (mm)":79.4
+    "Current_Hourly_Rain (mm)":1.6,
+    "Past_24H_Total_Rain (mm)":83.6
   },
   {
     "Station":"路環",
     "Code":"DC",
     "Area":"路環",
-    "Current_Hourly_Rain (mm)":1.4,
-    "Past_24H_Total_Rain (mm)":79.0
-  },
-  {
-    "Station":"外港碼頭",
-    "Code":"PE",
-    "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":2.0,
-    "Past_24H_Total_Rain (mm)":77.8
-  },
-  {
-    "Station":"東亞運大馬路",
-    "Code":"JA",
-    "Area":"氹仔",
-    "Current_Hourly_Rain (mm)":1.6,
-    "Past_24H_Total_Rain (mm)":77.2
-  },
-  {
-    "Station":"澳門大學",
-    "Code":"UM",
-    "Area":"橫琴澳大校區",
-    "Current_Hourly_Rain (mm)":1.2,
-    "Past_24H_Total_Rain (mm)":76.8
+    "Current_Hourly_Rain (mm)":0.8,
+    "Past_24H_Total_Rain (mm)":81.6
   },
   {
     "Station":"大潭山",
     "Code":"TG",
     "Area":"氹仔",
-    "Current_Hourly_Rain (mm)":2.0,
-    "Past_24H_Total_Rain (mm)":76.6
+    "Current_Hourly_Rain (mm)":1.6,
+    "Past_24H_Total_Rain (mm)":79.0
+  },
+  {
+    "Station":"澳門大學",
+    "Code":"UM",
+    "Area":"橫琴澳大校區",
+    "Current_Hourly_Rain (mm)":0.8,
+    "Past_24H_Total_Rain (mm)":77.8
+  },
+  {
+    "Station":"外港碼頭",
+    "Code":"PE",
+    "Area":"澳門半島",
+    "Current_Hourly_Rain (mm)":1.8,
+    "Past_24H_Total_Rain (mm)":77.4
   },
   {
     "Station":"紀念孫中山公園",
     "Code":"DP",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":1.8,
-    "Past_24H_Total_Rain (mm)":75.2
+    "Past_24H_Total_Rain (mm)":77.2
+  },
+  {
+    "Station":"東亞運大馬路",
+    "Code":"JA",
+    "Area":"氹仔",
+    "Current_Hourly_Rain (mm)":1.2,
+    "Past_24H_Total_Rain (mm)":77.0
   },
   {
     "Station":"黑沙環",
@@ -59,14 +59,14 @@
     "Station":"媽閣",
     "Code":"MM",
     "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":1.0,
-    "Past_24H_Total_Rain (mm)":66.6
+    "Current_Hourly_Rain (mm)":0.8,
+    "Past_24H_Total_Rain (mm)":68.2
   },
   {
     "Station":"大炮台",
     "Code":"FM",
     "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":1.4,
-    "Past_24H_Total_Rain (mm)":64.8
+    "Current_Hourly_Rain (mm)":1.2,
+    "Past_24H_Total_Rain (mm)":66.8
   }
 ]
