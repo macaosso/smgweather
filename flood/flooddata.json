@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-13 14:34",
-  "timestamp": 1794551640.0,
+  "system_pubdate": "2026-11-13 14:38",
+  "timestamp": 1794551880.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -110,8 +110,8 @@
     "LCS": {
       "station_code": "LCS",
       "station_name": "松樹尾",
-      "record_time": "2026-11-13 14:35",
-      "timestamp": 1794551700.651174,
+      "record_time": "2026-11-13 14:38",
+      "timestamp": 1794551929.246701,
       "water_level": null
     },
     "LPN": {
