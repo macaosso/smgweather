@@ -1,72 +1,72 @@
 [
   {
-    "Station":"九澳",
-    "Code":"KV",
-    "Area":"路環",
-    "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":83.4
-  },
-  {
-    "Station":"路環",
-    "Code":"DC",
-    "Area":"路環",
-    "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":81.4
-  },
-  {
     "Station":"大潭山",
     "Code":"TG",
     "Area":"氹仔",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":79.0
+    "Past_24H_Total_Rain (mm)":81.2
   },
   {
-    "Station":"外港碼頭",
-    "Code":"PE",
-    "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":0.2,
-    "Past_24H_Total_Rain (mm)":77.6
-  },
-  {
-    "Station":"澳門大學",
-    "Code":"UM",
-    "Area":"橫琴澳大校區",
+    "Station":"九澳",
+    "Code":"KV",
+    "Area":"路環",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":77.6
+    "Past_24H_Total_Rain (mm)":80.8
   },
   {
     "Station":"紀念孫中山公園",
     "Code":"DP",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.4,
-    "Past_24H_Total_Rain (mm)":77.4
+    "Past_24H_Total_Rain (mm)":80.6
+  },
+  {
+    "Station":"路環",
+    "Code":"DC",
+    "Area":"路環",
+    "Current_Hourly_Rain (mm)":0.0,
+    "Past_24H_Total_Rain (mm)":80.0
+  },
+  {
+    "Station":"外港碼頭",
+    "Code":"PE",
+    "Area":"澳門半島",
+    "Current_Hourly_Rain (mm)":0.2,
+    "Past_24H_Total_Rain (mm)":80.0
+  },
+  {
+    "Station":"澳門大學",
+    "Code":"UM",
+    "Area":"橫琴澳大校區",
+    "Current_Hourly_Rain (mm)":0.0,
+    "Past_24H_Total_Rain (mm)":78.2
   },
   {
     "Station":"東亞運大馬路",
     "Code":"JA",
     "Area":"氹仔",
     "Current_Hourly_Rain (mm)":0.2,
-    "Past_24H_Total_Rain (mm)":77.2
+    "Past_24H_Total_Rain (mm)":78.2
   },
   {
     "Station":"黑沙環",
     "Code":"EM",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.8,
-    "Past_24H_Total_Rain (mm)":75.0
-  },
-  {
-    "Station":"媽閣",
-    "Code":"MM",
-    "Area":"澳門半島",
-    "Current_Hourly_Rain (mm)":0.2,
-    "Past_24H_Total_Rain (mm)":68.4
+    "Past_24H_Total_Rain (mm)":76.2
   },
   {
     "Station":"大炮台",
     "Code":"FM",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.4,
-    "Past_24H_Total_Rain (mm)":67.0
+    "Past_24H_Total_Rain (mm)":69.6
+  },
+  {
+    "Station":"媽閣",
+    "Code":"MM",
+    "Area":"澳門半島",
+    "Current_Hourly_Rain (mm)":0.2,
+    "Past_24H_Total_Rain (mm)":69.2
   }
 ]
