@@ -1,0 +1,149 @@
+name: HKO Rainfall Nowcast Auto Sync & Render
+
+on:
+  schedule:
+    # 兜底保險：每 5 小時強制重啟輪詢循環
+    - cron: '30 */5 * * *'
+  workflow_dispatch:
+
+env:
+  TZ: Asia/Macau
+
+concurrency:
+  group: rain-nowcast-render-sync
+  cancel-in-progress: false
+
+jobs:
+  rain-nowcast-loop:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+
+    steps:
+      - name: 檢出主分支代碼
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 配置 Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 安裝字體與地理繪圖系統依賴
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-wqy-microhei fontconfig libgeos-dev libproj-dev
+          fc-cache -fv
+          rm -rf ~/.cache/matplotlib
+
+      - name: 安裝 uv 極速套件管理器
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: 安裝 Python 核心庫
+        run: |
+          uv pip install --system requests pandas numpy matplotlib scipy cartopy
+
+      - name: 執行 4.5 小時常駐循環 (每 1 分鐘抓取更新一次)
+        run: |
+          NOW=$(date +%s)
+          END_TIME=$((NOW + 16200))
+          INTERVAL=60
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          while [ $(date +%s) -lt $END_TIME ]; do
+            echo "=========================================================="
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] 開始執行 HKO 網格降雨預報同步..."
+            echo "=========================================================="
+
+            cd "$GITHUB_WORKSPACE"
+
+            # 1. 同步最新 main 分支代碼
+            git fetch origin main
+            git reset --hard origin/main
+
+            # 2. 拉取 gh-pages 分支狀態資料庫，避免重複繪製相同預報期數
+            mkdir -p rain_nowcast/images
+            rm -rf /tmp/gh-pages-rain-nowcast-fetch
+            if git clone --depth 1 --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" /tmp/gh-pages-rain-nowcast-fetch 2>/dev/null; then
+              cp -f /tmp/gh-pages-rain-nowcast-fetch/rain_nowcast/nowcast_meta.db ./rain_nowcast/nowcast_meta.db 2>/dev/null || true
+              rm -rf /tmp/gh-pages-rain-nowcast-fetch
+            fi
+
+            # 3. 執行網格降雨預報處理程式
+            set +e
+            python rain_forecast_app.py
+            APP_STATUS=$?
+            set -e
+
+            if [ $APP_STATUS -eq 2 ]; then
+              echo "⏭️ 網格降雨預報尚未更新，跳過 gh-pages 發布，等待 1 分鐘..."
+              sleep $INTERVAL
+              continue
+            elif [ $APP_STATUS -ne 0 ]; then
+              echo "⚠️ 預報同步出現異常 (Exit Code: $APP_STATUS)，等待 1 分鐘後重試..."
+              sleep $INTERVAL
+              continue
+            fi
+
+            # 4. 同步更新發布至 gh-pages
+            echo "準備同步 4 張降雨預報圖至 gh-pages..."
+            rm -rf /tmp/gh-pages-deploy
+            REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+            if ! git clone --single-branch --branch gh-pages "$REPO_URL" /tmp/gh-pages-deploy 2>/dev/null; then
+              mkdir -p /tmp/gh-pages-deploy
+              cd /tmp/gh-pages-deploy
+              git init
+              git checkout -b gh-pages
+            fi
+
+            cd /tmp/gh-pages-deploy
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            # 僅更新覆蓋 rain_nowcast 目錄與檔案
+            mkdir -p rain_nowcast/images
+            cp -rf "$GITHUB_WORKSPACE/rain_nowcast/." ./rain_nowcast/ 2>/dev/null || true
+
+            git add rain_nowcast/
+            if git diff-index --quiet HEAD 2>/dev/null; then
+              echo "降雨預報檔案無實質變更，跳過本次提交。"
+            else
+              git commit -m "Auto Update: $(date '+%Y-%m-%d %H:%M:%S') [HKO Rain Nowcast Sync]"
+
+              PUSH_SUCCESS=false
+              for retry in 1 2 3; do
+                git pull --rebase origin gh-pages 2>/dev/null || true
+                if git push "$REPO_URL" gh-pages; then
+                  PUSH_SUCCESS=true
+                  break
+                fi
+                echo "⚠️ 推送衝突或失敗，等待 3 秒進行第 $retry 次重試..."
+                sleep 3
+              done
+
+              if [ "$PUSH_SUCCESS" = false ]; then
+                echo "❌ 經過 3 次嘗試仍未能成功推送，將於下個週期繼續同步。"
+              fi
+            fi
+
+            cd "$GITHUB_WORKSPACE"
+            rm -rf /tmp/gh-pages-deploy
+
+            echo "降雨預報更新流程完畢，等待 1 分鐘..."
+            sleep $INTERVAL
+          done
+
+      - name: 4.5 小時結束，無縫喚醒下一個任務
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "4.5 小時輪詢週期結束，正在無縫觸發新一輪降雨預報同步任務..."
+          gh workflow run "HKO Rainfall Nowcast Auto Sync & Render" --ref main || echo "觸發失敗，將由定時 cron 兜底喚醒。"
