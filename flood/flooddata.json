@@ -1,6 +1,6 @@
 {
-  "system_pubdate": "2026-11-13 17:22",
-  "timestamp": 1794561720.0,
+  "system_pubdate": "2026-11-13 17:25",
+  "timestamp": 1794561900.0,
   "stations": {
     "LSI": {
       "station_code": "LSI",
@@ -110,15 +110,15 @@
     "LCS": {
       "station_code": "LCS",
       "station_name": "松樹尾",
-      "record_time": "2026-11-13 17:23",
-      "timestamp": 1794561799.415643,
+      "record_time": "2026-11-13 17:27",
+      "timestamp": 1794562033.408112,
       "water_level": null
     },
     "LPN": {
       "station_code": "LPN",
       "station_name": "黑橋街",
-      "record_time": "2026-11-13 17:23",
-      "timestamp": 1794561799.415672,
+      "record_time": "2026-11-13 17:27",
+      "timestamp": 1794562033.408141,
       "water_level": null
     },
     "LSP": {
