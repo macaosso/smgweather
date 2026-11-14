@@ -4,69 +4,69 @@
     "Code":"KV",
     "Area":"路環",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":79.8
+    "Past_24H_Total_Rain (mm)":77.4
   },
   {
     "Station":"路環",
     "Code":"DC",
     "Area":"路環",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":77.6
+    "Past_24H_Total_Rain (mm)":75.0
   },
   {
     "Station":"大潭山",
     "Code":"TG",
     "Area":"氹仔",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":75.0
-  },
-  {
-    "Station":"澳門大學",
-    "Code":"UM",
-    "Area":"橫琴澳大校區",
-    "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":73.6
+    "Past_24H_Total_Rain (mm)":72.4
   },
   {
     "Station":"外港碼頭",
     "Code":"PE",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":73.0
+    "Past_24H_Total_Rain (mm)":71.4
   },
   {
-    "Station":"東亞運大馬路",
-    "Code":"JA",
-    "Area":"氹仔",
+    "Station":"澳門大學",
+    "Code":"UM",
+    "Area":"橫琴澳大校區",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":72.4
+    "Past_24H_Total_Rain (mm)":71.0
   },
   {
     "Station":"紀念孫中山公園",
     "Code":"DP",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":71.6
+    "Past_24H_Total_Rain (mm)":69.8
   },
   {
     "Station":"黑沙環",
     "Code":"EM",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":70.6
+    "Past_24H_Total_Rain (mm)":69.2
   },
   {
-    "Station":"媽閣",
-    "Code":"MM",
-    "Area":"澳門半島",
+    "Station":"東亞運大馬路",
+    "Code":"JA",
+    "Area":"氹仔",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":64.2
+    "Past_24H_Total_Rain (mm)":68.6
   },
   {
     "Station":"大炮台",
     "Code":"FM",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":63.0
+    "Past_24H_Total_Rain (mm)":61.0
+  },
+  {
+    "Station":"媽閣",
+    "Code":"MM",
+    "Area":"澳門半島",
+    "Current_Hourly_Rain (mm)":0.0,
+    "Past_24H_Total_Rain (mm)":60.0
   }
 ]
