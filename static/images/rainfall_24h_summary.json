@@ -4,35 +4,21 @@
     "Code":"KV",
     "Area":"路環",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":87.6
+    "Past_24H_Total_Rain (mm)":83.6
   },
   {
     "Station":"路環",
     "Code":"DC",
     "Area":"路環",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":85.0
+    "Past_24H_Total_Rain (mm)":81.4
   },
   {
     "Station":"大潭山",
     "Code":"TG",
     "Area":"氹仔",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":82.2
-  },
-  {
-    "Station":"澳門大學",
-    "Code":"UM",
-    "Area":"橫琴澳大校區",
-    "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":81.0
-  },
-  {
-    "Station":"東亞運大馬路",
-    "Code":"JA",
-    "Area":"氹仔",
-    "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":79.4
+    "Past_24H_Total_Rain (mm)":79.6
   },
   {
     "Station":"外港碼頭",
@@ -46,14 +32,28 @@
     "Code":"DP",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":77.8
+    "Past_24H_Total_Rain (mm)":78.0
+  },
+  {
+    "Station":"澳門大學",
+    "Code":"UM",
+    "Area":"橫琴澳大校區",
+    "Current_Hourly_Rain (mm)":0.0,
+    "Past_24H_Total_Rain (mm)":77.6
+  },
+  {
+    "Station":"東亞運大馬路",
+    "Code":"JA",
+    "Area":"氹仔",
+    "Current_Hourly_Rain (mm)":0.0,
+    "Past_24H_Total_Rain (mm)":77.2
   },
   {
     "Station":"黑沙環",
     "Code":"EM",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":75.8
+    "Past_24H_Total_Rain (mm)":75.4
   },
   {
     "Station":"媽閣",
@@ -67,6 +67,6 @@
     "Code":"FM",
     "Area":"澳門半島",
     "Current_Hourly_Rain (mm)":0.0,
-    "Past_24H_Total_Rain (mm)":67.2
+    "Past_24H_Total_Rain (mm)":67.4
   }
 ]
